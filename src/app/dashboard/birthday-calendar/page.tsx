@@ -98,6 +98,15 @@ export default function BirthdayCalendarPage() {
   };
 
   const handleDeleteBirthday = async (birthdayId: string) => {
+    if (!birthdayId || typeof birthdayId !== 'string' || birthdayId.trim() === '') {
+        console.error("Error deleting birthday: birthdayId is invalid. Value:", birthdayId);
+        toast({
+            title: "Deletion Error",
+            description: "Could not delete birthday due to an invalid ID. Please refresh and try again.",
+            variant: "destructive",
+        });
+        return;
+    }
     try {
       await deleteDoc(doc(db, "birthdayEvents", birthdayId));
       toast({
@@ -203,7 +212,6 @@ export default function BirthdayCalendarPage() {
 
     try {
       if (editingBirthday) {
-        // Defensive check for editingBirthday.id
         if (!editingBirthday.id || typeof editingBirthday.id !== 'string' || editingBirthday.id.trim() === '') {
           console.error("Error saving birthday: editingBirthday.id is invalid. Value:", editingBirthday.id);
           toast({
