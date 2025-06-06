@@ -144,7 +144,9 @@ export default function CalendarEventsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <CalendarDays className="h-8 w-8 text-primary" />
+          <div className="p-1 bg-black rounded-md inline-flex items-center justify-center">
+            <CalendarDays className="h-6 w-6 text-primary" />
+          </div>
           <h1 className="text-3xl font-bold font-headline tracking-tight">Project Calendar</h1>
         </div>
         <Dialog open={isAddEventDialogOpen} onOpenChange={setIsAddEventDialogOpen}>
