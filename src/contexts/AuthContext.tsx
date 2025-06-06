@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { User as FirebaseUser, AuthError } from 'firebase/auth';
@@ -26,7 +27,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // This is a simplified domain for internal email construction.
 // In a real app, ensure this domain is unique and controlled by you.
-const APP_DOMAIN = "ppm-dashboard.local";
+const APP_DOMAIN = "firebasestudio.local";
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<FirebaseUser | null>(null);

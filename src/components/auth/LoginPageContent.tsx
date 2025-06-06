@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -62,7 +63,7 @@ export default function LoginPageContent() {
         <CardHeader className="text-center">
           <div className="inline-flex items-center justify-center gap-2 mb-4">
             <Building className="h-10 w-10 text-primary" />
-            <CardTitle className="text-3xl font-headline">PPM Dashboard</CardTitle>
+            <CardTitle className="text-3xl font-headline">Firebase Studio</CardTitle>
           </div>
           <CardDescription>Enter your username and password to access your dashboard.</CardDescription>
         </CardHeader>

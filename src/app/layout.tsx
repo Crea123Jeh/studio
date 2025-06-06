@@ -1,11 +1,12 @@
+
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/contexts/AuthContext';
 
 export const metadata: Metadata = {
-  title: 'PPM Dashboard',
-  description: 'Project Portfolio Management Dashboard',
+  title: 'Firebase Studio',
+  description: 'An application built with Firebase Studio',
 };
 
 export default function RootLayout({

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -104,7 +105,7 @@ export default function ProfilePage() {
             </Avatar>
             <div>
               <p className="text-xl font-semibold">{username}</p>
-              <p className="text-sm text-muted-foreground">{user.email?.endsWith(`@${"ppm-dashboard.local"}`) ? 'Username based account' : user.email}</p>
+              <p className="text-sm text-muted-foreground">{user.email?.endsWith(`@${"firebasestudio.local"}`) ? 'Username based account' : user.email}</p>
             </div>
           </div>
 
