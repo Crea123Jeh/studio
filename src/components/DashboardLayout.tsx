@@ -15,7 +15,8 @@ import {
   ChevronDown,
   PanelLeft,
   Building,
-  Info, // Added Info icon
+  Info,
+  Cake, // Added Cake icon for Birthday Calendar
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -52,9 +53,10 @@ const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/project', label: 'Projects', icon: Briefcase },
   { href: '/dashboard/calendar', label: 'Calendar', icon: CalendarDays },
+  { href: '/dashboard/birthday-calendar', label: 'Birthday Calendar', icon: Cake }, // New Item
   { href: '/dashboard/chat', label: 'Team Chat', icon: MessageSquare },
-  { href: '/dashboard/information', label: 'Information', icon: Info }, // Added Information link
-  { href: '/dashboard/profile', label: 'Profile Settings', icon: UserCircle }, // Changed icon for clarity
+  { href: '/dashboard/information', label: 'Information', icon: Info },
+  { href: '/dashboard/profile', label: 'Profile Settings', icon: UserCircle },
 ];
 
 function AppSidebar() {
@@ -66,7 +68,7 @@ function AppSidebar() {
       <SidebarHeader className="p-4">
         <Skeleton className="h-8 w-32 mb-4" />
         <div className="space-y-2">
-          {[...Array(5)].map((_, i) => (
+          {[...Array(6)].map((_, i) => ( // Adjusted for new item
             <Skeleton key={i} className="h-10 w-full" />
           ))}
         </div>
@@ -111,7 +113,7 @@ function AppSidebar() {
 function Header() {
   const { user, username, signOut, loading } = useAuth();
   const router = useRouter();
-  const { isMobile, toggleSidebar } = useSidebar(); // Corrected to use toggleSidebar from useSidebar
+  const { isMobile, toggleSidebar } = useSidebar();
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
@@ -203,3 +205,5 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
+
+    
