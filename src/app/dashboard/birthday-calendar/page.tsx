@@ -25,10 +25,91 @@ interface BirthdayEvent {
   anchorDate: Date; // The specific birth date (day, month, year) used as an anchor.
   name: string; // Person's name
   type: "Teacher" | "Student";
-  grade?: string; // e.g., "7", "8", "12", "College" - only for students
+  grade?: string; // e.g., "K", "1", "12", "College" - only for students
 }
 
 const studentGradeOptions = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "College"];
+
+// Define TimeLeft interface and calculateTimeLeft function for BirthdayCard and BirthdayCountdownCell
+interface TimeLeft {
+  days?: number;
+  hours?: number;
+  minutes?: number;
+  seconds?: number;
+  isToday?: boolean;
+  hasPassed?: boolean;
+}
+
+const calculateTimeLeft = (targetDate: Date): TimeLeft | null => {
+  const now = new Date();
+  const difference = targetDate.getTime() - now.getTime();
+
+  if (difference <= 0) { // Target date is in the past or now
+    if (isSameDay(targetDate, now)) {
+      return { isToday: true };
+    }
+    if (targetDate < now && !isSameDay(targetDate,now)) {
+       return { hasPassed: true };
+    }
+    return null; 
+  }
+
+  const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+  const minutes = Math.floor((difference / 1000 / 60) % 60);
+  const seconds = Math.floor((difference / 1000) % 60);
+
+  return { days, hours, minutes, seconds, isToday: false };
+};
+
+// Component for displaying countdown in table cells
+const BirthdayCountdownCell = ({ displayDate }: { displayDate: Date }) => {
+  const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(calculateTimeLeft(displayDate));
+
+  useEffect(() => {
+    setTimeLeft(calculateTimeLeft(displayDate)); 
+    const timer = setInterval(() => {
+      setTimeLeft(calculateTimeLeft(displayDate));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [displayDate]);
+
+  const formattedDate = format(displayDate, "MMM d, yyyy");
+
+  if (!timeLeft) {
+    if (isSameDay(displayDate, new Date())) {
+        return <span className="text-purple-600 font-semibold animate-pulse">🎉 {formattedDate} (Today!)</span>;
+    }
+    if (displayDate < new Date() && !isSameDay(displayDate, new Date())) {
+        return <span className="text-muted-foreground">{formattedDate} (Passed)</span>;
+    }
+    return <>{formattedDate} (Loading...)</>;
+  }
+
+  if (timeLeft.isToday) {
+    return <span className="text-purple-600 font-semibold animate-pulse">🎉 {formattedDate} (Today!)</span>;
+  }
+  
+  if (timeLeft.hasPassed) { 
+    return <span className="text-muted-foreground">{formattedDate} (Passed)</span>;
+  }
+
+  if (timeLeft.days !== undefined) {
+    return (
+      <div>
+        {formattedDate}
+        <span className="block text-xs text-muted-foreground mt-0.5">
+          <Timer className="inline h-3 w-3 mr-1 text-primary/80" />
+          {timeLeft.days > 0 && `${timeLeft.days}d `}
+          {`${timeLeft.hours ?? 0}h ${timeLeft.minutes ?? 0}m ${timeLeft.seconds ?? 0}s`}
+        </span>
+      </div>
+    );
+  }
+  
+  return <>{formattedDate}</>;
+};
+
 
 export default function BirthdayCalendarPage() {
   const [birthdays, setBirthdays] = useState<BirthdayEvent[]>([]);
@@ -58,7 +139,7 @@ export default function BirthdayCalendarPage() {
           id: docSnap.id,
           name: data.name,
           anchorDate: (data.anchorDate as Timestamp).toDate(),
-          type: data.type || "Student", // Default to student if type is missing
+          type: data.type || "Student", 
           grade: data.grade,
         } as BirthdayEvent;
       });
@@ -85,7 +166,7 @@ export default function BirthdayCalendarPage() {
 
   const openAddDialog = () => {
     resetForm();
-    setBirthdayDate(startOfDay(selectedDate || new Date())); // Set default date to selected or today
+    setBirthdayDate(startOfDay(selectedDate || new Date())); 
     setIsAddEditDialogOpen(true);
   };
 
@@ -124,7 +205,7 @@ export default function BirthdayCalendarPage() {
     }
   };
   
-  const calculateAge = (birthDate: Date, onDate: Date = new Date()): number => {
+  const calculateAgeOnDate = (birthDate: Date, onDate: Date): number => {
     return differenceInYears(onDate, birthDate);
   };
 
@@ -137,7 +218,7 @@ export default function BirthdayCalendarPage() {
     ).map(event => ({ 
         ...event,
         displayDate: new Date(currentSelectedYear, getMonth(event.anchorDate), getDate(event.anchorDate)),
-        age: calculateAge(event.anchorDate, new Date(currentSelectedYear, getMonth(event.anchorDate), getDate(event.anchorDate)))
+        age: calculateAgeOnDate(event.anchorDate, new Date(currentSelectedYear, getMonth(event.anchorDate), getDate(event.anchorDate)))
     }));
   }, [birthdays, selectedDate]);
   
@@ -161,7 +242,7 @@ export default function BirthdayCalendarPage() {
         displayDate = nextBirthdayDateThisYear;
       }
       
-      const ageAtUpcomingBirthday = calculateAge(bday.anchorDate, displayDate);
+      const ageAtUpcomingBirthday = calculateAgeOnDate(bday.anchorDate, displayDate);
       const eventWithDisplayInfo: BirthdayEventWithDisplayInfo = { ...bday, displayDate, age: ageAtUpcomingBirthday };
 
       if (bday.type === "Teacher") {
@@ -193,7 +274,7 @@ export default function BirthdayCalendarPage() {
     birthdays.forEach(bday => {
       if (getMonth(bday.anchorDate) === getMonth(today) && getDate(bday.anchorDate) === getDate(today)) {
         const displayDate = new Date(getYear(today), getMonth(bday.anchorDate), getDate(bday.anchorDate));
-        const ageAtToday = calculateAge(bday.anchorDate, displayDate);
+        const ageAtToday = calculateAgeOnDate(bday.anchorDate, displayDate);
         const eventWithDisplayInfo: BirthdayEventWithDisplayInfo = { ...bday, displayDate, age: ageAtToday };
 
         if (bday.type === "Teacher") {
@@ -278,37 +359,6 @@ export default function BirthdayCalendarPage() {
     }
   }, [isAddEditDialogOpen]);
 
-  interface TimeLeft {
-    days?: number;
-    hours?: number;
-    minutes?: number;
-    seconds?: number;
-    isToday?: boolean;
-    hasPassed?: boolean;
-  }
-
-  const calculateTimeLeft = (targetDate: Date): TimeLeft | null => {
-    const now = new Date();
-    const difference = targetDate.getTime() - now.getTime();
-  
-    if (difference <= 0) {
-      if (isSameDay(targetDate, now)) {
-        return { isToday: true };
-      }
-      if (targetDate < now && !isSameDay(targetDate,now)) {
-         return { hasPassed: true };
-      }
-      return null; 
-    }
-  
-    const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
-    const minutes = Math.floor((difference / 1000 / 60) % 60);
-    const seconds = Math.floor((difference / 1000) % 60);
-  
-    return { days, hours, minutes, seconds, isToday: false };
-  };
-
   const BirthdayCard = ({ birthday, displayDate, age, showActions = false }: { birthday: BirthdayEventWithDisplayInfo, displayDate: Date, age: number, showActions?: boolean }) => {
     const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(calculateTimeLeft(displayDate));
 
@@ -378,8 +428,8 @@ export default function BirthdayCalendarPage() {
                      <p className="text-sm font-semibold text-center py-1 text-purple-600 animate-pulse">
                         🎉 Today is their Birthday! 🎉
                      </p>
-                ) : timeLeft.hasPassed ? (
-                    <p className="text-xs text-muted-foreground italic">Birthday has passed this year.</p>
+                ) : timeLeft.hasPassed ? ( // This refers to the specific displayDate, not generic past
+                    <p className="text-xs text-muted-foreground italic">This birthday instance has passed.</p>
                 ) : timeLeft.days !== undefined ? (
                     <p className="text-xs text-muted-foreground flex items-center">
                         <Timer className="h-3.5 w-3.5 mr-1.5 text-primary" />
@@ -660,7 +710,7 @@ export default function BirthdayCalendarPage() {
                     {categorizedUpcomingBirthdays.teachers.map((event) => (
                       <TableRow key={`${event.id}-teacher-upcoming`}>
                         <TableCell className="font-medium">{event.name}</TableCell>
-                        <TableCell>{format(event.displayDate, "PPP")}</TableCell>
+                        <TableCell><BirthdayCountdownCell displayDate={event.displayDate} /></TableCell>
                         <TableCell className="text-right">{event.age}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(event)} title="Edit">
@@ -677,7 +727,7 @@ export default function BirthdayCalendarPage() {
               </div>
             )}
 
-            {Object.keys(categorizedUpcomingBirthdays.studentsByGrade).length > 0 && (
+            {Object.keys(categorizedUpcomingBirthdays.studentsByGrade).some(gradeKey => categorizedUpcomingBirthdays.studentsByGrade[gradeKey]?.length > 0) && (
               <div>
                 <h4 className="text-xl font-semibold mb-4 pb-2 border-b flex items-center gap-2"><User className="h-6 w-6 text-primary/80"/>Students</h4>
                 {studentGradeOptions.map(gradeKey => {
@@ -699,7 +749,7 @@ export default function BirthdayCalendarPage() {
                                     {studentsInGrade.map((event) => (
                                       <TableRow key={`${event.id}-student-${gradeKey}-upcoming`}>
                                         <TableCell className="font-medium">{event.name}</TableCell>
-                                        <TableCell>{format(event.displayDate, "PPP")}</TableCell>
+                                        <TableCell><BirthdayCountdownCell displayDate={event.displayDate} /></TableCell>
                                         <TableCell className="text-right">{event.age}</TableCell>
                                         <TableCell className="text-right">
                                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(event)} title="Edit">
@@ -734,7 +784,7 @@ export default function BirthdayCalendarPage() {
                             {categorizedUpcomingBirthdays.studentsByGrade["Ungraded"].map((event) => (
                               <TableRow key={`${event.id}-student-ungraded-upcoming`}>
                                 <TableCell className="font-medium">{event.name}</TableCell>
-                                <TableCell>{format(event.displayDate, "PPP")}</TableCell>
+                                <TableCell><BirthdayCountdownCell displayDate={event.displayDate} /></TableCell>
                                 <TableCell className="text-right">{event.age}</TableCell>
                                 <TableCell className="text-right">
                                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(event)} title="Edit">
@@ -766,6 +816,3 @@ export default function BirthdayCalendarPage() {
     </div>
   );
 }
-
-
-    
