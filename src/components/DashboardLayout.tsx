@@ -77,7 +77,7 @@ function AppSidebar() {
       <SidebarHeader className="p-4 flex items-center gap-2 border-b border-sidebar-border">
         <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <Building className="h-7 w-7 text-primary" />
-          <h1 className="text-xl font-semibold text-sidebar-foreground font-headline">Firebase Studio</h1>
+          <h1 className="text-xl font-semibold text-sidebar-foreground font-headline">PPM Management</h1>
         </Link>
       </SidebarHeader>
       <SidebarContent>
@@ -132,7 +132,7 @@ function Header() {
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">{username}</p>
                   <p className="text-xs leading-none text-muted-foreground">
-                    {user.email?.endsWith(`@${"firebasestudio.local"}`) ? 'Standard User' : user.email}
+                    {user.email}
                   </p>
                 </div>
               </DropdownMenuLabel>

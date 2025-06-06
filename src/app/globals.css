@@ -36,13 +36,13 @@
     --radius: 0.5rem;
 
     /* Sidebar specific colors */
-    --sidebar-background: 33 70% 83%; /* Slightly darker/muted orange */
+    --sidebar-background: 10 65% 88%; /* Light reddish-orange */
     --sidebar-foreground: 30 30% 20%;
     --sidebar-primary: 47 100% 65%; /* Slightly darker yellow for active items */
     --sidebar-primary-foreground: 47 40% 25%;
-    --sidebar-accent: 33 70% 78%; /* Hover states in sidebar */
+    --sidebar-accent: 10 65% 83%; /* Hover states in sidebar - slightly darker reddish */
     --sidebar-accent-foreground: 30 30% 15%;
-    --sidebar-border: 33 50% 70%;
+    --sidebar-border: 10 50% 75%;
     --sidebar-ring: 0 100% 71%;
 
     --chart-1: 12 76% 61%;
@@ -83,13 +83,13 @@
 
     --ring: 0 100% 71%;
     
-    --sidebar-background: 30 30% 12%;
-    --sidebar-foreground: 33 60% 85%;
+    --sidebar-background: 10 30% 12%; /* Dark reddish */
+    --sidebar-foreground: 10 60% 85%;
     --sidebar-primary: 47 100% 65%;
     --sidebar-primary-foreground: 47 40% 25%;
-    --sidebar-accent: 30 30% 18%;
-    --sidebar-accent-foreground: 33 60% 80%;
-    --sidebar-border: 30 25% 25%;
+    --sidebar-accent: 10 30% 18%;
+    --sidebar-accent-foreground: 10 60% 80%;
+    --sidebar-border: 10 25% 25%;
     --sidebar-ring: 0 100% 71%;
   }
 }

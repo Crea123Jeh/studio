@@ -5,8 +5,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/contexts/AuthContext';
 
 export const metadata: Metadata = {
-  title: 'Firebase Studio',
-  description: 'An application built with Firebase Studio',
+  title: 'PPM Management',
+  description: 'An application for Project Portfolio Management',
 };
 
 export default function RootLayout({

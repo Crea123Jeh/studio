@@ -75,7 +75,7 @@ export default function SignupPage() {
             toastMessage = "The email address is not valid. Please enter a correct email.";
             break;
           case 'auth/operation-not-allowed':
-            toastMessage = "Email/Password sign-up is not enabled for this project. Please contact support or check Firebase console settings.";
+            toastMessage = "Email/Password sign-up is not enabled for this project. Please check Firebase console settings or contact support.";
             break;
           default:
             toastMessage = error.message || toastMessage; 
@@ -108,7 +108,7 @@ export default function SignupPage() {
             <Building className="h-10 w-10 text-primary" />
             <CardTitle className="text-3xl font-headline">Create Account</CardTitle>
           </div>
-          <CardDescription>Enter your details to get started with Firebase Studio.</CardDescription>
+          <CardDescription>Enter your details to get started with PPM Management.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>

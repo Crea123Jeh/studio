@@ -40,17 +40,29 @@ export default function LoginPageContent() {
       if (user) {
         toast({ title: "Login Successful", description: "Welcome back!" });
         router.push("/dashboard");
-      } else {
-        toast({
-          title: "Login Failed",
-          description: "Invalid email or password. Please try again.",
-          variant: "destructive",
-        });
-      }
+      } 
+      // Removed the 'else' block for invalid credentials, as signIn now throws an error for that
     } catch (error: any) {
+      let errorMessage = "An unexpected error occurred during login.";
+      if (error.code) {
+        switch (error.code) {
+          case 'auth/user-not-found':
+          case 'auth/wrong-password':
+          case 'auth/invalid-credential': // Generic error for invalid email or password
+            errorMessage = "Invalid email or password. Please try again.";
+            break;
+          case 'auth/invalid-email':
+            errorMessage = "The email address is not valid. Please enter a correct email.";
+            break;
+          default:
+            errorMessage = error.message || errorMessage;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
       toast({
-        title: "Login Error",
-        description: error.message || "An unexpected error occurred.",
+        title: "Login Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -62,7 +74,7 @@ export default function LoginPageContent() {
         <CardHeader className="text-center">
           <div className="inline-flex items-center justify-center gap-2 mb-4">
             <Building className="h-10 w-10 text-primary" />
-            <CardTitle className="text-3xl font-headline">Firebase Studio</CardTitle>
+            <CardTitle className="text-3xl font-headline">PPM Management</CardTitle>
           </div>
           <CardDescription>Enter your email and password to access your dashboard.</CardDescription>
         </CardHeader>
