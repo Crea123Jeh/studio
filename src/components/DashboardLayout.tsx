@@ -75,8 +75,10 @@ function AppSidebar() {
   return (
     <>
       <SidebarHeader className="p-4 flex items-center gap-2 border-b border-sidebar-border">
-        <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <Building className="h-7 w-7 text-primary" />
+        <Link href="/dashboard" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+          <div className="bg-black p-1.5 rounded-md">
+            <Building className="h-7 w-7 text-primary" />
+          </div>
           <h1 className="text-xl font-semibold text-sidebar-foreground font-headline">PPM Management</h1>
         </Link>
       </SidebarHeader>
@@ -173,7 +175,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   if (loading || !user) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-screen items-center justify-center bg-background">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     );
