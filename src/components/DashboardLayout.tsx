@@ -16,7 +16,8 @@ import {
   PanelLeft,
   Building,
   Info,
-  Cake, // Added Cake icon for Birthday Calendar
+  Cake, 
+  BookOpen, // Added BookOpen icon for Knowledge Hub
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -53,9 +54,10 @@ const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/project', label: 'Projects', icon: Briefcase },
   { href: '/dashboard/calendar', label: 'Calendar', icon: CalendarDays },
-  { href: '/dashboard/birthday-calendar', label: 'Birthday Calendar', icon: Cake }, // New Item
+  { href: '/dashboard/birthday-calendar', label: 'Birthday Calendar', icon: Cake },
   { href: '/dashboard/chat', label: 'Team Chat', icon: MessageSquare },
   { href: '/dashboard/information', label: 'Information', icon: Info },
+  { href: '/dashboard/knowledge', label: 'Knowledge Hub', icon: BookOpen }, // New Item
   { href: '/dashboard/profile', label: 'Profile Settings', icon: UserCircle },
 ];
 
@@ -68,7 +70,7 @@ function AppSidebar() {
       <SidebarHeader className="p-4">
         <Skeleton className="h-8 w-32 mb-4" />
         <div className="space-y-2">
-          {[...Array(6)].map((_, i) => ( // Adjusted for new item
+          {[...Array(navItems.length)].map((_, i) => ( 
             <Skeleton key={i} className="h-10 w-full" />
           ))}
         </div>
@@ -205,5 +207,3 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
-
-    
