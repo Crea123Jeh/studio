@@ -14,7 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, onSnapshot, query, where, Timestamp, doc, deleteDoc, updateDoc } from "firebase/firestore";
+import { collection, addDoc, onSnapshot, query, where, Timestamp, doc, deleteDoc, updateDoc, orderBy } from "firebase/firestore";
 import { format, isSameDay, startOfDay } from "date-fns";
 import { History, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered, Trash2, Edit3, MessageSquare } from "lucide-react";
 
@@ -307,3 +307,4 @@ export default function PreviousActivityPage() {
     </div>
   );
 }
+
