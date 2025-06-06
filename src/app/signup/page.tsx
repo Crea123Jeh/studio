@@ -51,7 +51,6 @@ export default function SignupPage() {
 
   const onSubmit = async (data: SignupFormValues) => {
     try {
-      // Ensure all required fields for AuthContext's signUp are passed
       const newUser = await signUp({ 
         email: data.email, 
         username: data.username, 
@@ -61,17 +60,33 @@ export default function SignupPage() {
       if (newUser) {
         toast({ title: "Signup Successful", description: "Welcome! Redirecting to dashboard..." });
         router.push("/dashboard");
-      } else {
-         toast({
-          title: "Signup Failed",
-          description: "Could not create account. Email might be taken or an error occurred.",
-          variant: "destructive",
-        });
       }
+      // If signUp throws an error, it will be caught below.
+      // If it doesn't throw but returns null (should not happen with re-throw), 
+      // this part might need adjustment, but the catch block is primary.
     } catch (error: any) {
+      let toastMessage = "An unexpected error occurred during signup. Please try again.";
+      if (error.code) { // Firebase AuthError has a 'code' property
+        switch (error.code) {
+          case 'auth/email-already-in-use':
+            toastMessage = "This email address is already registered. Please try logging in or use a different email.";
+            break;
+          case 'auth/weak-password':
+            toastMessage = "The password is too weak. It must be at least 6 characters long.";
+            break;
+          case 'auth/invalid-email':
+            toastMessage = "The email address is not valid. Please enter a correct email.";
+            break;
+          default:
+            toastMessage = error.message || toastMessage; 
+        }
+      } else if (error.message) {
+        toastMessage = error.message;
+      }
+
       toast({
-        title: "Signup Error",
-        description: error.message || "An unexpected error occurred.",
+        title: "Signup Failed",
+        description: toastMessage,
         variant: "destructive",
       });
     }

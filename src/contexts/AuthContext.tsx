@@ -9,7 +9,7 @@ import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 
 interface UserCredentials {
-  email: string; // Email is now primary for auth
+  email: string;
   password?: string;
   username?: string; // For display name during signup
 }
@@ -21,14 +21,14 @@ interface AuthContextType {
   signIn: (credentials: Pick<UserCredentials, 'email' | 'password'>) => Promise<FirebaseUser | null>;
   signUp: (credentials: Required<UserCredentials>) => Promise<FirebaseUser | null>;
   signOut: () => Promise<void>;
-  username: string | null; // This will be the displayName
+  username: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [username, setUsername] = useState<string | null>(null); // This will store displayName
+  const [username, setUsername] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<AuthError | null>(null);
   const router = useRouter();
@@ -39,7 +39,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (firebaseUser?.displayName) {
         setUsername(firebaseUser.displayName);
       } else if (firebaseUser?.email) {
-        // Fallback if displayName is somehow not set, though it should be.
         setUsername(firebaseUser.email.split('@')[0]);
       }
       else {
@@ -57,13 +56,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!credentials.password) throw new Error("Password is required for sign in.");
       const userCredential = await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
       setUser(userCredential.user);
-      // Username state is set by onAuthStateChanged via displayName
       setLoading(false);
       return userCredential.user;
     } catch (e) {
-      setError(e as AuthError);
+      const authError = e as AuthError;
+      setError(authError);
       setLoading(false);
-      return null;
+      throw authError; // Re-throw the error
     }
   };
 
@@ -72,16 +71,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, credentials.email, credentials.password);
-      // Set the displayName to the chosen username
       await updateProfile(userCredential.user, { displayName: credentials.username });
-      setUser(userCredential.user);
-      setUsername(credentials.username); // Explicitly set username state here too
+      // setUser(userCredential.user); // onAuthStateChanged will handle this
+      // setUsername(credentials.username); // onAuthStateChanged will handle this
       setLoading(false);
       return userCredential.user;
     } catch (e) {
-      setError(e as AuthError);
+      const authError = e as AuthError;
+      setError(authError);
       setLoading(false);
-      return null;
+      throw authError; // Re-throw the error to be caught by the calling component
     }
   };
 
@@ -114,3 +113,4 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
+
