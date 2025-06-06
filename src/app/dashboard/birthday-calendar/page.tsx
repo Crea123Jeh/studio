@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, deleteDoc, updateDoc } from "firebase/firestore";
 import { format, isSameDay, startOfDay, getYear, getMonth, getDate, differenceInYears } from "date-fns";
-import { Cake, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered, Trash2, PartyPopper, User, Users, Edit3, Settings2, Timer } from "lucide-react";
+import { Cake, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered, Trash2, PartyPopper, User, Users, Edit3, Settings2, Timer, Search } from "lucide-react";
 
 interface BirthdayEvent {
   id: string; // Firestore document ID
@@ -30,7 +30,6 @@ interface BirthdayEvent {
 
 const studentGradeOptions = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "College"];
 
-// Define TimeLeft interface and calculateTimeLeft function for BirthdayCard and BirthdayCountdownCell
 interface TimeLeft {
   days?: number;
   hours?: number;
@@ -44,7 +43,7 @@ const calculateTimeLeft = (targetDate: Date): TimeLeft | null => {
   const now = new Date();
   const difference = targetDate.getTime() - now.getTime();
 
-  if (difference <= 0) { // Target date is in the past or now
+  if (difference <= 0) {
     if (isSameDay(targetDate, now)) {
       return { isToday: true };
     }
@@ -62,7 +61,6 @@ const calculateTimeLeft = (targetDate: Date): TimeLeft | null => {
   return { days, hours, minutes, seconds, isToday: false };
 };
 
-// Component for displaying countdown in table cells
 const BirthdayCountdownCell = ({ displayDate }: { displayDate: Date }) => {
   const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(calculateTimeLeft(displayDate));
 
@@ -125,6 +123,7 @@ export default function BirthdayCalendarPage() {
   const [birthdayGrade, setBirthdayGrade] = useState("");
 
   const [isConfigureGradeDialogOpen, setIsConfigureGradeDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const { toast } = useToast();
 
@@ -208,19 +207,6 @@ export default function BirthdayCalendarPage() {
   const calculateAgeOnDate = (birthDate: Date, onDate: Date): number => {
     return differenceInYears(onDate, birthDate);
   };
-
-  const birthdaysForSelectedDate = useMemo(() => {
-    if (!selectedDate) return [];
-    const currentSelectedYear = getYear(selectedDate);
-    return birthdays.filter(bday => 
-        getMonth(bday.anchorDate) === getMonth(selectedDate) &&
-        getDate(bday.anchorDate) === getDate(selectedDate)
-    ).map(event => ({ 
-        ...event,
-        displayDate: new Date(currentSelectedYear, getMonth(event.anchorDate), getDate(event.anchorDate)),
-        age: calculateAgeOnDate(event.anchorDate, new Date(currentSelectedYear, getMonth(event.anchorDate), getDate(event.anchorDate)))
-    }));
-  }, [birthdays, selectedDate]);
   
   type BirthdayEventWithDisplayInfo = BirthdayEvent & { displayDate: Date; age: number };
 
@@ -263,6 +249,34 @@ export default function BirthdayCalendarPage() {
     
     return upcoming;
   }, [birthdays]);
+
+  const filteredUpcomingBirthdays = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return categorizedUpcomingBirthdays;
+    }
+
+    const lowercasedSearchTerm = searchTerm.toLowerCase();
+    const filtered: {teachers: BirthdayEventWithDisplayInfo[], studentsByGrade: Record<string, BirthdayEventWithDisplayInfo[]> } = {
+      teachers: [],
+      studentsByGrade: {},
+    };
+
+    filtered.teachers = categorizedUpcomingBirthdays.teachers.filter(
+      (teacher) => teacher.name.toLowerCase().includes(lowercasedSearchTerm)
+    );
+
+    for (const grade in categorizedUpcomingBirthdays.studentsByGrade) {
+      const studentsInGrade = categorizedUpcomingBirthdays.studentsByGrade[grade];
+      const filteredStudents = studentsInGrade.filter(
+        (student) => student.name.toLowerCase().includes(lowercasedSearchTerm)
+      );
+      if (filteredStudents.length > 0) {
+        filtered.studentsByGrade[grade] = filteredStudents;
+      }
+    }
+    return filtered;
+  }, [categorizedUpcomingBirthdays, searchTerm]);
+
 
   const todaysBirthdaysList = useMemo(() => {
     const today = startOfDay(new Date());
@@ -428,7 +442,7 @@ export default function BirthdayCalendarPage() {
                      <p className="text-sm font-semibold text-center py-1 text-purple-600 animate-pulse">
                         🎉 Today is their Birthday! 🎉
                      </p>
-                ) : timeLeft.hasPassed ? ( // This refers to the specific displayDate, not generic past
+                ) : timeLeft.hasPassed ? ( 
                     <p className="text-xs text-muted-foreground italic">This birthday instance has passed.</p>
                 ) : timeLeft.days !== undefined ? (
                     <p className="text-xs text-muted-foreground flex items-center">
@@ -562,9 +576,8 @@ export default function BirthdayCalendarPage() {
       </div>
 
       <Card className="shadow-lg">
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6">
-          <div className="md:col-span-2">
-            <Calendar
+        <CardContent className="pt-6">
+           <Calendar
               mode="single"
               selected={selectedDate}
               onSelect={(date) => date && setSelectedDate(startOfDay(date))}
@@ -596,38 +609,6 @@ export default function BirthdayCalendarPage() {
                 },
               }}
             />
-          </div>
-          <div className="md:col-span-1">
-            <h3 className="text-xl font-semibold mb-4 pb-2 border-b">
-              Birthdays on: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
-            </h3>
-            <ScrollArea className="h-[calc(100vh-480px)] md:h-[calc(100vh-450px)] pr-2">
-              {birthdaysForSelectedDate.length > 0 ? (
-                <ul className="space-y-4">
-                  {birthdaysForSelectedDate.map((event) => (
-                    <li key={event.id}>
-                       <BirthdayCard 
-                          birthday={event} 
-                          displayDate={event.displayDate} 
-                          age={event.age} 
-                          showActions={true} 
-                        />
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50">
-                  <Info className="h-12 w-12 text-primary/70 mb-3"/>
-                  <p className="text-muted-foreground font-medium text-lg">
-                    {selectedDate ? "No Birthdays This Day" : "Select a Date"}
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                     {selectedDate ? "There are no birthdays recorded for this day." : "Click on a day in the calendar to view birthdays."}
-                  </p>
-                </div>
-              )}
-            </ScrollArea>
-          </div>
         </CardContent>
       </Card>
 
@@ -689,12 +670,22 @@ export default function BirthdayCalendarPage() {
             All Upcoming Birthdays
           </CardTitle>
           <CardDescription>
-            A categorized list of all upcoming birthdays, presented in tables.
+            A categorized list of all upcoming birthdays, presented in tables. Use the search to filter by name.
           </CardDescription>
+           <div className="mt-4 relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search by name..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8 w-full sm:w-1/2 md:w-1/3"
+            />
+          </div>
         </CardHeader>
         <CardContent>
           <ScrollArea className="max-h-[700px] pr-2">
-            {categorizedUpcomingBirthdays.teachers.length > 0 && (
+            {filteredUpcomingBirthdays.teachers.length > 0 && (
               <div className="mb-8">
                 <h4 className="text-xl font-semibold mb-3 pb-2 border-b flex items-center gap-2"><Users className="h-6 w-6 text-primary/80"/>Teachers</h4>
                 <Table>
@@ -707,7 +698,7 @@ export default function BirthdayCalendarPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {categorizedUpcomingBirthdays.teachers.map((event) => (
+                    {filteredUpcomingBirthdays.teachers.map((event) => (
                       <TableRow key={`${event.id}-teacher-upcoming`}>
                         <TableCell className="font-medium">{event.name}</TableCell>
                         <TableCell><BirthdayCountdownCell displayDate={event.displayDate} /></TableCell>
@@ -727,11 +718,11 @@ export default function BirthdayCalendarPage() {
               </div>
             )}
 
-            {Object.keys(categorizedUpcomingBirthdays.studentsByGrade).some(gradeKey => categorizedUpcomingBirthdays.studentsByGrade[gradeKey]?.length > 0) && (
+            {Object.keys(filteredUpcomingBirthdays.studentsByGrade).some(gradeKey => filteredUpcomingBirthdays.studentsByGrade[gradeKey]?.length > 0) && (
               <div>
                 <h4 className="text-xl font-semibold mb-4 pb-2 border-b flex items-center gap-2"><User className="h-6 w-6 text-primary/80"/>Students</h4>
                 {studentGradeOptions.map(gradeKey => {
-                    const studentsInGrade = categorizedUpcomingBirthdays.studentsByGrade[gradeKey];
+                    const studentsInGrade = filteredUpcomingBirthdays.studentsByGrade[gradeKey];
                     if(studentsInGrade && studentsInGrade.length > 0) {
                         return (
                             <div key={`grade-section-table-${gradeKey}`} className="mb-6">
@@ -768,7 +759,7 @@ export default function BirthdayCalendarPage() {
                     }
                     return null;
                 })}
-                {categorizedUpcomingBirthdays.studentsByGrade["Ungraded"] && categorizedUpcomingBirthdays.studentsByGrade["Ungraded"].length > 0 && (
+                {filteredUpcomingBirthdays.studentsByGrade["Ungraded"] && filteredUpcomingBirthdays.studentsByGrade["Ungraded"].length > 0 && (
                      <div key="grade-section-table-ungraded" className="mb-6">
                         <h5 className="text-lg font-medium text-muted-foreground mb-2 ml-1">Grade: Ungraded/Other</h5>
                         <Table>
@@ -781,7 +772,7 @@ export default function BirthdayCalendarPage() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {categorizedUpcomingBirthdays.studentsByGrade["Ungraded"].map((event) => (
+                            {filteredUpcomingBirthdays.studentsByGrade["Ungraded"].map((event) => (
                               <TableRow key={`${event.id}-student-ungraded-upcoming`}>
                                 <TableCell className="font-medium">{event.name}</TableCell>
                                 <TableCell><BirthdayCountdownCell displayDate={event.displayDate} /></TableCell>
@@ -803,11 +794,15 @@ export default function BirthdayCalendarPage() {
               </div>
             )}
             
-            {categorizedUpcomingBirthdays.teachers.length === 0 && Object.keys(categorizedUpcomingBirthdays.studentsByGrade).every(g => !categorizedUpcomingBirthdays.studentsByGrade[g] || categorizedUpcomingBirthdays.studentsByGrade[g].length === 0) && (
+            {filteredUpcomingBirthdays.teachers.length === 0 && Object.keys(filteredUpcomingBirthdays.studentsByGrade).every(g => !filteredUpcomingBirthdays.studentsByGrade[g] || filteredUpcomingBirthdays.studentsByGrade[g].length === 0) && (
                <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50 min-h-[150px]">
                 <Cake className="h-12 w-12 text-primary/70 mb-3"/>
-                <p className="text-muted-foreground font-medium text-lg">No Upcoming Birthdays</p>
-                <p className="text-sm text-muted-foreground mt-1">Add some birthdays to see them here!</p>
+                <p className="text-muted-foreground font-medium text-lg">
+                  {searchTerm ? "No birthdays match your search." : "No Upcoming Birthdays"}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {searchTerm ? "Try a different name or clear the search." : "Add some birthdays to see them here!"}
+                </p>
               </div>
             )}
           </ScrollArea>
@@ -816,3 +811,4 @@ export default function BirthdayCalendarPage() {
     </div>
   );
 }
+
