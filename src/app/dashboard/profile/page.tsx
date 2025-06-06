@@ -34,13 +34,13 @@ type ProfileFormValues = z.infer<typeof profileSchema>;
 type PasswordFormValues = z.infer<typeof passwordSchema>;
 
 export default function ProfilePage() {
-  const { user, username, loading: authLoading, signOut } = useAuth();
+  const { user, username, loading: authLoading, signOut } = useAuth(); // username here is displayName
   const { toast } = useToast();
   const [isEditingPassword, setIsEditingPassword] = useState(false);
 
   const profileForm = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
-    values: { displayName: username || "" }, // Use values to pre-fill from context
+    values: { displayName: username || "" }, 
   });
 
   const passwordForm = useForm<PasswordFormValues>({
@@ -53,28 +53,23 @@ export default function ProfilePage() {
     try {
       await updateProfile(user, { displayName: data.displayName });
       toast({ title: "Profile Updated", description: "Your display name has been updated." });
-      // Note: useAuth context will update username automatically via onAuthStateChanged if displayName is used there
-      // Or you might need a function in useAuth to force refresh user state
+      // AuthContext will update username (displayName) automatically via onAuthStateChanged
     } catch (error: any) {
       toast({ title: "Update Failed", description: error.message, variant: "destructive" });
     }
   };
 
   const onPasswordSubmit = async (data: PasswordFormValues) => {
-    if (!user || !user.email) return; // email is needed for re-authentication with EmailAuthProvider
+    if (!user || !user.email) return; 
   
     try {
-      // Re-authenticate user
       const credential = EmailAuthProvider.credential(user.email, data.currentPassword);
       await reauthenticateWithCredential(user, credential);
   
-      // Update password
       await firebaseUpdatePassword(user, data.newPassword);
-      toast({ title: "Password Updated", description: "Your password has been changed successfully. You may need to log in again." });
+      toast({ title: "Password Updated", description: "Your password has been changed successfully." });
       passwordForm.reset();
       setIsEditingPassword(false);
-      // Optionally sign out user for security
-      // await signOut(); 
     } catch (error: any) {
       toast({ title: "Password Update Failed", description: error.code === 'auth/wrong-password' ? 'Incorrect current password.' : error.message, variant: "destructive" });
     }
@@ -104,8 +99,8 @@ export default function ProfilePage() {
               <AvatarFallback className="text-3xl">{username ? username.charAt(0).toUpperCase() : "U"}</AvatarFallback>
             </Avatar>
             <div>
-              <p className="text-xl font-semibold">{username}</p>
-              <p className="text-sm text-muted-foreground">{user.email?.endsWith(`@${"firebasestudio.local"}`) ? 'Username based account' : user.email}</p>
+              <p className="text-xl font-semibold">{username}</p> {/* This is the displayName */}
+              <p className="text-sm text-muted-foreground">{user.email}</p> {/* This is the actual email used for auth */}
             </div>
           </div>
 
@@ -116,7 +111,7 @@ export default function ProfilePage() {
                 name="displayName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Display Name</FormLabel>
+                    <FormLabel>Display Name (Username)</FormLabel>
                     <FormControl>
                       <Input placeholder="Your display name" {...field} />
                     </FormControl>
@@ -202,3 +197,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+

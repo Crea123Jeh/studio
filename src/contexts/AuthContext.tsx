@@ -9,29 +9,26 @@ import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 
 interface UserCredentials {
-  username: string;
-  password?: string; // Password is not always needed, e.g. for just checking state
+  email: string; // Email is now primary for auth
+  password?: string;
+  username?: string; // For display name during signup
 }
 
 interface AuthContextType {
   user: FirebaseUser | null;
   loading: boolean;
   error: AuthError | null;
-  signIn: (credentials: UserCredentials) => Promise<FirebaseUser | null>;
-  signUp: (credentials: UserCredentials) => Promise<FirebaseUser | null>;
+  signIn: (credentials: Pick<UserCredentials, 'email' | 'password'>) => Promise<FirebaseUser | null>;
+  signUp: (credentials: Required<UserCredentials>) => Promise<FirebaseUser | null>;
   signOut: () => Promise<void>;
-  username: string | null;
+  username: string | null; // This will be the displayName
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// This is a simplified domain for internal email construction.
-// In a real app, ensure this domain is unique and controlled by you.
-const APP_DOMAIN = "firebasestudio.local";
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
-  const [username, setUsername] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null); // This will store displayName
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<AuthError | null>(null);
   const router = useRouter();
@@ -41,9 +38,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(firebaseUser);
       if (firebaseUser?.displayName) {
         setUsername(firebaseUser.displayName);
-      } else if (firebaseUser?.email?.includes(`@${APP_DOMAIN}`)) {
-        setUsername(firebaseUser.email.split(`@${APP_DOMAIN}`)[0]);
-      } else {
+      } else if (firebaseUser?.email) {
+        // Fallback if displayName is somehow not set, though it should be.
+        setUsername(firebaseUser.email.split('@')[0]);
+      }
+      else {
         setUsername(null);
       }
       setLoading(false);
@@ -51,16 +50,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe();
   }, []);
 
-  const formatEmail = (username: string) => `${username}@${APP_DOMAIN}`;
-
-  const signIn = async (credentials: UserCredentials) => {
+  const signIn = async (credentials: Pick<UserCredentials, 'email' | 'password'>) => {
     setLoading(true);
     setError(null);
     try {
       if (!credentials.password) throw new Error("Password is required for sign in.");
-      const userCredential = await signInWithEmailAndPassword(auth, formatEmail(credentials.username), credentials.password);
+      const userCredential = await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
       setUser(userCredential.user);
-      setUsername(credentials.username); // Or derive from userCredential.user.displayName
+      // Username state is set by onAuthStateChanged via displayName
       setLoading(false);
       return userCredential.user;
     } catch (e) {
@@ -70,15 +67,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const signUp = async (credentials: UserCredentials) => {
+  const signUp = async (credentials: Required<UserCredentials>) => {
     setLoading(true);
     setError(null);
     try {
-      if (!credentials.password) throw new Error("Password is required for sign up.");
-      const userCredential = await createUserWithEmailAndPassword(auth, formatEmail(credentials.username), credentials.password);
+      const userCredential = await createUserWithEmailAndPassword(auth, credentials.email, credentials.password);
+      // Set the displayName to the chosen username
       await updateProfile(userCredential.user, { displayName: credentials.username });
       setUser(userCredential.user);
-      setUsername(credentials.username);
+      setUsername(credentials.username); // Explicitly set username state here too
       setLoading(false);
       return userCredential.user;
     } catch (e) {
@@ -95,7 +92,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await firebaseSignOut(auth);
       setUser(null);
       setUsername(null);
-      router.push('/login'); // Redirect to login after sign out
+      router.push('/login');
     } catch (e) {
       setError(e as AuthError);
     } finally {

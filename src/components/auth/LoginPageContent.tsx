@@ -15,7 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Building } from "lucide-react";
 
 const loginSchema = z.object({
-  username: z.string().min(3, { message: "Username must be at least 3 characters." }),
+  email: z.string().email({ message: "Please enter a valid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
 });
 
@@ -29,22 +29,21 @@ export default function LoginPageContent() {
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: "",
+      email: "",
       password: "",
     },
   });
 
   const onSubmit = async (data: LoginFormValues) => {
     try {
-      const user = await signIn(data);
+      const user = await signIn({ email: data.email, password: data.password });
       if (user) {
         toast({ title: "Login Successful", description: "Welcome back!" });
         router.push("/dashboard");
       } else {
-        // Error is handled by AuthContext and can be displayed globally or here
         toast({
           title: "Login Failed",
-          description: "Invalid username or password. Please try again.",
+          description: "Invalid email or password. Please try again.",
           variant: "destructive",
         });
       }
@@ -65,19 +64,19 @@ export default function LoginPageContent() {
             <Building className="h-10 w-10 text-primary" />
             <CardTitle className="text-3xl font-headline">Firebase Studio</CardTitle>
           </div>
-          <CardDescription>Enter your username and password to access your dashboard.</CardDescription>
+          <CardDescription>Enter your email and password to access your dashboard.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
-                name="username"
+                name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Username</FormLabel>
+                    <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="your_username" {...field} />
+                      <Input type="email" placeholder="you@example.com" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,12 +16,13 @@ import { useEffect } from "react";
 import { Building } from "lucide-react";
 
 const signupSchema = z.object({
+  email: z.string().email({ message: "Please enter a valid email address." }),
   username: z.string().min(3, { message: "Username must be at least 3 characters." }).max(20, { message: "Username must be at most 20 characters."}),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
   confirmPassword: z.string().min(6, { message: "Password must be at least 6 characters." }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
-  path: ["confirmPassword"], // path of error
+  path: ["confirmPassword"],
 });
 
 type SignupFormValues = z.infer<typeof signupSchema>;
@@ -40,6 +42,7 @@ export default function SignupPage() {
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
+      email: "",
       username: "",
       password: "",
       confirmPassword: "",
@@ -48,14 +51,20 @@ export default function SignupPage() {
 
   const onSubmit = async (data: SignupFormValues) => {
     try {
-      const newUser = await signUp(data);
+      // Ensure all required fields for AuthContext's signUp are passed
+      const newUser = await signUp({ 
+        email: data.email, 
+        username: data.username, 
+        password: data.password 
+      });
+
       if (newUser) {
         toast({ title: "Signup Successful", description: "Welcome! Redirecting to dashboard..." });
         router.push("/dashboard");
       } else {
          toast({
           title: "Signup Failed",
-          description: "Could not create account. Username might be taken or an error occurred.",
+          description: "Could not create account. Email might be taken or an error occurred.",
           variant: "destructive",
         });
       }
@@ -84,19 +93,32 @@ export default function SignupPage() {
             <Building className="h-10 w-10 text-primary" />
             <CardTitle className="text-3xl font-headline">Create Account</CardTitle>
           </div>
-          <CardDescription>Enter your desired username and password to get started.</CardDescription>
+          <CardDescription>Enter your details to get started with Firebase Studio.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="you@example.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
                 name="username"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Username</FormLabel>
+                    <FormLabel>Username (Display Name)</FormLabel>
                     <FormControl>
-                      <Input placeholder="choose_a_username" {...field} />
+                      <Input placeholder="your_display_name" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
