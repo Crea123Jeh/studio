@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, deleteDoc, updateDoc } from "firebase/firestore";
 import { format, isSameDay, startOfDay, getYear, getMonth, getDate, differenceInYears } from "date-fns";
-import { Cake, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered, Trash2, PartyPopper, User, Users, Edit3, Settings2 } from "lucide-react";
+import { Cake, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered, Trash2, PartyPopper, User, Users, Edit3, Settings2, Timer } from "lucide-react";
 
 interface BirthdayEvent {
   id: string; // Firestore document ID
@@ -253,8 +253,53 @@ export default function BirthdayCalendarPage() {
     }
   }, [isAddEditDialogOpen]);
 
+  interface TimeLeft {
+    days?: number;
+    hours?: number;
+    minutes?: number;
+    seconds?: number;
+    isToday?: boolean;
+    hasPassed?: boolean;
+  }
 
-  const BirthdayCard = ({ birthday, displayDate, age, showActions = false }: { birthday: BirthdayEvent, displayDate: Date, age: number, showActions?: boolean }) => (
+  const calculateTimeLeft = (targetDate: Date): TimeLeft | null => {
+    const now = new Date();
+    const difference = targetDate.getTime() - now.getTime();
+  
+    if (difference <= 0) {
+      if (isSameDay(targetDate, now)) {
+        return { isToday: true };
+      }
+      // If the target date itself is in the past (e.g. today is Jan 5, target was Jan 1 of same year)
+      // This case should ideally be handled by displayDate logic, but as a fallback:
+      if (targetDate < now && !isSameDay(targetDate,now)) {
+         return { hasPassed: true };
+      }
+      return null; 
+    }
+  
+    const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+    const minutes = Math.floor((difference / 1000 / 60) % 60);
+    const seconds = Math.floor((difference / 1000) % 60);
+  
+    return { days, hours, minutes, seconds, isToday: false };
+  };
+
+  const BirthdayCard = ({ birthday, displayDate, age, showActions = false }: { birthday: BirthdayEventWithDisplayInfo, displayDate: Date, age: number, showActions?: boolean }) => {
+    const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(calculateTimeLeft(displayDate));
+
+    useEffect(() => {
+      setTimeLeft(calculateTimeLeft(displayDate)); // Recalculate on displayDate change
+      
+      const timer = setInterval(() => {
+        setTimeLeft(calculateTimeLeft(displayDate));
+      }, 1000);
+  
+      return () => clearInterval(timer);
+    }, [displayDate]);
+    
+    return (
     <Card 
       className="hover:shadow-xl transition-shadow duration-200 ease-in-out border-l-4"
       style={{ borderLeftColor: birthdayBorderColor }}
@@ -304,9 +349,29 @@ export default function BirthdayCalendarPage() {
             <p>Age on this date: <span className="font-medium text-foreground">{age}</span></p>
             <p className="text-xs italic">Born: {format(birthday.anchorDate, "PPP")}</p>
         </div>
+        {timeLeft && (
+            <div className="mt-2 pt-2 border-t border-border/50">
+                {timeLeft.isToday ? (
+                     <p className="text-sm font-semibold text-center py-1 text-purple-600 animate-pulse">
+                        🎉 Today is their Birthday! 🎉
+                     </p>
+                ) : timeLeft.hasPassed ? (
+                    <p className="text-xs text-muted-foreground italic">Birthday has passed this year.</p>
+                ) : timeLeft.days !== undefined ? (
+                    <p className="text-xs text-muted-foreground flex items-center">
+                        <Timer className="h-3.5 w-3.5 mr-1.5 text-primary" />
+                        Next birthday in: 
+                        <span className="font-medium text-foreground ml-1">
+                            {timeLeft.days > 0 && `${timeLeft.days}d `}
+                            {timeLeft.hours}h {timeLeft.minutes}m {timeLeft.seconds}s
+                        </span>
+                    </p>
+                ) : null}
+            </div>
+        )}
       </CardContent>
     </Card>
-  );
+  )};
 
   return (
     <div className="space-y-6">
@@ -469,7 +534,7 @@ export default function BirthdayCalendarPage() {
                   {birthdaysForSelectedDate.map((event) => (
                     <li key={event.id}>
                        <BirthdayCard 
-                          birthday={event} // Pass the full event object
+                          birthday={event} 
                           displayDate={event.displayDate} 
                           age={event.age} 
                           showActions={true} 
@@ -512,7 +577,7 @@ export default function BirthdayCalendarPage() {
                   {categorizedUpcomingBirthdays.teachers.map((event) => (
                     <li key={`${event.id}-teacher-${getYear(event.displayDate)}`}>
                        <BirthdayCard 
-                          birthday={event} // Pass the full event object
+                          birthday={event} 
                           displayDate={event.displayDate} 
                           age={event.age} 
                           showActions={true} 
@@ -536,7 +601,7 @@ export default function BirthdayCalendarPage() {
                                 {studentsInGrade.map((event) => (
                                     <li key={`${event.id}-student-${gradeKey}-${getYear(event.displayDate)}`}>
                                     <BirthdayCard 
-                                      birthday={event} // Pass the full event object
+                                      birthday={event} 
                                       displayDate={event.displayDate} 
                                       age={event.age} 
                                       showActions={true} 
@@ -557,7 +622,7 @@ export default function BirthdayCalendarPage() {
                         {categorizedUpcomingBirthdays.studentsByGrade["Ungraded"].map((event) => (
                             <li key={`${event.id}-student-ungraded-${getYear(event.displayDate)}`}>
                             <BirthdayCard 
-                              birthday={event} // Pass the full event object
+                              birthday={event} 
                               displayDate={event.displayDate} 
                               age={event.age} 
                               showActions={true} 
@@ -583,3 +648,6 @@ export default function BirthdayCalendarPage() {
     </div>
   );
 }
+
+
+    
