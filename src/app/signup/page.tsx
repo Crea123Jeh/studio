@@ -61,12 +61,9 @@ export default function SignupPage() {
         toast({ title: "Signup Successful", description: "Welcome! Redirecting to dashboard..." });
         router.push("/dashboard");
       }
-      // If signUp throws an error, it will be caught below.
-      // If it doesn't throw but returns null (should not happen with re-throw), 
-      // this part might need adjustment, but the catch block is primary.
     } catch (error: any) {
       let toastMessage = "An unexpected error occurred during signup. Please try again.";
-      if (error.code) { // Firebase AuthError has a 'code' property
+      if (error.code) { 
         switch (error.code) {
           case 'auth/email-already-in-use':
             toastMessage = "This email address is already registered. Please try logging in or use a different email.";
@@ -76,6 +73,9 @@ export default function SignupPage() {
             break;
           case 'auth/invalid-email':
             toastMessage = "The email address is not valid. Please enter a correct email.";
+            break;
+          case 'auth/operation-not-allowed':
+            toastMessage = "Email/Password sign-up is not enabled for this project. Please contact support or check Firebase console settings.";
             break;
           default:
             toastMessage = error.message || toastMessage; 

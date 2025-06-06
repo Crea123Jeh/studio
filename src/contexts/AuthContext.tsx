@@ -39,6 +39,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (firebaseUser?.displayName) {
         setUsername(firebaseUser.displayName);
       } else if (firebaseUser?.email) {
+        // Fallback to part of email if displayName is not set
         setUsername(firebaseUser.email.split('@')[0]);
       }
       else {
@@ -55,14 +56,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       if (!credentials.password) throw new Error("Password is required for sign in.");
       const userCredential = await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
-      setUser(userCredential.user);
+      // setUser(userCredential.user); // onAuthStateChanged will handle this
+      // setUsername(userCredential.user.displayName); // onAuthStateChanged will handle this
       setLoading(false);
       return userCredential.user;
     } catch (e) {
       const authError = e as AuthError;
       setError(authError);
       setLoading(false);
-      throw authError; // Re-throw the error
+      throw authError; 
     }
   };
 
@@ -80,7 +82,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const authError = e as AuthError;
       setError(authError);
       setLoading(false);
-      throw authError; // Re-throw the error to be caught by the calling component
+      throw authError; 
     }
   };
 
@@ -91,7 +93,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await firebaseSignOut(auth);
       setUser(null);
       setUsername(null);
-      router.push('/login');
+      router.push('/login'); 
     } catch (e) {
       setError(e as AuthError);
     } finally {
@@ -113,4 +115,3 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
-
