@@ -15,6 +15,7 @@ import {
   ChevronDown,
   PanelLeft,
   Building,
+  Info, // Added Info icon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -52,7 +53,8 @@ const navItems: NavItem[] = [
   { href: '/dashboard/project', label: 'Projects', icon: Briefcase },
   { href: '/dashboard/calendar', label: 'Calendar', icon: CalendarDays },
   { href: '/dashboard/chat', label: 'Team Chat', icon: MessageSquare },
-  { href: '/dashboard/profile', label: 'Profile Settings', icon: Settings },
+  { href: '/dashboard/information', label: 'Information', icon: Info }, // Added Information link
+  { href: '/dashboard/profile', label: 'Profile Settings', icon: UserCircle }, // Changed icon for clarity
 ];
 
 function AppSidebar() {
@@ -76,7 +78,7 @@ function AppSidebar() {
     <>
       <SidebarHeader className="p-4 flex items-center gap-2 border-b border-sidebar-border">
         <Link href="/dashboard" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-          <div className="bg-black p-1.5 rounded-md">
+           <div className="bg-black p-1.5 rounded-md">
             <Building className="h-7 w-7 text-primary" />
           </div>
           <h1 className="text-xl font-semibold text-sidebar-foreground font-headline">PPM Management</h1>
@@ -109,11 +111,17 @@ function AppSidebar() {
 function Header() {
   const { user, username, signOut, loading } = useAuth();
   const router = useRouter();
-  const { isMobile } = useSidebar();
+  const { isMobile, toggleSidebar } = useSidebar(); // Corrected to use toggleSidebar from useSidebar
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
-      {isMobile && <SidebarTrigger asChild><Button variant="ghost" size="icon"><PanelLeft /></Button></SidebarTrigger>}
+      {isMobile && (
+        <SidebarTrigger asChild>
+          <Button variant="ghost" size="icon">
+            <PanelLeft />
+          </Button>
+        </SidebarTrigger>
+      )}
       <div className="ml-auto flex items-center gap-2">
         {loading ? (
           <Skeleton className="h-8 w-24 rounded-md" />
@@ -195,4 +203,3 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
-
