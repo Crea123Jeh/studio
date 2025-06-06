@@ -614,8 +614,10 @@ export default function BirthdayCalendarPage() {
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl">
-            <PartyPopper className="h-6 w-6 text-primary" />
+          <CardTitle className="flex items-center text-xl">
+            <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center mr-2">
+                <PartyPopper className="h-5 w-5 text-primary" />
+            </div>
             Today&apos;s Birthdays
           </CardTitle>
         </CardHeader>
@@ -625,8 +627,11 @@ export default function BirthdayCalendarPage() {
               <>
                 {todaysBirthdaysList.teachers.length > 0 && (
                   <div className="mb-6">
-                    <h4 className="text-lg font-semibold mb-3 pb-1 border-b flex items-center gap-2">
-                      <Users className="h-5 w-5 text-primary/80"/>Teachers
+                    <h4 className="text-lg font-semibold mb-3 pb-1 border-b flex items-center">
+                      <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center mr-2">
+                        <Users className="h-5 w-5 text-primary" />
+                      </div>
+                      Teachers
                     </h4>
                     <ul className="space-y-4">
                       {todaysBirthdaysList.teachers.map((event) => (
@@ -639,8 +644,11 @@ export default function BirthdayCalendarPage() {
                 )}
                 {todaysBirthdaysList.students.length > 0 && (
                   <div>
-                    <h4 className="text-lg font-semibold mb-3 pb-1 border-b flex items-center gap-2">
-                      <User className="h-5 w-5 text-primary/80"/>Students
+                    <h4 className="text-lg font-semibold mb-3 pb-1 border-b flex items-center">
+                      <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center mr-2">
+                        <User className="h-5 w-5 text-primary" />
+                      </div>
+                      Students
                     </h4>
                     <ul className="space-y-4">
                       {todaysBirthdaysList.students.map((event) => (
@@ -667,8 +675,10 @@ export default function BirthdayCalendarPage() {
         <CardHeader>
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-start">
             <div>
-              <CardTitle className="flex items-center gap-2 text-xl">
-                <ListOrdered className="h-6 w-6 text-primary" />
+              <CardTitle className="flex items-center text-xl">
+                 <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center mr-2">
+                    <ListOrdered className="h-5 w-5 text-primary" />
+                </div>
                 All Upcoming Birthdays
               </CardTitle>
               <CardDescription className="mt-1">
@@ -691,7 +701,12 @@ export default function BirthdayCalendarPage() {
           <ScrollArea className="max-h-[700px] pr-2">
             {filteredUpcomingBirthdays.teachers.length > 0 && (
               <div className="mb-8">
-                <h4 className="text-xl font-semibold mb-3 pb-2 border-b flex items-center gap-2"><Users className="h-6 w-6 text-primary/80"/>Teachers</h4>
+                <h4 className="text-xl font-semibold mb-3 pb-2 border-b flex items-center">
+                    <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center mr-2">
+                        <Users className="h-5 w-5 text-primary" />
+                    </div>
+                    Teachers
+                </h4>
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -724,13 +739,23 @@ export default function BirthdayCalendarPage() {
 
             {Object.keys(filteredUpcomingBirthdays.studentsByGrade).some(gradeKey => filteredUpcomingBirthdays.studentsByGrade[gradeKey]?.length > 0) && (
               <div>
-                <h4 className="text-xl font-semibold mb-4 pb-2 border-b flex items-center gap-2"><User className="h-6 w-6 text-primary/80"/>Students</h4>
+                <h4 className="text-xl font-semibold mb-4 pb-2 border-b flex items-center">
+                    <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center mr-2">
+                        <User className="h-5 w-5 text-primary" />
+                    </div>
+                    Students
+                </h4>
                 {studentGradeOptions.map(gradeKey => {
                     const studentsInGrade = filteredUpcomingBirthdays.studentsByGrade[gradeKey];
                     if(studentsInGrade && studentsInGrade.length > 0) {
                         return (
                             <div key={`grade-section-table-${gradeKey}`} className="mb-6">
-                                <h5 className="text-lg font-medium text-muted-foreground mb-2 ml-1">Grade: {gradeKey}</h5>
+                                <h5 className="text-lg font-medium text-muted-foreground mb-2 ml-1 flex items-center">
+                                    <div className="p-1 bg-black rounded-md inline-flex items-center justify-center mr-2">
+                                        <User className="h-4 w-4 text-primary" />
+                                    </div>
+                                    Grade: {gradeKey}
+                                </h5>
                                 <Table>
                                   <TableHeader>
                                     <TableRow>
@@ -765,7 +790,12 @@ export default function BirthdayCalendarPage() {
                 })}
                 {filteredUpcomingBirthdays.studentsByGrade["Ungraded"] && filteredUpcomingBirthdays.studentsByGrade["Ungraded"].length > 0 && (
                      <div key="grade-section-table-ungraded" className="mb-6">
-                        <h5 className="text-lg font-medium text-muted-foreground mb-2 ml-1">Grade: Ungraded/Other</h5>
+                        <h5 className="text-lg font-medium text-muted-foreground mb-2 ml-1 flex items-center">
+                            <div className="p-1 bg-black rounded-md inline-flex items-center justify-center mr-2">
+                                <User className="h-4 w-4 text-primary" />
+                            </div>
+                            Grade: Ungraded/Other
+                        </h5>
                         <Table>
                           <TableHeader>
                             <TableRow>
