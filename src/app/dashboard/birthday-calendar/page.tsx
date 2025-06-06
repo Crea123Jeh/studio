@@ -665,22 +665,26 @@ export default function BirthdayCalendarPage() {
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl">
-            <ListOrdered className="h-6 w-6 text-primary" />
-            All Upcoming Birthdays
-          </CardTitle>
-          <CardDescription>
-            A categorized list of all upcoming birthdays, presented in tables. Use the search to filter by name.
-          </CardDescription>
-           <div className="mt-4 relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search by name..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8 w-full sm:w-1/2 md:w-1/3"
-            />
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-start">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <ListOrdered className="h-6 w-6 text-primary" />
+                All Upcoming Birthdays
+              </CardTitle>
+              <CardDescription className="mt-1">
+                A categorized list of all upcoming birthdays, presented in tables. Use the search to filter by name.
+              </CardDescription>
+            </div>
+            <div className="relative mt-2 sm:mt-0">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search by name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8 w-full sm:w-60 md:w-72"
+              />
+            </div>
           </div>
         </CardHeader>
         <CardContent>
