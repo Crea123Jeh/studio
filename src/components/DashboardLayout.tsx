@@ -17,7 +17,7 @@ import {
   Building,
   Info,
   Cake, 
-  BookOpen, // Added BookOpen icon for Knowledge Hub
+  BookOpen, 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -53,11 +53,11 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/project', label: 'Projects', icon: Briefcase },
-  { href: '/dashboard/calendar', label: 'Calendar', icon: CalendarDays },
+  { href: '/dashboard/calendar', label: 'PPM Calendar', icon: CalendarDays },
   { href: '/dashboard/birthday-calendar', label: 'Birthday Calendar', icon: Cake },
   { href: '/dashboard/chat', label: 'Team Chat', icon: MessageSquare },
   { href: '/dashboard/information', label: 'Information', icon: Info },
-  { href: '/dashboard/knowledge', label: 'Knowledge Hub', icon: BookOpen }, // New Item
+  { href: '/dashboard/knowledge', label: 'Knowledge Hub', icon: BookOpen }, 
   { href: '/dashboard/profile', label: 'Profile Settings', icon: UserCircle },
 ];
 
@@ -207,3 +207,4 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
+

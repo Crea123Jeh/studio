@@ -212,7 +212,7 @@ export default function CalendarEventsPage() {
           <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center">
             <CalendarDays className="h-6 w-6 text-primary" />
           </div>
-          <h1 className="text-3xl font-bold font-headline tracking-tight">Project Calendar</h1>
+          <h1 className="text-3xl font-bold font-headline tracking-tight">PPM Calendar</h1>
         </div>
         <Dialog open={isAddEventDialogOpen} onOpenChange={setIsAddEventDialogOpen}>
           <DialogTrigger asChild>
