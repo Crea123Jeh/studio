@@ -51,10 +51,10 @@ export default function BirthdayCalendarPage() {
     const q = query(birthdaysCollection, orderBy("anchorDate", "asc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedBirthdays = snapshot.docs.map(doc => {
-        const data = doc.data();
+      const fetchedBirthdays = snapshot.docs.map(docSnap => {
+        const data = docSnap.data();
         return {
-          id: doc.id,
+          id: docSnap.id,
           name: data.name,
           anchorDate: (data.anchorDate as Timestamp).toDate(),
           type: data.type || "Student", // Default to student if type is missing
@@ -203,6 +203,16 @@ export default function BirthdayCalendarPage() {
 
     try {
       if (editingBirthday) {
+        // Defensive check for editingBirthday.id
+        if (!editingBirthday.id || typeof editingBirthday.id !== 'string' || editingBirthday.id.trim() === '') {
+          console.error("Error saving birthday: editingBirthday.id is invalid. Value:", editingBirthday.id);
+          toast({
+            title: "Update Error",
+            description: "Could not update birthday due to an invalid ID. Please refresh and try again.",
+            variant: "destructive",
+          });
+          return; 
+        }
         await updateDoc(doc(db, "birthdayEvents", editingBirthday.id), birthdayData);
         toast({
           title: "Birthday Updated",
@@ -229,7 +239,7 @@ export default function BirthdayCalendarPage() {
 
   useEffect(() => {
     if (!isAddEditDialogOpen) {
-        resetForm(); // Reset form when dialog closes if not editing
+        resetForm(); 
     }
   }, [isAddEditDialogOpen]);
 
