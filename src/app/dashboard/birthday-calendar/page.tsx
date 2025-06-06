@@ -11,26 +11,39 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, deleteDoc } from "firebase/firestore";
-import { format, isSameDay, startOfDay, getYear, getMonth, getDate } from "date-fns";
-import { Cake, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered, Trash2, PartyPopper } from "lucide-react";
+import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, deleteDoc, updateDoc, getDoc } from "firebase/firestore";
+import { format, isSameDay, startOfDay, getYear, getMonth, getDate, differenceInYears } from "date-fns";
+import { Cake, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered, Trash2, PartyPopper, User, Users, Edit3, Settings2 } from "lucide-react";
 
 interface BirthdayEvent {
   id: string; // Firestore document ID
   anchorDate: Date; // The specific birth date (day, month, year) used as an anchor.
   name: string; // Person's name
+  type: "Teacher" | "Student";
+  grade?: string; // e.g., "7", "8", "12", "College" - only for students
 }
+
+const studentGradeOptions = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "College"];
 
 export default function BirthdayCalendarPage() {
   const [birthdays, setBirthdays] = useState<BirthdayEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
-  const [isAddBirthdayDialogOpen, setIsAddBirthdayDialogOpen] = useState(false);
-  const [newBirthdayName, setNewBirthdayName] = useState("");
-  const [newBirthdayDate, setNewBirthdayDate] = useState<Date | undefined>(selectedDate || new Date());
+  
+  const [isAddEditDialogOpen, setIsAddEditDialogOpen] = useState(false);
+  const [editingBirthday, setEditingBirthday] = useState<BirthdayEvent | null>(null);
+  
+  const [birthdayName, setBirthdayName] = useState("");
+  const [birthdayDate, setBirthdayDate] = useState<Date | undefined>(new Date());
+  const [birthdayType, setBirthdayType] = useState<BirthdayEvent["type"]>("Student");
+  const [birthdayGrade, setBirthdayGrade] = useState("");
+
+  const [isConfigureGradeDialogOpen, setIsConfigureGradeDialogOpen] = useState(false);
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -44,6 +57,8 @@ export default function BirthdayCalendarPage() {
           id: doc.id,
           name: data.name,
           anchorDate: (data.anchorDate as Timestamp).toDate(),
+          type: data.type || "Student", // Default to student if type is missing
+          grade: data.grade,
         } as BirthdayEvent;
       });
       setBirthdays(fetchedBirthdays);
@@ -58,6 +73,29 @@ export default function BirthdayCalendarPage() {
 
     return () => unsubscribe();
   }, [toast]);
+
+  const resetForm = () => {
+    setBirthdayName("");
+    setBirthdayDate(selectedDate || new Date());
+    setBirthdayType("Student");
+    setBirthdayGrade("");
+    setEditingBirthday(null);
+  };
+
+  const openAddDialog = () => {
+    resetForm();
+    setBirthdayDate(startOfDay(selectedDate || new Date())); // Set default date to selected or today
+    setIsAddEditDialogOpen(true);
+  };
+
+  const openEditDialog = (birthday: BirthdayEvent) => {
+    setEditingBirthday(birthday);
+    setBirthdayName(birthday.name);
+    setBirthdayDate(birthday.anchorDate);
+    setBirthdayType(birthday.type);
+    setBirthdayGrade(birthday.grade || "");
+    setIsAddEditDialogOpen(true);
+  };
 
   const handleDeleteBirthday = async (birthdayId: string) => {
     try {
@@ -75,113 +113,177 @@ export default function BirthdayCalendarPage() {
       });
     }
   };
+  
+  const calculateAge = (birthDate: Date, onDate: Date = new Date()): number => {
+    return differenceInYears(onDate, birthDate);
+  };
 
   const birthdaysForSelectedDate = useMemo(() => {
     if (!selectedDate) return [];
+    const currentSelectedYear = getYear(selectedDate);
     return birthdays.filter(bday => 
         getMonth(bday.anchorDate) === getMonth(selectedDate) &&
         getDate(bday.anchorDate) === getDate(selectedDate)
     ).map(bday => ({
         ...bday,
-        // Display date should reflect the selected year for consistency
-        displayDate: new Date(getYear(selectedDate), getMonth(bday.anchorDate), getDate(bday.anchorDate))
+        displayDate: new Date(currentSelectedYear, getMonth(bday.anchorDate), getDate(bday.anchorDate)),
+        age: calculateAge(bday.anchorDate, new Date(currentSelectedYear, getMonth(bday.anchorDate), getDate(bday.anchorDate)))
     }));
   }, [birthdays, selectedDate]);
   
-  const allUpcomingBirthdays = useMemo(() => {
+  const categorizedUpcomingBirthdays = useMemo(() => {
     const today = startOfDay(new Date());
-    const displayBirthdays: (BirthdayEvent & { displayDate: Date })[] = [];
+    const upcoming: {teachers: (BirthdayEvent & { displayDate: Date; age: number })[], studentsByGrade: Record<string, (BirthdayEvent & { displayDate: Date; age: number })[]> } = {
+      teachers: [],
+      studentsByGrade: {},
+    };
 
     birthdays.forEach(bday => {
       const currentYear = getYear(today);
-      let nextBirthdayDate = new Date(currentYear, getMonth(bday.anchorDate), getDate(bday.anchorDate));
-      
-      if (startOfDay(nextBirthdayDate) < today) { // If this year's birthday has passed
-        nextBirthdayDate = new Date(currentYear + 1, getMonth(bday.anchorDate), getDate(bday.anchorDate));
+      let nextBirthdayDateThisYear = new Date(currentYear, getMonth(bday.anchorDate), getDate(bday.anchorDate));
+      let displayDate: Date;
+
+      if (startOfDay(nextBirthdayDateThisYear) < today) { // If this year's birthday has passed
+        displayDate = new Date(currentYear + 1, getMonth(bday.anchorDate), getDate(bday.anchorDate));
+      } else {
+        displayDate = nextBirthdayDateThisYear;
       }
-      displayBirthdays.push({
-        ...bday,
-        displayDate: nextBirthdayDate,
-      });
+      
+      const ageAtUpcomingBirthday = calculateAge(bday.anchorDate, displayDate);
+      const eventWithDisplayInfo = { ...bday, displayDate, age: ageAtUpcomingBirthday };
+
+      if (bday.type === "Teacher") {
+        upcoming.teachers.push(eventWithDisplayInfo);
+      } else if (bday.type === "Student") {
+        const grade = bday.grade || "Ungraded";
+        if (!upcoming.studentsByGrade[grade]) {
+          upcoming.studentsByGrade[grade] = [];
+        }
+        upcoming.studentsByGrade[grade].push(eventWithDisplayInfo);
+      }
     });
-    return displayBirthdays.sort((a, b) => a.displayDate.getTime() - b.displayDate.getTime());
+
+    upcoming.teachers.sort((a, b) => a.displayDate.getTime() - b.displayDate.getTime());
+    Object.keys(upcoming.studentsByGrade).forEach(grade => {
+      upcoming.studentsByGrade[grade].sort((a, b) => a.displayDate.getTime() - b.displayDate.getTime());
+    });
+    
+    return upcoming;
   }, [birthdays]);
 
   const birthdayDotColor = "bg-purple-500";
   const birthdayBorderColor = "hsl(var(--purple-500, 262 84% 57%))";
   const birthdayBadgeClassName = "bg-purple-500 text-white hover:bg-purple-600";
   
-  const handleAddBirthday = async (e: FormEvent) => {
+  const handleSaveBirthday = async (e: FormEvent) => {
     e.preventDefault();
-    if (!newBirthdayName || !newBirthdayDate) {
+    if (!birthdayName || !birthdayDate || !birthdayType) {
       toast({
         title: "Missing Information",
-        description: "Please provide a name and date for the birthday.",
+        description: "Please provide name, birth date, and type.",
         variant: "destructive",
       });
       return;
     }
+    if (birthdayType === "Student" && !birthdayGrade) {
+        toast({
+            title: "Missing Grade",
+            description: "Please provide a grade for the student.",
+            variant: "destructive",
+        });
+        return;
+    }
 
-    const birthdayData: Omit<BirthdayEvent, 'id'> & { anchorDate: Timestamp } = {
-      name: newBirthdayName,
-      anchorDate: Timestamp.fromDate(startOfDay(newBirthdayDate)), // Store the actual selected date as anchor
+    const birthdayData = {
+      name: birthdayName,
+      anchorDate: Timestamp.fromDate(startOfDay(birthdayDate)), // Store the actual birth date
+      type: birthdayType,
+      grade: birthdayType === "Student" ? birthdayGrade : "",
     };
 
     try {
-      await addDoc(collection(db, "birthdayEvents"), birthdayData);
-      toast({
-        title: "Birthday Added",
-        description: `${newBirthdayName}'s birthday has been added.`,
-      });
-      setNewBirthdayName("");
-      setNewBirthdayDate(selectedDate || new Date());
-      setIsAddBirthdayDialogOpen(false);
+      if (editingBirthday) {
+        await updateDoc(doc(db, "birthdayEvents", editingBirthday.id), birthdayData);
+        toast({
+          title: "Birthday Updated",
+          description: `${birthdayName}'s birthday has been updated.`,
+        });
+      } else {
+        await addDoc(collection(db, "birthdayEvents"), birthdayData);
+        toast({
+          title: "Birthday Added",
+          description: `${birthdayName}'s birthday has been added.`,
+        });
+      }
+      resetForm();
+      setIsAddEditDialogOpen(false);
     } catch (error) {
-      console.error("Error adding birthday: ", error);
+      console.error("Error saving birthday: ", error);
       toast({
         title: "Error",
-        description: "Could not add the birthday. Please try again.",
+        description: "Could not save the birthday. Please try again.",
         variant: "destructive",
       });
     }
   };
 
   useEffect(() => {
-    if (selectedDate) {
-      setNewBirthdayDate(startOfDay(selectedDate));
+    if (!isAddEditDialogOpen) {
+        resetForm(); // Reset form when dialog closes if not editing
     }
-  }, [selectedDate]);
+  }, [isAddEditDialogOpen]);
 
-  const BirthdayCard = ({ birthday, displayDate, showDeleteButton = false }: { birthday: BirthdayEvent, displayDate: Date, showDeleteButton?: boolean }) => (
+
+  const BirthdayCard = ({ birthday, displayDate, age, showActions = false }: { birthday: BirthdayEvent, displayDate: Date, age: number, showActions?: boolean }) => (
     <Card 
       className="hover:shadow-xl transition-shadow duration-200 ease-in-out border-l-4"
       style={{ borderLeftColor: birthdayBorderColor }}
     >
       <CardHeader className="p-4 pb-2">
         <div className="flex justify-between items-start gap-2">
-           <CardTitle className="text-md leading-tight">{birthday.name}'s Birthday</CardTitle>
+           <CardTitle className="text-md leading-tight">{birthday.name}</CardTitle>
            <div className="flex items-center gap-2">
             <Badge className={cn("text-xs whitespace-nowrap shrink-0", birthdayBadgeClassName)}>
               <PartyPopper className="inline h-3 w-3 mr-1"/>
               Birthday
             </Badge>
-            {showDeleteButton && (
+            {showActions && (
+                <>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-primary"
+                    onClick={() => openEditDialog(birthday)}
+                    title="Edit Birthday"
+                >
+                    <Edit3 className="h-4 w-4" />
+                    <span className="sr-only">Edit birthday</span>
+                </Button>
                  <Button
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 text-muted-foreground hover:text-destructive"
                     onClick={() => handleDeleteBirthday(birthday.id)}
+                    title="Delete Birthday"
                   >
                     <Trash2 className="h-4 w-4" />
                     <span className="sr-only">Delete birthday</span>
                   </Button>
+                </>
             )}
            </div>
         </div>
       </CardHeader>
       <CardContent className="p-4 pt-1">
-        <p className="text-sm font-semibold text-muted-foreground mb-1.5">{format(displayDate, "EEEE, MMMM d, yyyy")}</p>
-        <p className="text-sm text-muted-foreground italic">Age: {getYear(displayDate) - getYear(birthday.anchorDate)} (on this date)</p>
+        <p className="text-sm font-semibold text-muted-foreground mb-1">{format(displayDate, "EEEE, MMMM d, yyyy")}</p>
+        <div className="text-sm text-muted-foreground space-y-0.5">
+            <p>Type: <span className="font-medium text-foreground">{birthday.type}</span></p>
+            {birthday.type === "Student" && birthday.grade && (
+                <p>Grade: <span className="font-medium text-foreground">{birthday.grade}</span></p>
+            )}
+            <p>Age on this date: <span className="font-medium text-foreground">{age}</span></p>
+            <p className="text-xs italic">Born: {format(birthday.anchorDate, "PPP")}</p>
+        </div>
       </CardContent>
     </Card>
   );
@@ -195,75 +297,110 @@ export default function BirthdayCalendarPage() {
           </div>
           <h1 className="text-3xl font-bold font-headline tracking-tight">Birthday Calendar</h1>
         </div>
-        <Dialog open={isAddBirthdayDialogOpen} onOpenChange={setIsAddBirthdayDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline">
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Add Birthday
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Add New Birthday</DialogTitle>
-              <DialogDescription>
-                Enter the person's name and their birth date. This will be a recurring annual event.
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleAddBirthday} className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="birthday-name" className="text-right">
-                  Name
-                </Label>
-                <Input
-                  id="birthday-name"
-                  value={newBirthdayName}
-                  onChange={(e) => setNewBirthdayName(e.target.value)}
-                  className="col-span-3"
-                  required
-                  placeholder="Person's Name"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="birthday-date" className="text-right">
-                  Birth Date
-                </Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "col-span-3 justify-start text-left font-normal",
-                        !newBirthdayDate && "text-muted-foreground"
-                      )}
-                    >
-                      <LucideCalendarIcon className="mr-2 h-4 w-4" />
-                      {newBirthdayDate ? format(newBirthdayDate, "PPP") : <span>Pick a date</span>}
+        <div className="flex gap-2">
+            <Dialog open={isConfigureGradeDialogOpen} onOpenChange={setIsConfigureGradeDialogOpen}>
+                <DialogTrigger asChild>
+                    <Button variant="outline">
+                        <Settings2 className="mr-2 h-4 w-4" />
+                        Configure Grades
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={newBirthdayDate}
-                      onSelect={(date) => date && setNewBirthdayDate(startOfDay(date))}
-                      initialFocus
-                      month={newBirthdayDate}
-                      onMonthChange={(month) => setNewBirthdayDate(current => current ? new Date(month.getFullYear(), month.getMonth(), current.getDate()) : month)}
-                      captionLayout="dropdown-buttons" 
-                      fromYear={1900} 
-                      toYear={getYear(new Date()) + 1}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <DialogFooter>
-                <DialogClose asChild>
-                   <Button type="button" variant="outline">Cancel</Button>
-                </DialogClose>
-                <Button type="submit">Save Birthday</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Configure Student Grades</DialogTitle>
+                        <DialogDescription>
+                            This feature will allow batch updating student grades (e.g., at the start of a new school year).
+                            Select the current grade and the new grade to update all matching students.
+                            (This is a placeholder for a future batch update feature.)
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <DialogClose asChild>
+                            <Button type="button">Close</Button>
+                        </DialogClose>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isAddEditDialogOpen} onOpenChange={setIsAddEditDialogOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline" onClick={openAddDialog}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add Birthday
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                <DialogTitle>{editingBirthday ? "Edit Birthday" : "Add New Birthday"}</DialogTitle>
+                <DialogDescription>
+                    {editingBirthday ? "Update the details for this birthday." : "Enter the person's name, birth date, type, and grade (if student)."}
+                </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSaveBirthday} className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="birthday-name" className="text-right">Name</Label>
+                    <Input id="birthday-name" value={birthdayName} onChange={(e) => setBirthdayName(e.target.value)} className="col-span-3" required placeholder="Person's Name" />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="birthday-date" className="text-right">Birth Date</Label>
+                    <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !birthdayDate && "text-muted-foreground")}>
+                        <LucideCalendarIcon className="mr-2 h-4 w-4" />
+                        {birthdayDate ? format(birthdayDate, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                        <Calendar
+                        mode="single"
+                        selected={birthdayDate}
+                        onSelect={(date) => date && setBirthdayDate(startOfDay(date))}
+                        initialFocus
+                        month={birthdayDate}
+                        onMonthChange={(month) => setBirthdayDate(current => current ? new Date(month.getFullYear(), month.getMonth(), getDate(current)) : month)}
+                        captionLayout="dropdown-buttons" 
+                        fromYear={getYear(new Date()) - 100} 
+                        toYear={getYear(new Date())}
+                        defaultMonth={birthdayDate || new Date(getYear(new Date())-10, 0, 1)} // Default to 10 years ago if no date
+                        />
+                    </PopoverContent>
+                    </Popover>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="birthday-type" className="text-right">Type</Label>
+                    <Select value={birthdayType} onValueChange={(value) => setBirthdayType(value as BirthdayEvent["type"])}>
+                        <SelectTrigger className="col-span-3" id="birthday-type">
+                            <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Student">Student</SelectItem>
+                            <SelectItem value="Teacher">Teacher</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                {birthdayType === "Student" && (
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="birthday-grade" className="text-right">Grade</Label>
+                         <Select value={birthdayGrade} onValueChange={setBirthdayGrade}>
+                            <SelectTrigger className="col-span-3" id="birthday-grade">
+                                <SelectValue placeholder="Select grade" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {studentGradeOptions.map(grade => (
+                                    <SelectItem key={grade} value={grade}>{grade}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
+                <DialogFooter>
+                    <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
+                    <Button type="submit">{editingBirthday ? "Save Changes" : "Save Birthday"}</Button>
+                </DialogFooter>
+                </form>
+            </DialogContent>
+            </Dialog>
+        </div>
       </div>
 
       <Card className="shadow-lg">
@@ -306,12 +443,12 @@ export default function BirthdayCalendarPage() {
             <h3 className="text-xl font-semibold mb-4 pb-2 border-b">
               Birthdays on: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
             </h3>
-            <ScrollArea className="max-h-[calc(100vh-450px)] pr-2">
+            <ScrollArea className="h-[calc(100vh-480px)] md:h-[calc(100vh-450px)] pr-2">
               {birthdaysForSelectedDate.length > 0 ? (
                 <ul className="space-y-4">
-                  {birthdaysForSelectedDate.map(({id, displayDate, ...bday}) => (
+                  {birthdaysForSelectedDate.map(({id, displayDate, age, ...bday}) => (
                     <li key={id}>
-                       <BirthdayCard birthday={bday} displayDate={displayDate} showDeleteButton={true} />
+                       <BirthdayCard birthday={bday} displayDate={displayDate} age={age} showActions={true} />
                     </li>
                   ))}
                 </ul>
@@ -338,27 +475,69 @@ export default function BirthdayCalendarPage() {
             All Upcoming Birthdays
           </CardTitle>
           <CardDescription>
-            A list of all upcoming birthdays, sorted by their next occurrence.
+            A categorized list of all upcoming birthdays.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {allUpcomingBirthdays.length > 0 ? (
-            <ScrollArea className="max-h-[400px] pr-2">
-              <ul className="space-y-4">
-                {allUpcomingBirthdays.map(({id, displayDate, ...bday}) => (
-                  <li key={id + `-${getYear(displayDate)}`}>
-                     <BirthdayCard birthday={bday} displayDate={displayDate} showDeleteButton={true} />
-                  </li>
-                ))}
-              </ul>
-            </ScrollArea>
-          ) : (
-            <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50 min-h-[150px]">
-              <Cake className="h-12 w-12 text-primary/70 mb-3"/>
-              <p className="text-muted-foreground font-medium text-lg">No Upcoming Birthdays</p>
-              <p className="text-sm text-muted-foreground mt-1">Add some birthdays to see them here!</p>
-            </div>
-          )}
+          <ScrollArea className="max-h-[600px] pr-2">
+            {categorizedUpcomingBirthdays.teachers.length > 0 && (
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold mb-3 pb-1 border-b flex items-center gap-2"><Users className="h-5 w-5 text-primary/80"/>Teachers</h4>
+                <ul className="space-y-4">
+                  {categorizedUpcomingBirthdays.teachers.map(({id, displayDate, age, ...bday}) => (
+                    <li key={`${id}-teacher-${getYear(displayDate)}`}>
+                       <BirthdayCard birthday={bday} displayDate={displayDate} age={age} showActions={true} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {Object.keys(categorizedUpcomingBirthdays.studentsByGrade).length > 0 && (
+              <div>
+                <h4 className="text-lg font-semibold mb-3 pb-1 border-b flex items-center gap-2"><User className="h-5 w-5 text-primary/80"/>Students</h4>
+                {studentGradeOptions.map(gradeKey => {
+                    const studentsInGrade = categorizedUpcomingBirthdays.studentsByGrade[gradeKey];
+                    if(studentsInGrade && studentsInGrade.length > 0) {
+                        return (
+                            <div key={`grade-section-${gradeKey}`} className="mb-4">
+                                <h5 className="text-md font-medium text-muted-foreground mb-2 ml-2">Grade: {gradeKey}</h5>
+                                <ul className="space-y-4">
+                                {studentsInGrade.map(({id, displayDate, age, ...bday}) => (
+                                    <li key={`${id}-student-${gradeKey}-${getYear(displayDate)}`}>
+                                    <BirthdayCard birthday={bday} displayDate={displayDate} age={age} showActions={true} />
+                                    </li>
+                                ))}
+                                </ul>
+                            </div>
+                        )
+                    }
+                    return null;
+                })}
+                {/* Fallback for students with no grade or unlisted grade */}
+                {categorizedUpcomingBirthdays.studentsByGrade["Ungraded"] && categorizedUpcomingBirthdays.studentsByGrade["Ungraded"].length > 0 && (
+                     <div key="grade-section-ungraded" className="mb-4">
+                        <h5 className="text-md font-medium text-muted-foreground mb-2 ml-2">Grade: Ungraded/Other</h5>
+                        <ul className="space-y-4">
+                        {categorizedUpcomingBirthdays.studentsByGrade["Ungraded"].map(({id, displayDate, age, ...bday}) => (
+                            <li key={`${id}-student-ungraded-${getYear(displayDate)}`}>
+                            <BirthdayCard birthday={bday} displayDate={displayDate} age={age} showActions={true} />
+                            </li>
+                        ))}
+                        </ul>
+                    </div>
+                )}
+              </div>
+            )}
+            
+            {categorizedUpcomingBirthdays.teachers.length === 0 && Object.keys(categorizedUpcomingBirthdays.studentsByGrade).length === 0 && (
+               <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50 min-h-[150px]">
+                <Cake className="h-12 w-12 text-primary/70 mb-3"/>
+                <p className="text-muted-foreground font-medium text-lg">No Upcoming Birthdays</p>
+                <p className="text-sm text-muted-foreground mt-1">Add some birthdays to see them here!</p>
+              </div>
+            )}
+          </ScrollArea>
         </CardContent>
       </Card>
     </div>
