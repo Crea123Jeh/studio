@@ -12,12 +12,13 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, onSnapshot, query, orderBy, Timestamp } from "firebase/firestore";
 import { format, isSameDay, startOfDay } from "date-fns";
-import { CalendarDays, Info, PlusCircle, CalendarIcon as LucideCalendarIcon } from "lucide-react";
+import { CalendarDays, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered } from "lucide-react";
 
 interface CalendarEvent {
   id: string; // Firestore document ID
@@ -70,6 +71,9 @@ export default function CalendarEventsPage() {
 
   const eventsForSelectedDate = selectedDate ? events.filter(event => isSameDay(event.date, selectedDate)) : [];
   
+  const today = startOfDay(new Date());
+  const allUpcomingEvents = events.filter(event => event.date >= today);
+
   const eventTypeDotColors: Record<CalendarEvent["type"], string> = {
     Deadline: "bg-destructive",
     Meeting: "bg-primary",
@@ -237,14 +241,9 @@ export default function CalendarEventsPage() {
           </DialogContent>
         </Dialog>
       </div>
-      <Card className="shadow-xl">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-lg">Calendar Overview</CardTitle>
-          <CardDescription>
-            View important project deadlines, meetings, and milestones. Click a date to see events. Add new events using the button above.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+      <Card className="shadow-lg">
+        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6"> {/* Removed CardHeader, added pt-6 */}
           <div className="md:col-span-2">
             <Calendar
               mode="single"
@@ -288,9 +287,60 @@ export default function CalendarEventsPage() {
             <h3 className="text-xl font-semibold mb-4 pb-2 border-b">
               Events for: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
             </h3>
-            {eventsForSelectedDate.length > 0 ? (
-              <ul className="space-y-4 max-h-[calc(100vh-450px)] overflow-y-auto pr-2"> {/* Adjusted max height */}
-                {eventsForSelectedDate.map((event) => (
+            <ScrollArea className="max-h-[calc(100vh-450px)] pr-2">
+              {eventsForSelectedDate.length > 0 ? (
+                <ul className="space-y-4">
+                  {eventsForSelectedDate.map((event) => (
+                    <li key={event.id}>
+                      <Card className="hover:shadow-lg transition-shadow duration-200 ease-in-out">
+                        <CardHeader className="p-3 pb-1.5">
+                          <div className="flex justify-between items-start gap-2">
+                             <CardTitle className="text-md leading-tight">{event.title}</CardTitle>
+                             <Badge className={cn("text-xs whitespace-nowrap shrink-0", getBadgeClassNames(event.type))}>
+                              {event.type}
+                            </Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="p-3 pt-0">
+                          <p className="text-sm font-medium text-muted-foreground mb-1.5">{format(event.date, "EEEE, MMMM d, yyyy")}</p>
+                          <p className="text-sm text-muted-foreground">{event.description || <span className="italic">No description provided.</span>}</p>
+                        </CardContent>
+                      </Card>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50">
+                  <Info className="h-12 w-12 text-primary/70 mb-3"/>
+                  <p className="text-muted-foreground font-medium text-lg">
+                    {selectedDate ? "No Events Scheduled" : "Select a Date"}
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                     {selectedDate ? "There are no events for this day." : "Click on a day in the calendar to view its events."}
+                  </p>
+                </div>
+              )}
+            </ScrollArea>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* All Upcoming Events Section */}
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-xl">
+            <ListOrdered className="h-6 w-6 text-primary" />
+            All Upcoming Events
+          </CardTitle>
+          <CardDescription>
+            A list of all scheduled events, sorted by date.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {allUpcomingEvents.length > 0 ? (
+            <ScrollArea className="max-h-[400px] pr-2">
+              <ul className="space-y-4">
+                {allUpcomingEvents.map((event) => (
                   <li key={event.id}>
                     <Card className="hover:shadow-lg transition-shadow duration-200 ease-in-out">
                       <CardHeader className="p-3 pb-1.5">
@@ -302,28 +352,23 @@ export default function CalendarEventsPage() {
                         </div>
                       </CardHeader>
                       <CardContent className="p-3 pt-0">
-                        <p className="text-sm text-muted-foreground mb-2">{event.description || <span className="italic">No description provided.</span>}</p>
-                        <p className="text-xs text-muted-foreground">{format(event.date, "EEEE, MMMM d, yyyy")}</p>
+                        <p className="text-sm font-medium text-muted-foreground mb-1.5">{format(event.date, "EEEE, MMMM d, yyyy")}</p>
+                        <p className="text-sm text-muted-foreground">{event.description || <span className="italic">No description provided.</span>}</p>
                       </CardContent>
                     </Card>
                   </li>
                 ))}
               </ul>
-            ) : (
-              <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50">
-                <Info className="h-12 w-12 text-primary/70 mb-3"/>
-                <p className="text-muted-foreground font-medium text-lg">
-                  {selectedDate ? "No Events Scheduled" : "Select a Date"}
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                   {selectedDate ? "There are no events for this day." : "Click on a day in the calendar to view its events."}
-                </p>
-              </div>
-            )}
-          </div>
+            </ScrollArea>
+          ) : (
+            <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50 min-h-[150px]">
+              <CalendarDays className="h-12 w-12 text-primary/70 mb-3"/>
+              <p className="text-muted-foreground font-medium text-lg">No Upcoming Events</p>
+              <p className="text-sm text-muted-foreground mt-1">There are no events scheduled for the future.</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
   );
 }
-
