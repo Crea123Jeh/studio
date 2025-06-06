@@ -133,10 +133,10 @@ export default function BirthdayCalendarPage() {
     return birthdays.filter(bday => 
         getMonth(bday.anchorDate) === getMonth(selectedDate) &&
         getDate(bday.anchorDate) === getDate(selectedDate)
-    ).map(bday => ({
-        ...bday,
-        displayDate: new Date(currentSelectedYear, getMonth(bday.anchorDate), getDate(bday.anchorDate)),
-        age: calculateAge(bday.anchorDate, new Date(currentSelectedYear, getMonth(bday.anchorDate), getDate(bday.anchorDate)))
+    ).map(event => ({ // Renamed bday to event for consistency with map parameter
+        ...event,
+        displayDate: new Date(currentSelectedYear, getMonth(event.anchorDate), getDate(event.anchorDate)),
+        age: calculateAge(event.anchorDate, new Date(currentSelectedYear, getMonth(event.anchorDate), getDate(event.anchorDate)))
     }));
   }, [birthdays, selectedDate]);
   
@@ -154,7 +154,7 @@ export default function BirthdayCalendarPage() {
       let nextBirthdayDateThisYear = new Date(currentYear, getMonth(bday.anchorDate), getDate(bday.anchorDate));
       let displayDate: Date;
 
-      if (startOfDay(nextBirthdayDateThisYear) < today) { // If this year's birthday has passed
+      if (startOfDay(nextBirthdayDateThisYear) < today) { 
         displayDate = new Date(currentYear + 1, getMonth(bday.anchorDate), getDate(bday.anchorDate));
       } else {
         displayDate = nextBirthdayDateThisYear;
@@ -182,8 +182,32 @@ export default function BirthdayCalendarPage() {
     return upcoming;
   }, [birthdays]);
 
+  const todaysBirthdaysList = useMemo(() => {
+    const today = startOfDay(new Date());
+    const result: { teachers: BirthdayEventWithDisplayInfo[]; students: BirthdayEventWithDisplayInfo[] } = {
+      teachers: [],
+      students: [],
+    };
+
+    birthdays.forEach(bday => {
+      if (getMonth(bday.anchorDate) === getMonth(today) && getDate(bday.anchorDate) === getDate(today)) {
+        const displayDate = new Date(getYear(today), getMonth(bday.anchorDate), getDate(bday.anchorDate));
+        const ageAtToday = calculateAge(bday.anchorDate, displayDate);
+        const eventWithDisplayInfo: BirthdayEventWithDisplayInfo = { ...bday, displayDate, age: ageAtToday };
+
+        if (bday.type === "Teacher") {
+          result.teachers.push(eventWithDisplayInfo);
+        } else if (bday.type === "Student") {
+          result.students.push(eventWithDisplayInfo);
+        }
+      }
+    });
+    return result;
+  }, [birthdays]);
+
+
   const birthdayDotColor = "bg-purple-500";
-  const birthdayBorderColor = "hsl(var(--purple-500, 262 84% 57%))"; // You might want to define this HSL in globals.css
+  const birthdayBorderColor = "hsl(var(--purple-500, 262 84% 57%))"; 
   const birthdayBadgeClassName = "bg-purple-500 text-white hover:bg-purple-600";
   
   const handleSaveBirthday = async (e: FormEvent) => {
@@ -207,9 +231,9 @@ export default function BirthdayCalendarPage() {
 
     const birthdayData = {
       name: birthdayName,
-      anchorDate: Timestamp.fromDate(startOfDay(birthdayDate)), // Store the actual birth date
+      anchorDate: Timestamp.fromDate(startOfDay(birthdayDate)), 
       type: birthdayType,
-      grade: birthdayType === "Student" ? birthdayGrade : null, // Store null if not student
+      grade: birthdayType === "Student" ? birthdayGrade : null, 
     };
 
     try {
@@ -270,8 +294,6 @@ export default function BirthdayCalendarPage() {
       if (isSameDay(targetDate, now)) {
         return { isToday: true };
       }
-      // If the target date itself is in the past (e.g. today is Jan 5, target was Jan 1 of same year)
-      // This case should ideally be handled by displayDate logic, but as a fallback:
       if (targetDate < now && !isSameDay(targetDate,now)) {
          return { hasPassed: true };
       }
@@ -290,7 +312,7 @@ export default function BirthdayCalendarPage() {
     const [timeLeft, setTimeLeft] = useState<TimeLeft | null>(calculateTimeLeft(displayDate));
 
     useEffect(() => {
-      setTimeLeft(calculateTimeLeft(displayDate)); // Recalculate on displayDate change
+      setTimeLeft(calculateTimeLeft(displayDate)); 
       
       const timer = setInterval(() => {
         setTimeLeft(calculateTimeLeft(displayDate));
@@ -446,7 +468,7 @@ export default function BirthdayCalendarPage() {
                         captionLayout="dropdown-buttons" 
                         fromYear={getYear(new Date()) - 100} 
                         toYear={getYear(new Date())}
-                        defaultMonth={birthdayDate || new Date(getYear(new Date())-10, 0, 1)} // Default to 10 years ago if no date
+                        defaultMonth={birthdayDate || new Date(getYear(new Date())-10, 0, 1)} 
                         />
                     </PopoverContent>
                     </Popover>
@@ -561,6 +583,57 @@ export default function BirthdayCalendarPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">
+            <PartyPopper className="h-6 w-6 text-primary" />
+            Today's Birthdays
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="max-h-[400px] pr-2">
+            {(todaysBirthdaysList.teachers.length > 0 || todaysBirthdaysList.students.length > 0) ? (
+              <>
+                {todaysBirthdaysList.teachers.length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="text-lg font-semibold mb-3 pb-1 border-b flex items-center gap-2">
+                      <Users className="h-5 w-5 text-primary/80"/>Teachers
+                    </h4>
+                    <ul className="space-y-4">
+                      {todaysBirthdaysList.teachers.map((event) => (
+                        <li key={`${event.id}-today-teacher`}>
+                          <BirthdayCard birthday={event} displayDate={event.displayDate} age={event.age} showActions={true} />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {todaysBirthdaysList.students.length > 0 && (
+                  <div>
+                    <h4 className="text-lg font-semibold mb-3 pb-1 border-b flex items-center gap-2">
+                      <User className="h-5 w-5 text-primary/80"/>Students
+                    </h4>
+                    <ul className="space-y-4">
+                      {todaysBirthdaysList.students.map((event) => (
+                        <li key={`${event.id}-today-student`}>
+                          <BirthdayCard birthday={event} displayDate={event.displayDate} age={event.age} showActions={true} />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50 min-h-[150px]">
+                <Cake className="h-12 w-12 text-primary/70 mb-3"/>
+                <p className="text-muted-foreground font-medium text-lg">No Birthdays Today</p>
+                <p className="text-sm text-muted-foreground mt-1">Check back tomorrow or add some birthdays!</p>
+              </div>
+            )}
+          </ScrollArea>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-xl">
             <ListOrdered className="h-6 w-6 text-primary" />
             All Upcoming Birthdays
           </CardTitle>
@@ -614,7 +687,6 @@ export default function BirthdayCalendarPage() {
                     }
                     return null;
                 })}
-                {/* Fallback for students with no grade or unlisted grade */}
                 {categorizedUpcomingBirthdays.studentsByGrade["Ungraded"] && categorizedUpcomingBirthdays.studentsByGrade["Ungraded"].length > 0 && (
                      <div key="grade-section-ungraded" className="mb-4">
                         <h5 className="text-md font-medium text-muted-foreground mb-2 ml-2">Grade: Ungraded/Other</h5>
@@ -648,6 +720,3 @@ export default function BirthdayCalendarPage() {
     </div>
   );
 }
-
-
-    
