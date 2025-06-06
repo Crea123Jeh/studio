@@ -131,7 +131,7 @@ export default function CalendarEventsPage() {
 
   useEffect(() => {
     if (selectedDate) {
-      setNewEventDate(startOfDay(selectedDate)); // Ensure newEventDate is also start of day
+      setNewEventDate(startOfDay(selectedDate));
     }
   }, [selectedDate]);
 
