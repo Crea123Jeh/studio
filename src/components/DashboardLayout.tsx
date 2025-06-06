@@ -1,7 +1,7 @@
 
 "use client";
 
-import { type ReactNode, useEffect } from 'react';
+import type { ReactNode, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -18,6 +18,8 @@ import {
   Info,
   Cake, 
   BookOpen, 
+  School, // Added for Academic Calendar
+  History, // Added for Previous Activity
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -54,7 +56,9 @@ const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/project', label: 'Projects', icon: Briefcase },
   { href: '/dashboard/calendar', label: 'PPM Calendar', icon: CalendarDays },
+  { href: '/dashboard/previous-activity', label: 'Previous Activity', icon: History },
   { href: '/dashboard/birthday-calendar', label: 'Birthday Calendar', icon: Cake },
+  { href: '/dashboard/academic-calendar', label: 'Academic Calendar', icon: School },
   { href: '/dashboard/chat', label: 'Team Chat', icon: MessageSquare },
   { href: '/dashboard/information', label: 'Information', icon: Info },
   { href: '/dashboard/knowledge', label: 'Knowledge Hub', icon: BookOpen }, 
@@ -207,4 +211,3 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
-
