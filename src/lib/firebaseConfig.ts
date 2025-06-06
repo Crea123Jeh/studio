@@ -1,10 +1,11 @@
 
 export const firebaseConfig = {
-  apiKey: "PASTE_YOUR_API_KEY_HERE",
-  authDomain: "PASTE_YOUR_AUTH_DOMAIN_HERE", // e.g., your-project-id.firebaseapp.com
-  projectId: "PASTE_YOUR_PROJECT_ID_HERE",    // e.g., your-project-id
-  storageBucket: "PASTE_YOUR_STORAGE_BUCKET_HERE", // e.g., your-project-id.appspot.com
-  messagingSenderId: "PASTE_YOUR_MESSAGING_SENDER_ID_HERE",
-  appId: "PASTE_YOUR_APP_ID_HERE",
-  measurementId: "PASTE_YOUR_MEASUREMENT_ID_HERE_IF_AVAILABLE" // Optional, e.g., G-XXXXXXXXXX
+  apiKey: "AIzaSyDesT-ZOX0b3Vlaj8Ts7SYPotHV-6Yh1Lg", // This is generated when you register your app!
+  authDomain: "ppm-server-23bae.firebaseapp.com",
+  projectId: "ppm-server-23bae",
+  storageBucket: "ppm-server-23bae.appspot.com", // Or similar depending on setup
+  messagingSenderId: "499971564114",
+  appId: "1:499971564114:web:817c1ab6075531c26ff58b", // This is generated when you register your app!
+  measurementId: "G-492288554" // Included because you have Google Analytics!
 };
+

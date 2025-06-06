@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { db } from "@/lib/firebase"; // Updated path
+import { db } from "@/lib/firebase";
 import { collection, addDoc, onSnapshot, query, orderBy, Timestamp } from "firebase/firestore";
 import { format, isSameDay, startOfDay } from "date-fns";
 import { CalendarDays, Info, PlusCircle, CalendarIcon as LucideCalendarIcon } from "lucide-react";
@@ -73,8 +73,8 @@ export default function CalendarEventsPage() {
   const eventTypeDotColors: Record<CalendarEvent["type"], string> = {
     Deadline: "bg-destructive",
     Meeting: "bg-primary",
-    Milestone: "bg-green-500", // Using a specific green for visibility
-    Reminder: "bg-yellow-400", // Using a specific yellow for visibility
+    Milestone: "bg-green-500",
+    Reminder: "bg-yellow-400",
   };
 
   const getBadgeClassNames = (type: CalendarEvent["type"]): string => {
@@ -86,7 +86,7 @@ export default function CalendarEventsPage() {
       case "Milestone":
         return "bg-green-500 text-white hover:bg-green-600";
       case "Reminder":
-        return "bg-yellow-400 text-black hover:bg-yellow-500"; // Assuming black text for better contrast on yellow-400
+        return "bg-yellow-400 text-black hover:bg-yellow-500";
       default:
         return "bg-secondary text-secondary-foreground hover:bg-secondary/80";
     }
@@ -108,7 +108,7 @@ export default function CalendarEventsPage() {
         title: newEventTitle,
         description: newEventDescription,
         type: newEventType,
-        date: Timestamp.fromDate(startOfDay(newEventDate)), // Store as Firestore Timestamp, ensuring start of day
+        date: Timestamp.fromDate(startOfDay(newEventDate)),
       });
       toast({
         title: "Event Added",
@@ -131,7 +131,7 @@ export default function CalendarEventsPage() {
 
   useEffect(() => {
     if (selectedDate) {
-      setNewEventDate(selectedDate);
+      setNewEventDate(startOfDay(selectedDate)); // Ensure newEventDate is also start of day
     }
   }, [selectedDate]);
 
@@ -180,6 +180,7 @@ export default function CalendarEventsPage() {
                   onChange={(e) => setNewEventDescription(e.target.value)}
                   className="col-span-3"
                   rows={3}
+                  placeholder="Optional: Add more details..."
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
@@ -203,10 +204,10 @@ export default function CalendarEventsPage() {
                     <Calendar
                       mode="single"
                       selected={newEventDate}
-                      onSelect={setNewEventDate}
+                      onSelect={(date) => date && setNewEventDate(startOfDay(date))}
                       initialFocus
-                      month={newEventDate} // Control month view in picker
-                      onMonthChange={(month) => setNewEventDate(current => current ? new Date(month.getFullYear(), month.getMonth(), current.getDate()) : month)} // Allow month change
+                      month={newEventDate}
+                      onMonthChange={(month) => setNewEventDate(current => current ? new Date(month.getFullYear(), month.getMonth(), current.getDate()) : month)}
                     />
                   </PopoverContent>
                 </Popover>
@@ -236,43 +237,44 @@ export default function CalendarEventsPage() {
           </DialogContent>
         </Dialog>
       </div>
-      <Card className="shadow-lg">
-        <CardDescription className="p-6 pt-2">
-          View important project deadlines, meetings, and milestones. Click on a date to see events. Add new events using the button above.
-        </CardDescription>
+      <Card className="shadow-xl">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg">Calendar Overview</CardTitle>
+          <CardDescription>
+            View important project deadlines, meetings, and milestones. Click a date to see events. Add new events using the button above.
+          </CardDescription>
+        </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-2">
             <Calendar
               mode="single"
               selected={selectedDate}
-              onSelect={setSelectedDate}
+              onSelect={(date) => date && setSelectedDate(startOfDay(date))}
               month={currentMonth}
               onMonthChange={setCurrentMonth}
-              className="rounded-md border p-0 w-full"
+              className="rounded-md border p-0 w-full shadow-inner bg-background"
               classNames={{
-                day_today: "bg-primary text-primary-foreground hover:bg-primary/90 rounded-md",
+                day_today: "bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-bold",
+                day_selected: "bg-accent text-accent-foreground hover:bg-accent/90 focus:bg-accent focus:text-accent-foreground rounded-md",
               }}
               modifiers={{
                 eventDay: events.map(event => event.date)
               }}
               modifiersStyles={{
-                eventDay: { // Style for days that have events (dot indicator logic is in DayContent)
-                  /* No specific style here, dots are handled by DayContent */
-                }
+                eventDay: { /* Style for days that have events (dot indicator logic is in DayContent) */ }
               }}
               components={{
                 DayContent: ({ date, displayMonth }) => {
                   const dayEvents = events.filter(event => isSameDay(event.date, date));
-                  // Check if the date is part of the displayed month
                   const isCurrentMonth = date.getMonth() === displayMonth.getMonth();
 
                   return (
                     <div className="relative h-full w-full flex flex-col items-center justify-center p-1.5">
                       {format(date, "d")}
                       {isCurrentMonth && dayEvents.length > 0 && (
-                        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex space-x-0.5">
+                        <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex space-x-1">
                           {dayEvents.slice(0,3).map(event => (
-                            <span key={`${event.id}-dot`} className={`h-1.5 w-1.5 rounded-full ${eventTypeDotColors[event.type]}`} />
+                            <span key={`${event.id}-dot`} className={`h-2 w-2 rounded-full ${eventTypeDotColors[event.type]}`} />
                           ))}
                         </div>
                       )}
@@ -283,29 +285,38 @@ export default function CalendarEventsPage() {
             />
           </div>
           <div className="md:col-span-1">
-            <h3 className="text-xl font-semibold mb-4">
+            <h3 className="text-xl font-semibold mb-4 pb-2 border-b">
               Events for: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
             </h3>
             {eventsForSelectedDate.length > 0 ? (
-              <ul className="space-y-3 max-h-[calc(100vh-400px)] overflow-y-auto pr-2"> {/* Adjusted max height */}
+              <ul className="space-y-4 max-h-[calc(100vh-450px)] overflow-y-auto pr-2"> {/* Adjusted max height */}
                 {eventsForSelectedDate.map((event) => (
-                  <li key={event.id} className="p-3 border rounded-md shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start">
-                      <h4 className="font-semibold text-md">{event.title}</h4>
-                       <Badge className={cn("text-xs", getBadgeClassNames(event.type))}>
-                        {event.type}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">{event.description}</p>
-                    <p className="text-xs text-muted-foreground mt-2">{format(event.date, "MMM d, yyyy")}</p>
+                  <li key={event.id}>
+                    <Card className="hover:shadow-lg transition-shadow duration-200 ease-in-out">
+                      <CardHeader className="p-3 pb-1.5">
+                        <div className="flex justify-between items-start gap-2">
+                           <CardTitle className="text-md leading-tight">{event.title}</CardTitle>
+                           <Badge className={cn("text-xs whitespace-nowrap shrink-0", getBadgeClassNames(event.type))}>
+                            {event.type}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-3 pt-0">
+                        <p className="text-sm text-muted-foreground mb-2">{event.description || <span className="italic">No description provided.</span>}</p>
+                        <p className="text-xs text-muted-foreground">{format(event.date, "EEEE, MMMM d, yyyy")}</p>
+                      </CardContent>
+                    </Card>
                   </li>
                 ))}
               </ul>
             ) : (
-              <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full">
-                <Info className="h-10 w-10 text-muted-foreground mb-2"/>
-                <p className="text-muted-foreground">
-                  {selectedDate ? "No events scheduled for this date." : "Select a date to view events."}
+              <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50">
+                <Info className="h-12 w-12 text-primary/70 mb-3"/>
+                <p className="text-muted-foreground font-medium text-lg">
+                  {selectedDate ? "No Events Scheduled" : "Select a Date"}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                   {selectedDate ? "There are no events for this day." : "Click on a day in the calendar to view its events."}
                 </p>
               </div>
             )}
@@ -315,3 +326,4 @@ export default function CalendarEventsPage() {
     </div>
   );
 }
+
