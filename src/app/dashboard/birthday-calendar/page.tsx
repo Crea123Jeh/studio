@@ -97,7 +97,9 @@ const BirthdayCountdownCell = ({ displayDate }: { displayDate: Date }) => {
       <div>
         {formattedDate}
         <span className="block text-xs text-muted-foreground mt-0.5">
-          <Timer className="inline h-3 w-3 mr-1 text-primary/80" />
+          <span className="p-0.5 bg-black rounded-sm inline-flex items-center justify-center mr-1 align-middle">
+            <Timer className="h-3 w-3 text-primary" />
+          </span>
           {timeLeft.days > 0 && `${timeLeft.days}d `}
           {`${timeLeft.hours ?? 0}h ${timeLeft.minutes ?? 0}m ${timeLeft.seconds ?? 0}s`}
         </span>
@@ -446,7 +448,9 @@ export default function BirthdayCalendarPage() {
                     <p className="text-xs text-muted-foreground italic">This birthday instance has passed.</p>
                 ) : timeLeft.days !== undefined ? (
                     <p className="text-xs text-muted-foreground flex items-center">
-                        <Timer className="h-3.5 w-3.5 mr-1.5 text-primary" />
+                        <span className="p-1 bg-black rounded-md inline-flex items-center justify-center mr-1.5">
+                           <Timer className="h-3.5 w-3.5 text-primary" />
+                        </span>
                         Next birthday in: 
                         <span className="font-medium text-foreground ml-1">
                             {timeLeft.days > 0 && `${timeLeft.days}d `}
