@@ -120,7 +120,7 @@ function Header() {
         ) : user ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 flex items-center gap-2 rounded-full mt-5">
+              <Button variant="ghost" className="relative h-8 flex items-center gap-2 rounded-full mt-3">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={`https://placehold.co/40x40.png?text=${username ? username.charAt(0).toUpperCase() : 'U'}`} alt={username || 'User'} data-ai-hint="user avatar" />
                   <AvatarFallback>{username ? username.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
@@ -195,3 +195,4 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
+
