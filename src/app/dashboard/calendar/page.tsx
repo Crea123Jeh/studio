@@ -81,6 +81,13 @@ export default function CalendarEventsPage() {
     Reminder: "bg-yellow-400",
   };
 
+  const eventTypeBorderColors: Record<CalendarEvent["type"], string> = {
+    Deadline: "hsl(var(--destructive))",
+    Meeting: "hsl(var(--primary))",
+    Milestone: "hsl(var(--chart-2))", 
+    Reminder: "hsl(var(--chart-4))", 
+  };
+
   const getBadgeClassNames = (type: CalendarEvent["type"]): string => {
     switch (type) {
       case "Deadline":
@@ -144,8 +151,8 @@ export default function CalendarEventsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-1 bg-black rounded-md inline-flex items-center justify-center">
-            <CalendarDays className="h-6 w-6 text-primary" />
+          <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center"> {/* Adjusted padding */}
+            <CalendarDays className="h-6 w-6 text-primary" /> {/* Icon size adjusted */}
           </div>
           <h1 className="text-3xl font-bold font-headline tracking-tight">Project Calendar</h1>
         </div>
@@ -245,7 +252,7 @@ export default function CalendarEventsPage() {
       </div>
 
       <Card className="shadow-lg">
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6"> {/* Removed CardHeader, added pt-6 */}
+        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6">
           <div className="md:col-span-2">
             <Calendar
               mode="single"
@@ -294,8 +301,11 @@ export default function CalendarEventsPage() {
                 <ul className="space-y-4">
                   {eventsForSelectedDate.map((event) => (
                     <li key={event.id}>
-                      <Card className="hover:shadow-lg transition-shadow duration-200 ease-in-out">
-                        <CardHeader className="p-3 pb-1.5">
+                      <Card 
+                        className="hover:shadow-xl transition-shadow duration-200 ease-in-out border-l-4"
+                        style={{ borderLeftColor: eventTypeBorderColors[event.type] }}
+                      >
+                        <CardHeader className="p-4 pb-2">
                           <div className="flex justify-between items-start gap-2">
                              <CardTitle className="text-md leading-tight">{event.title}</CardTitle>
                              <Badge className={cn("text-xs whitespace-nowrap shrink-0", getBadgeClassNames(event.type))}>
@@ -303,8 +313,8 @@ export default function CalendarEventsPage() {
                             </Badge>
                           </div>
                         </CardHeader>
-                        <CardContent className="p-3 pt-0">
-                          <p className="text-sm font-medium text-muted-foreground mb-1.5">{format(event.date, "EEEE, MMMM d, yyyy")}</p>
+                        <CardContent className="p-4 pt-1">
+                          <p className="text-sm font-semibold text-muted-foreground mb-1.5">{format(event.date, "EEEE, MMMM d, yyyy")}</p>
                           <p className="text-sm text-muted-foreground">{event.description || <span className="italic">No description provided.</span>}</p>
                         </CardContent>
                       </Card>
@@ -344,8 +354,11 @@ export default function CalendarEventsPage() {
               <ul className="space-y-4">
                 {allUpcomingEvents.map((event) => (
                   <li key={event.id}>
-                    <Card className="hover:shadow-lg transition-shadow duration-200 ease-in-out">
-                      <CardHeader className="p-3 pb-1.5">
+                    <Card 
+                      className="hover:shadow-xl transition-shadow duration-200 ease-in-out border-l-4"
+                      style={{ borderLeftColor: eventTypeBorderColors[event.type] }}
+                    >
+                      <CardHeader className="p-4 pb-2">
                         <div className="flex justify-between items-start gap-2">
                            <CardTitle className="text-md leading-tight">{event.title}</CardTitle>
                            <Badge className={cn("text-xs whitespace-nowrap shrink-0", getBadgeClassNames(event.type))}>
@@ -353,8 +366,8 @@ export default function CalendarEventsPage() {
                           </Badge>
                         </div>
                       </CardHeader>
-                      <CardContent className="p-3 pt-0">
-                        <p className="text-sm font-medium text-muted-foreground mb-1.5">{format(event.date, "EEEE, MMMM d, yyyy")}</p>
+                      <CardContent className="p-4 pt-1">
+                        <p className="text-sm font-semibold text-muted-foreground mb-1.5">{format(event.date, "EEEE, MMMM d, yyyy")}</p>
                         <p className="text-sm text-muted-foreground">{event.description || <span className="italic">No description provided.</span>}</p>
                       </CardContent>
                     </Card>
@@ -374,3 +387,4 @@ export default function CalendarEventsPage() {
     </div>
   );
 }
+
