@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, deleteDoc, updateDoc, getDoc } from "firebase/firestore";
+import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, deleteDoc, updateDoc } from "firebase/firestore";
 import { format, isSameDay, startOfDay, getYear, getMonth, getDate, differenceInYears } from "date-fns";
 import { Cake, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered, Trash2, PartyPopper, User, Users, Edit3, Settings2 } from "lucide-react";
 
@@ -140,9 +140,11 @@ export default function BirthdayCalendarPage() {
     }));
   }, [birthdays, selectedDate]);
   
+  type BirthdayEventWithDisplayInfo = BirthdayEvent & { displayDate: Date; age: number };
+
   const categorizedUpcomingBirthdays = useMemo(() => {
     const today = startOfDay(new Date());
-    const upcoming: {teachers: (BirthdayEvent & { displayDate: Date; age: number })[], studentsByGrade: Record<string, (BirthdayEvent & { displayDate: Date; age: number })[]> } = {
+    const upcoming: {teachers: BirthdayEventWithDisplayInfo[], studentsByGrade: Record<string, BirthdayEventWithDisplayInfo[]> } = {
       teachers: [],
       studentsByGrade: {},
     };
@@ -159,7 +161,7 @@ export default function BirthdayCalendarPage() {
       }
       
       const ageAtUpcomingBirthday = calculateAge(bday.anchorDate, displayDate);
-      const eventWithDisplayInfo = { ...bday, displayDate, age: ageAtUpcomingBirthday };
+      const eventWithDisplayInfo: BirthdayEventWithDisplayInfo = { ...bday, displayDate, age: ageAtUpcomingBirthday };
 
       if (bday.type === "Teacher") {
         upcoming.teachers.push(eventWithDisplayInfo);
@@ -181,7 +183,7 @@ export default function BirthdayCalendarPage() {
   }, [birthdays]);
 
   const birthdayDotColor = "bg-purple-500";
-  const birthdayBorderColor = "hsl(var(--purple-500, 262 84% 57%))";
+  const birthdayBorderColor = "hsl(var(--purple-500, 262 84% 57%))"; // You might want to define this HSL in globals.css
   const birthdayBadgeClassName = "bg-purple-500 text-white hover:bg-purple-600";
   
   const handleSaveBirthday = async (e: FormEvent) => {
@@ -207,7 +209,7 @@ export default function BirthdayCalendarPage() {
       name: birthdayName,
       anchorDate: Timestamp.fromDate(startOfDay(birthdayDate)), // Store the actual birth date
       type: birthdayType,
-      grade: birthdayType === "Student" ? birthdayGrade : "",
+      grade: birthdayType === "Student" ? birthdayGrade : null, // Store null if not student
     };
 
     try {
@@ -464,9 +466,14 @@ export default function BirthdayCalendarPage() {
             <ScrollArea className="h-[calc(100vh-480px)] md:h-[calc(100vh-450px)] pr-2">
               {birthdaysForSelectedDate.length > 0 ? (
                 <ul className="space-y-4">
-                  {birthdaysForSelectedDate.map(({id, displayDate, age, ...bday}) => (
-                    <li key={id}>
-                       <BirthdayCard birthday={bday} displayDate={displayDate} age={age} showActions={true} />
+                  {birthdaysForSelectedDate.map((event) => (
+                    <li key={event.id}>
+                       <BirthdayCard 
+                          birthday={event} // Pass the full event object
+                          displayDate={event.displayDate} 
+                          age={event.age} 
+                          showActions={true} 
+                        />
                     </li>
                   ))}
                 </ul>
@@ -502,9 +509,14 @@ export default function BirthdayCalendarPage() {
               <div className="mb-6">
                 <h4 className="text-lg font-semibold mb-3 pb-1 border-b flex items-center gap-2"><Users className="h-5 w-5 text-primary/80"/>Teachers</h4>
                 <ul className="space-y-4">
-                  {categorizedUpcomingBirthdays.teachers.map(({id, displayDate, age, ...bday}) => (
-                    <li key={`${id}-teacher-${getYear(displayDate)}`}>
-                       <BirthdayCard birthday={bday} displayDate={displayDate} age={age} showActions={true} />
+                  {categorizedUpcomingBirthdays.teachers.map((event) => (
+                    <li key={`${event.id}-teacher-${getYear(event.displayDate)}`}>
+                       <BirthdayCard 
+                          birthday={event} // Pass the full event object
+                          displayDate={event.displayDate} 
+                          age={event.age} 
+                          showActions={true} 
+                        />
                     </li>
                   ))}
                 </ul>
@@ -521,9 +533,14 @@ export default function BirthdayCalendarPage() {
                             <div key={`grade-section-${gradeKey}`} className="mb-4">
                                 <h5 className="text-md font-medium text-muted-foreground mb-2 ml-2">Grade: {gradeKey}</h5>
                                 <ul className="space-y-4">
-                                {studentsInGrade.map(({id, displayDate, age, ...bday}) => (
-                                    <li key={`${id}-student-${gradeKey}-${getYear(displayDate)}`}>
-                                    <BirthdayCard birthday={bday} displayDate={displayDate} age={age} showActions={true} />
+                                {studentsInGrade.map((event) => (
+                                    <li key={`${event.id}-student-${gradeKey}-${getYear(event.displayDate)}`}>
+                                    <BirthdayCard 
+                                      birthday={event} // Pass the full event object
+                                      displayDate={event.displayDate} 
+                                      age={event.age} 
+                                      showActions={true} 
+                                    />
                                     </li>
                                 ))}
                                 </ul>
@@ -537,9 +554,14 @@ export default function BirthdayCalendarPage() {
                      <div key="grade-section-ungraded" className="mb-4">
                         <h5 className="text-md font-medium text-muted-foreground mb-2 ml-2">Grade: Ungraded/Other</h5>
                         <ul className="space-y-4">
-                        {categorizedUpcomingBirthdays.studentsByGrade["Ungraded"].map(({id, displayDate, age, ...bday}) => (
-                            <li key={`${id}-student-ungraded-${getYear(displayDate)}`}>
-                            <BirthdayCard birthday={bday} displayDate={displayDate} age={age} showActions={true} />
+                        {categorizedUpcomingBirthdays.studentsByGrade["Ungraded"].map((event) => (
+                            <li key={`${event.id}-student-ungraded-${getYear(event.displayDate)}`}>
+                            <BirthdayCard 
+                              birthday={event} // Pass the full event object
+                              displayDate={event.displayDate} 
+                              age={event.age} 
+                              showActions={true} 
+                            />
                             </li>
                         ))}
                         </ul>
@@ -561,5 +583,3 @@ export default function BirthdayCalendarPage() {
     </div>
   );
 }
-
-    
