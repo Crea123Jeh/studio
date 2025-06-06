@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
@@ -133,7 +134,7 @@ export default function BirthdayCalendarPage() {
     return birthdays.filter(bday => 
         getMonth(bday.anchorDate) === getMonth(selectedDate) &&
         getDate(bday.anchorDate) === getDate(selectedDate)
-    ).map(event => ({ // Renamed bday to event for consistency with map parameter
+    ).map(event => ({ 
         ...event,
         displayDate: new Date(currentSelectedYear, getMonth(event.anchorDate), getDate(event.anchorDate)),
         age: calculateAge(event.anchorDate, new Date(currentSelectedYear, getMonth(event.anchorDate), getDate(event.anchorDate)))
@@ -584,7 +585,7 @@ export default function BirthdayCalendarPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">
             <PartyPopper className="h-6 w-6 text-primary" />
-            Today's Birthdays
+            Today&apos;s Birthdays
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -638,76 +639,121 @@ export default function BirthdayCalendarPage() {
             All Upcoming Birthdays
           </CardTitle>
           <CardDescription>
-            A categorized list of all upcoming birthdays.
+            A categorized list of all upcoming birthdays, presented in tables.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="max-h-[600px] pr-2">
+          <ScrollArea className="max-h-[700px] pr-2">
             {categorizedUpcomingBirthdays.teachers.length > 0 && (
-              <div className="mb-6">
-                <h4 className="text-lg font-semibold mb-3 pb-1 border-b flex items-center gap-2"><Users className="h-5 w-5 text-primary/80"/>Teachers</h4>
-                <ul className="space-y-4">
-                  {categorizedUpcomingBirthdays.teachers.map((event) => (
-                    <li key={`${event.id}-teacher-${getYear(event.displayDate)}`}>
-                       <BirthdayCard 
-                          birthday={event} 
-                          displayDate={event.displayDate} 
-                          age={event.age} 
-                          showActions={true} 
-                        />
-                    </li>
-                  ))}
-                </ul>
+              <div className="mb-8">
+                <h4 className="text-xl font-semibold mb-3 pb-2 border-b flex items-center gap-2"><Users className="h-6 w-6 text-primary/80"/>Teachers</h4>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Next Birthday</TableHead>
+                      <TableHead className="text-right">Age on Date</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {categorizedUpcomingBirthdays.teachers.map((event) => (
+                      <TableRow key={`${event.id}-teacher-upcoming`}>
+                        <TableCell className="font-medium">{event.name}</TableCell>
+                        <TableCell>{format(event.displayDate, "PPP")}</TableCell>
+                        <TableCell className="text-right">{event.age}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(event)} title="Edit">
+                            <Edit3 className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteBirthday(event.id)} title="Delete">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             )}
 
             {Object.keys(categorizedUpcomingBirthdays.studentsByGrade).length > 0 && (
               <div>
-                <h4 className="text-lg font-semibold mb-3 pb-1 border-b flex items-center gap-2"><User className="h-5 w-5 text-primary/80"/>Students</h4>
+                <h4 className="text-xl font-semibold mb-4 pb-2 border-b flex items-center gap-2"><User className="h-6 w-6 text-primary/80"/>Students</h4>
                 {studentGradeOptions.map(gradeKey => {
                     const studentsInGrade = categorizedUpcomingBirthdays.studentsByGrade[gradeKey];
                     if(studentsInGrade && studentsInGrade.length > 0) {
                         return (
-                            <div key={`grade-section-${gradeKey}`} className="mb-4">
-                                <h5 className="text-md font-medium text-muted-foreground mb-2 ml-2">Grade: {gradeKey}</h5>
-                                <ul className="space-y-4">
-                                {studentsInGrade.map((event) => (
-                                    <li key={`${event.id}-student-${gradeKey}-${getYear(event.displayDate)}`}>
-                                    <BirthdayCard 
-                                      birthday={event} 
-                                      displayDate={event.displayDate} 
-                                      age={event.age} 
-                                      showActions={true} 
-                                    />
-                                    </li>
-                                ))}
-                                </ul>
+                            <div key={`grade-section-table-${gradeKey}`} className="mb-6">
+                                <h5 className="text-lg font-medium text-muted-foreground mb-2 ml-1">Grade: {gradeKey}</h5>
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Name</TableHead>
+                                      <TableHead>Next Birthday</TableHead>
+                                      <TableHead className="text-right">Age on Date</TableHead>
+                                      <TableHead className="text-right">Actions</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {studentsInGrade.map((event) => (
+                                      <TableRow key={`${event.id}-student-${gradeKey}-upcoming`}>
+                                        <TableCell className="font-medium">{event.name}</TableCell>
+                                        <TableCell>{format(event.displayDate, "PPP")}</TableCell>
+                                        <TableCell className="text-right">{event.age}</TableCell>
+                                        <TableCell className="text-right">
+                                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(event)} title="Edit">
+                                            <Edit3 className="h-4 w-4" />
+                                          </Button>
+                                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteBirthday(event.id)} title="Delete">
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
                             </div>
                         )
                     }
                     return null;
                 })}
                 {categorizedUpcomingBirthdays.studentsByGrade["Ungraded"] && categorizedUpcomingBirthdays.studentsByGrade["Ungraded"].length > 0 && (
-                     <div key="grade-section-ungraded" className="mb-4">
-                        <h5 className="text-md font-medium text-muted-foreground mb-2 ml-2">Grade: Ungraded/Other</h5>
-                        <ul className="space-y-4">
-                        {categorizedUpcomingBirthdays.studentsByGrade["Ungraded"].map((event) => (
-                            <li key={`${event.id}-student-ungraded-${getYear(event.displayDate)}`}>
-                            <BirthdayCard 
-                              birthday={event} 
-                              displayDate={event.displayDate} 
-                              age={event.age} 
-                              showActions={true} 
-                            />
-                            </li>
-                        ))}
-                        </ul>
+                     <div key="grade-section-table-ungraded" className="mb-6">
+                        <h5 className="text-lg font-medium text-muted-foreground mb-2 ml-1">Grade: Ungraded/Other</h5>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Name</TableHead>
+                              <TableHead>Next Birthday</TableHead>
+                              <TableHead className="text-right">Age on Date</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {categorizedUpcomingBirthdays.studentsByGrade["Ungraded"].map((event) => (
+                              <TableRow key={`${event.id}-student-ungraded-upcoming`}>
+                                <TableCell className="font-medium">{event.name}</TableCell>
+                                <TableCell>{format(event.displayDate, "PPP")}</TableCell>
+                                <TableCell className="text-right">{event.age}</TableCell>
+                                <TableCell className="text-right">
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(event)} title="Edit">
+                                    <Edit3 className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteBirthday(event.id)} title="Delete">
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
                     </div>
                 )}
               </div>
             )}
             
-            {categorizedUpcomingBirthdays.teachers.length === 0 && Object.keys(categorizedUpcomingBirthdays.studentsByGrade).length === 0 && (
+            {categorizedUpcomingBirthdays.teachers.length === 0 && Object.keys(categorizedUpcomingBirthdays.studentsByGrade).every(g => !categorizedUpcomingBirthdays.studentsByGrade[g] || categorizedUpcomingBirthdays.studentsByGrade[g].length === 0) && (
                <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50 min-h-[150px]">
                 <Cake className="h-12 w-12 text-primary/70 mb-3"/>
                 <p className="text-muted-foreground font-medium text-lg">No Upcoming Birthdays</p>
@@ -720,3 +766,6 @@ export default function BirthdayCalendarPage() {
     </div>
   );
 }
+
+
+    
