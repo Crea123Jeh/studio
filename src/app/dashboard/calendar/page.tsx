@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
@@ -16,19 +16,20 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, onSnapshot, query, orderBy, Timestamp } from "firebase/firestore";
-import { format, isSameDay, startOfDay } from "date-fns";
-import { CalendarDays, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered } from "lucide-react";
+import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, deleteDoc } from "firebase/firestore";
+import { format, isSameDay, startOfDay, getYear, getMonth, getDate } from "date-fns";
+import { CalendarDays, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered, Trash2, PartyPopper } from "lucide-react";
 
 interface CalendarEvent {
   id: string; // Firestore document ID
-  date: Date; // Converted from Firestore Timestamp for client-side use
+  date: Date; // Converted from Firestore Timestamp. For recurring, this is the anchor date.
   title: string;
   description: string;
-  type: "Deadline" | "Meeting" | "Milestone" | "Reminder";
+  type: "Deadline" | "Meeting" | "Milestone" | "Reminder" | "Birthday";
+  isRecurring?: boolean;
 }
 
-const eventTypes: CalendarEvent["type"][] = ["Deadline", "Meeting", "Milestone", "Reminder"];
+const eventTypes: CalendarEvent["type"][] = ["Deadline", "Meeting", "Milestone", "Reminder", "Birthday"];
 
 export default function CalendarEventsPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -54,6 +55,7 @@ export default function CalendarEventsPage() {
           description: data.description,
           type: data.type,
           date: (data.date as Timestamp).toDate(),
+          isRecurring: data.isRecurring || false,
         } as CalendarEvent;
       });
       setEvents(fetchedEvents);
@@ -69,16 +71,72 @@ export default function CalendarEventsPage() {
     return () => unsubscribe();
   }, [toast]);
 
-  const eventsForSelectedDate = selectedDate ? events.filter(event => isSameDay(event.date, selectedDate)) : [];
+  const handleDeleteEvent = async (eventId: string) => {
+    try {
+      await deleteDoc(doc(db, "calendarEvents", eventId));
+      toast({
+        title: "Event Deleted",
+        description: "The event has been successfully deleted.",
+      });
+    } catch (error) {
+      console.error("Error deleting event: ", error);
+      toast({
+        title: "Error Deleting Event",
+        description: "Could not delete the event. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const eventsForSelectedDate = useMemo(() => {
+    if (!selectedDate) return [];
+    return events.filter(event => {
+      if (event.type === "Birthday" && event.isRecurring) {
+        // For birthdays, match month and day, ignoring the year of the selectedDate for comparison with anchor date
+        return getMonth(event.date) === getMonth(selectedDate) &&
+               getDate(event.date) === getDate(selectedDate);
+      }
+      return isSameDay(event.date, selectedDate);
+    }).map(event => {
+      if (event.type === "Birthday" && event.isRecurring && selectedDate) {
+        // Ensure the displayed date for a birthday matches the selectedDate's year
+        return { ...event, date: new Date(getYear(selectedDate), getMonth(event.date), getDate(event.date)) };
+      }
+      return event;
+    });
+  }, [events, selectedDate]);
   
-  const today = startOfDay(new Date());
-  const allUpcomingEvents = events.filter(event => event.date >= today);
+  const allUpcomingEvents = useMemo(() => {
+    const today = startOfDay(new Date());
+    const displayEvents: CalendarEvent[] = [];
+
+    events.forEach(event => {
+      if (event.type === "Birthday" && event.isRecurring) {
+        const currentYear = getYear(today);
+        let nextBirthdayDate = new Date(currentYear, getMonth(event.date), getDate(event.date));
+        if (startOfDay(nextBirthdayDate) < today) { // If this year's birthday has passed
+          nextBirthdayDate = new Date(currentYear + 1, getMonth(event.date), getDate(event.date));
+        }
+        // Only add if it's today or in the future
+        if (startOfDay(nextBirthdayDate) >= today) {
+          displayEvents.push({
+            ...event,
+            date: nextBirthdayDate, // Override date for display purposes
+          });
+        }
+      } else if (!event.isRecurring && event.date >= today) {
+        displayEvents.push(event);
+      }
+    });
+    return displayEvents.sort((a, b) => a.date.getTime() - b.date.getTime());
+  }, [events]);
 
   const eventTypeDotColors: Record<CalendarEvent["type"], string> = {
     Deadline: "bg-destructive",
     Meeting: "bg-primary",
     Milestone: "bg-green-500",
     Reminder: "bg-yellow-400",
+    Birthday: "bg-purple-500",
   };
 
   const eventTypeBorderColors: Record<CalendarEvent["type"], string> = {
@@ -86,6 +144,7 @@ export default function CalendarEventsPage() {
     Meeting: "hsl(var(--primary))",
     Milestone: "hsl(var(--chart-2))", 
     Reminder: "hsl(var(--chart-4))", 
+    Birthday: "hsl(var(--purple-500, 262 84% 57%))", // Fallback in case --purple-500 is not in theme
   };
 
   const getBadgeClassNames = (type: CalendarEvent["type"]): string => {
@@ -98,6 +157,8 @@ export default function CalendarEventsPage() {
         return "bg-green-500 text-white hover:bg-green-600";
       case "Reminder":
         return "bg-yellow-400 text-black hover:bg-yellow-500";
+      case "Birthday":
+        return "bg-purple-500 text-white hover:bg-purple-600";
       default:
         return "bg-secondary text-secondary-foreground hover:bg-secondary/80";
     }
@@ -114,13 +175,20 @@ export default function CalendarEventsPage() {
       return;
     }
 
+    const eventData: Omit<CalendarEvent, 'id' | 'date'> & { date: Timestamp; isRecurring?: boolean } = {
+      title: newEventTitle,
+      description: newEventDescription,
+      type: newEventType,
+      date: Timestamp.fromDate(startOfDay(newEventDate)),
+    };
+
+    if (newEventType === "Birthday") {
+      eventData.isRecurring = true;
+    }
+
+
     try {
-      await addDoc(collection(db, "calendarEvents"), {
-        title: newEventTitle,
-        description: newEventDescription,
-        type: newEventType,
-        date: Timestamp.fromDate(startOfDay(newEventDate)),
-      });
+      await addDoc(collection(db, "calendarEvents"), eventData);
       toast({
         title: "Event Added",
         description: `"${newEventTitle}" has been added to the calendar.`,
@@ -146,13 +214,46 @@ export default function CalendarEventsPage() {
     }
   }, [selectedDate]);
 
+  const EventCard = ({ event, showDeleteButton = false }: { event: CalendarEvent, showDeleteButton?: boolean }) => (
+    <Card 
+      className="hover:shadow-xl transition-shadow duration-200 ease-in-out border-l-4"
+      style={{ borderLeftColor: eventTypeBorderColors[event.type] }}
+    >
+      <CardHeader className="p-4 pb-2">
+        <div className="flex justify-between items-start gap-2">
+           <CardTitle className="text-md leading-tight">{event.title}</CardTitle>
+           <div className="flex items-center gap-2">
+            <Badge className={cn("text-xs whitespace-nowrap shrink-0", getBadgeClassNames(event.type))}>
+              {event.type === "Birthday" ? <PartyPopper className="inline h-3 w-3 mr-1"/> : null}
+              {event.type}
+            </Badge>
+            {showDeleteButton && (
+                 <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    onClick={() => handleDeleteEvent(event.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span className="sr-only">Delete event</span>
+                  </Button>
+            )}
+           </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-4 pt-1">
+        <p className="text-sm font-semibold text-muted-foreground mb-1.5">{format(event.date, "EEEE, MMMM d, yyyy")}</p>
+        <p className="text-sm text-muted-foreground">{event.description || <span className="italic">No description provided.</span>}</p>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center"> {/* Adjusted padding */}
-            <CalendarDays className="h-6 w-6 text-primary" /> {/* Icon size adjusted */}
+          <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center">
+            <CalendarDays className="h-6 w-6 text-primary" />
           </div>
           <h1 className="text-3xl font-bold font-headline tracking-tight">Project Calendar</h1>
         </div>
@@ -266,14 +367,20 @@ export default function CalendarEventsPage() {
                 day_selected: "bg-accent text-accent-foreground hover:bg-accent/90 focus:bg-accent focus:text-accent-foreground rounded-md",
               }}
               modifiers={{
-                eventDay: events.map(event => event.date)
+                // eventDay will be based on dynamic check in DayContent for recurring events
               }}
               modifiersStyles={{
-                eventDay: { /* Style for days that have events (dot indicator logic is in DayContent) */ }
+                // eventDay: { /* Style for days that have events (dot indicator logic is in DayContent) */ }
               }}
               components={{
                 DayContent: ({ date, displayMonth }) => {
-                  const dayEvents = events.filter(event => isSameDay(event.date, date));
+                  const dayEvents = events.filter(event => {
+                     if (event.type === "Birthday" && event.isRecurring) {
+                       return getMonth(event.date) === getMonth(date) &&
+                              getDate(event.date) === getDate(date);
+                     }
+                     return isSameDay(event.date, date);
+                  });
                   const isCurrentMonth = date.getMonth() === displayMonth.getMonth();
 
                   return (
@@ -282,7 +389,7 @@ export default function CalendarEventsPage() {
                       {isCurrentMonth && dayEvents.length > 0 && (
                         <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex space-x-1">
                           {dayEvents.slice(0,3).map(event => (
-                            <span key={`${event.id}-dot`} className={`h-2 w-2 rounded-full ${eventTypeDotColors[event.type]}`} />
+                            <span key={`${event.id}-${date.getTime()}-dot`} className={`h-2 w-2 rounded-full ${eventTypeDotColors[event.type]}`} />
                           ))}
                         </div>
                       )}
@@ -300,24 +407,8 @@ export default function CalendarEventsPage() {
               {eventsForSelectedDate.length > 0 ? (
                 <ul className="space-y-4">
                   {eventsForSelectedDate.map((event) => (
-                    <li key={event.id}>
-                      <Card 
-                        className="hover:shadow-xl transition-shadow duration-200 ease-in-out border-l-4"
-                        style={{ borderLeftColor: eventTypeBorderColors[event.type] }}
-                      >
-                        <CardHeader className="p-4 pb-2">
-                          <div className="flex justify-between items-start gap-2">
-                             <CardTitle className="text-md leading-tight">{event.title}</CardTitle>
-                             <Badge className={cn("text-xs whitespace-nowrap shrink-0", getBadgeClassNames(event.type))}>
-                              {event.type}
-                            </Badge>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="p-4 pt-1">
-                          <p className="text-sm font-semibold text-muted-foreground mb-1.5">{format(event.date, "EEEE, MMMM d, yyyy")}</p>
-                          <p className="text-sm text-muted-foreground">{event.description || <span className="italic">No description provided.</span>}</p>
-                        </CardContent>
-                      </Card>
+                    <li key={event.id + (event.isRecurring ? `-${getYear(event.date)}` : '')}>
+                       <EventCard event={event} showDeleteButton={true} />
                     </li>
                   ))}
                 </ul>
@@ -345,7 +436,7 @@ export default function CalendarEventsPage() {
             All Upcoming Events
           </CardTitle>
           <CardDescription>
-            A list of all scheduled events, sorted by date.
+            A list of all scheduled events, including next occurrences of birthdays, sorted by date.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -353,24 +444,8 @@ export default function CalendarEventsPage() {
             <ScrollArea className="max-h-[400px] pr-2">
               <ul className="space-y-4">
                 {allUpcomingEvents.map((event) => (
-                  <li key={event.id}>
-                    <Card 
-                      className="hover:shadow-xl transition-shadow duration-200 ease-in-out border-l-4"
-                      style={{ borderLeftColor: eventTypeBorderColors[event.type] }}
-                    >
-                      <CardHeader className="p-4 pb-2">
-                        <div className="flex justify-between items-start gap-2">
-                           <CardTitle className="text-md leading-tight">{event.title}</CardTitle>
-                           <Badge className={cn("text-xs whitespace-nowrap shrink-0", getBadgeClassNames(event.type))}>
-                            {event.type}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="p-4 pt-1">
-                        <p className="text-sm font-semibold text-muted-foreground mb-1.5">{format(event.date, "EEEE, MMMM d, yyyy")}</p>
-                        <p className="text-sm text-muted-foreground">{event.description || <span className="italic">No description provided.</span>}</p>
-                      </CardContent>
-                    </Card>
+                  <li key={event.id + (event.isRecurring ? `-${getYear(event.date)}` : '')}>
+                     <EventCard event={event} showDeleteButton={true} />
                   </li>
                 ))}
               </ul>
@@ -388,3 +463,5 @@ export default function CalendarEventsPage() {
   );
 }
 
+
+    
