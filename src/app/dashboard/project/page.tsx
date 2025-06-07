@@ -17,16 +17,16 @@ import { Calendar } from "@/components/ui/calendar";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { db, storage } from "@/lib/firebase"; // Added storage
+import { db, storage } from "@/lib/firebase";
 import {
   collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, updateDoc, deleteDoc,
-  arrayUnion, arrayRemove, writeBatch, getDocs, // For deleting subcollections
+  arrayUnion, arrayRemove, writeBatch, getDocs,
 } from "firebase/firestore";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { format, formatDistanceToNow } from "date-fns";
-import { Briefcase, ListChecks, FileText, Users, Paperclip, MessageCircle, PlusCircle, ArrowLeft, Edit3, Trash2, Link as LinkIcon, CalendarIcon, UploadCloud, FileWarning, CheckCircle2, XCircle, Info } from "lucide-react";
+import { Briefcase, ListChecks, FileText, Paperclip, MessageCircle, PlusCircle, ArrowLeft, Edit3, Trash2, CalendarIcon, UploadCloud } from "lucide-react";
 import Image from "next/image";
-import { useForm, Controller, useFieldArray } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useAuth } from '@/contexts/AuthContext';
@@ -53,7 +53,6 @@ const projectFormSchema = z.object({
   endDate: z.date().optional().nullable(),
   budget: z.string().optional().refine(val => !val || !isNaN(parseFloat(val.replace(/,/g, ''))), { message: "Budget must be a number."}).transform(val => val ? parseFloat(val.replace(/,/g, '')) : undefined),
   managerId: z.string().min(1, "Manager selection is required."),
-  // fileLinks are removed, replaced by uploadedFiles (managed directly, not in form)
 });
 type ProjectFormValues = z.infer<typeof projectFormSchema>;
 
@@ -82,7 +81,7 @@ interface ProjectData {
   budget?: number;
   managerId?: string;
   managerName?: string;
-  spent?: number;
+  spent?: number; // Example field, not fully implemented for calculation
   createdAt: Timestamp;
   lastUpdatedAt: Timestamp;
   uploadedFiles: UploadedFile[];
@@ -105,7 +104,7 @@ interface UpdateNoteData {
   createdAt: Timestamp; // When the log was created
 }
 
-const mockUsers = [
+const mockUsers = [ // Replace with actual user fetching logic if available
   { id: "user_alice_001", name: "Alice Wonderland" },
   { id: "user_bob_002", name: "Bob The Builder" },
   { id: "user_charlie_003", name: "Charlie Brown" },
@@ -152,36 +151,51 @@ export default function ProjectInfoPage() {
   // Fetch Projects
   useEffect(() => {
     setIsLoading(true);
-    const projectsCollection = collection(db, "projectsPPM");
-    const q = query(projectsCollection, orderBy("createdAt", "desc"));
+    const projectsCollectionRef = collection(db, "projectsPPM");
+    // If you suspect issues with 'createdAt' data consistency (e.g., not all are Timestamps),
+    // this orderBy might cause Firestore internal errors. Ensure 'createdAt' is always a Timestamp.
+    const q = query(projectsCollectionRef, orderBy("createdAt", "desc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedProjects = snapshot.docs.map(docSnap => {
          try {
             const data = docSnap.data();
+            
             const name = typeof data.name === 'string' ? data.name : "Untitled Project";
             const description = typeof data.description === 'string' ? data.description : "No description provided.";
             const status = projectStatusOptions.includes(data.status) ? data.status : "Planning";
+            
             const startDate = data.startDate instanceof Timestamp ? data.startDate : Timestamp.fromDate(new Date(1970,0,1));
-            const endDate = data.endDate instanceof Timestamp ? data.endDate : (data.endDate === null ? null : undefined);
+            const endDate = data.endDate instanceof Timestamp ? data.endDate : null; // endDate can be null
+            
             const budget = typeof data.budget === 'number' ? data.budget : undefined;
             const managerId = typeof data.managerId === 'string' ? data.managerId : undefined;
             const managerName = typeof data.managerName ==='string' ? data.managerName : "N/A";
             const spent = typeof data.spent === 'number' ? data.spent : undefined;
+            
             const createdAt = data.createdAt instanceof Timestamp ? data.createdAt : Timestamp.fromDate(new Date(1970,0,1));
             const lastUpdatedAt = data.lastUpdatedAt instanceof Timestamp ? data.lastUpdatedAt : createdAt;
-            const uploadedFiles = Array.isArray(data.uploadedFiles) ? data.uploadedFiles.map((f: any) => ({...f, uploadedAt: f.uploadedAt instanceof Timestamp ? f.uploadedAt : Timestamp.now() })) : [];
-
+            
+            const uploadedFiles = Array.isArray(data.uploadedFiles) 
+              ? data.uploadedFiles.map((f: any) => ({
+                  name: typeof f.name === 'string' ? f.name : 'Untitled File',
+                  url: typeof f.url === 'string' ? f.url : '',
+                  type: typeof f.type === 'string' ? f.type : 'application/octet-stream',
+                  size: typeof f.size === 'number' ? f.size : 0,
+                  storagePath: typeof f.storagePath === 'string' ? f.storagePath : '',
+                  uploadedAt: f.uploadedAt instanceof Timestamp ? f.uploadedAt : Timestamp.now(),
+                }))
+              : [];
 
             const mappedData: ProjectData = {
                 id: docSnap.id, name, description, status, startDate, endDate, budget, managerId, managerName, spent, createdAt, lastUpdatedAt, uploadedFiles
             };
             return mappedData;
         } catch (e: any) {
-            console.error(`Error processing document ${docSnap.id}:`, e.message, e.stack, `Data: ${JSON.stringify(docSnap.data())}`);
+            console.error(`Error processing document ${docSnap.id}:`, e.message, `Raw Data: ${JSON.stringify(docSnap.data ? docSnap.data() : 'N/A')}`, e.stack);
             toast({
                 title: "Data Processing Error",
-                description: `Could not process project data for ID: ${docSnap.id}. It may be corrupted. See console. Raw data: ${JSON.stringify(docSnap.data())}`,
+                description: `Could not process project data for ID: ${docSnap.id}. It may be corrupted. See console.`,
                 variant: "destructive"
             });
             return null; 
@@ -207,7 +221,7 @@ export default function ProjectInfoPage() {
         setProjectTasks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskData)));
       }, (err) => { console.error("Error fetching tasks:", err); toast({title:"Error", description:"Could not fetch tasks.", variant:"destructive"});});
 
-      // Set Uploaded Files from project data (already fetched)
+      // Set Uploaded Files from project data
       setProjectUploadedFiles(selectedProject.uploadedFiles || []);
 
       // Fetch Updates
@@ -239,7 +253,7 @@ export default function ProjectInfoPage() {
         status: projectToEdit.status,
         startDate: projectToEdit.startDate.toDate(),
         endDate: projectToEdit.endDate ? projectToEdit.endDate.toDate() : null,
-        budget: projectToEdit.budget?.toString() || "",
+        budget: projectToEdit.budget?.toString() || "", // Convert number to string for input
         managerId: projectToEdit.managerId || "",
       });
     } else {
@@ -253,11 +267,11 @@ export default function ProjectInfoPage() {
     const managerName = selectedManager ? selectedManager.name : "N/A";
     const now = Timestamp.now();
 
-    const projectDataToSave: Omit<ProjectData, 'id' | 'createdAt' | 'uploadedFiles' | 'spent'> & { createdAt?: Timestamp } = {
+    const projectDataToSave = {
       ...values,
       startDate: Timestamp.fromDate(values.startDate),
       endDate: values.endDate ? Timestamp.fromDate(values.endDate) : null,
-      budget: values.budget,
+      budget: values.budget, // Already a number due to transform
       managerName: managerName,
       lastUpdatedAt: now,
     };
@@ -265,10 +279,12 @@ export default function ProjectInfoPage() {
     try {
       if (editingProject) {
         const projectRef = doc(db, "projectsPPM", editingProject.id);
-        await updateDoc(projectRef, projectDataToSave);
+        // Exclude createdAt from update data if it's an edit
+        const { createdAt, ...updateData } = projectDataToSave; 
+        await updateDoc(projectRef, updateData);
         toast({ title: "Project Updated", description: `"${values.name}" has been updated.` });
-        if(selectedProject?.id === editingProject.id) { // Refresh selected project view if it's the one being edited
-             setSelectedProject(prev => prev ? {...prev, ...projectDataToSave, startDate: projectDataToSave.startDate!, endDate: projectDataToSave.endDate, lastUpdatedAt: projectDataToSave.lastUpdatedAt! } as ProjectData : null);
+        if(selectedProject?.id === editingProject.id) {
+             setSelectedProject(prev => prev ? {...prev, ...updateData, startDate: updateData.startDate!, endDate: updateData.endDate, lastUpdatedAt: updateData.lastUpdatedAt! } as ProjectData : null);
         }
       } else {
         await addDoc(collection(db, "projectsPPM"), { ...projectDataToSave, createdAt: now, uploadedFiles: [] });
@@ -287,21 +303,22 @@ export default function ProjectInfoPage() {
     if (!confirm(`Are you sure you want to delete project "${projectName}" and all its tasks, documents, and updates? This action cannot be undone.`)) return;
     try {
       const batch = writeBatch(db);
-      // Delete subcollections (tasks, updates)
+      
       const tasksCol = collection(db, "projectsPPM", projectId, "tasks");
       const tasksSnapshot = await getDocs(tasksCol);
-      tasksSnapshot.forEach(doc => batch.delete(doc.ref));
+      tasksSnapshot.forEach(docSnap => batch.delete(docSnap.ref));
 
       const updatesCol = collection(db, "projectsPPM", projectId, "updates");
       const updatesSnapshot = await getDocs(updatesCol);
-      updatesSnapshot.forEach(doc => batch.delete(doc.ref));
+      updatesSnapshot.forEach(docSnap => batch.delete(docSnap.ref));
       
-      // Delete uploaded files from Storage
-      const projectDoc = projects.find(p => p.id === projectId);
-      if (projectDoc?.uploadedFiles) {
-        for (const file of projectDoc.uploadedFiles) {
-          const fileToDeleteRef = storageRef(storage, file.storagePath);
-          await deleteObject(fileToDeleteRef).catch(e => console.warn("Error deleting file from storage:", file.storagePath, e));
+      const projectDocData = projects.find(p => p.id === projectId);
+      if (projectDocData?.uploadedFiles) {
+        for (const file of projectDocData.uploadedFiles) {
+          if (file.storagePath) { // Ensure storagePath exists
+            const fileToDeleteRef = storageRef(storage, file.storagePath);
+            await deleteObject(fileToDeleteRef).catch(e => console.warn("Error deleting file from storage:", file.storagePath, e));
+          }
         }
       }
 
@@ -362,12 +379,12 @@ export default function ProjectInfoPage() {
           uploadedAt: Timestamp.now(),
         };
         const projectRef = doc(db, "projectsPPM", selectedProject.id);
-        await updateDoc(projectRef, { uploadedFiles: arrayUnion(newFile), lastUpdatedAt: Timestamp.now() });
-        setProjectUploadedFiles(prev => [...prev, newFile]);
+        await updateDoc(projectRef, { uploadedFiles: arrayUnion(newFile) });
+        // No need to setProjectUploadedFiles here, rely on selectedProject refresh or snapshot listener if needed
         toast({ title: "File Uploaded", description: `"${file.name}" uploaded successfully.` });
         setIsUploading(false);
         setUploadProgress(0);
-        if (selectedProject) await updateProjectTimestamp(selectedProject.id);
+        if (selectedProject) await updateProjectTimestamp(selectedProject.id); // Update timestamp
       }
     );
   };
@@ -379,10 +396,10 @@ export default function ProjectInfoPage() {
       await deleteObject(fileStorageRef);
 
       const projectRef = doc(db, "projectsPPM", selectedProject.id);
-      await updateDoc(projectRef, { uploadedFiles: arrayRemove(fileToDelete), lastUpdatedAt: Timestamp.now() });
-      setProjectUploadedFiles(prev => prev.filter(f => f.storagePath !== fileToDelete.storagePath));
+      await updateDoc(projectRef, { uploadedFiles: arrayRemove(fileToDelete) });
+      // No need to setProjectUploadedFiles here, rely on selectedProject refresh or snapshot listener if needed
       toast({ title: "File Deleted", description: `"${fileToDelete.name}" deleted.` });
-      if (selectedProject) await updateProjectTimestamp(selectedProject.id);
+      if (selectedProject) await updateProjectTimestamp(selectedProject.id); // Update timestamp
     } catch (error) {
       console.error("Error deleting file:", error);
       toast({ title: "Error Deleting File", variant: "destructive" });
@@ -453,7 +470,7 @@ export default function ProjectInfoPage() {
         </div>
         
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4"> {/* Adjusted for 4 tabs */}
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="documents">Documents</TabsTrigger>
@@ -471,7 +488,7 @@ export default function ProjectInfoPage() {
                   <Card> <CardHeader><CardTitle className="text-base">Start Date</CardTitle></CardHeader> <CardContent><p>{selectedProject.startDate ? format(selectedProject.startDate.toDate(), "PPP") : "N/A"}</p></CardContent> </Card>
                   <Card> <CardHeader><CardTitle className="text-base">End Date</CardTitle></CardHeader> <CardContent><p>{selectedProject.endDate ? format(selectedProject.endDate.toDate(), "PPP") : "N/A"}</p></CardContent> </Card>
                   <Card> <CardHeader><CardTitle className="text-base">Budget</CardTitle></CardHeader> <CardContent><p>{selectedProject.budget ? `$${selectedProject.budget.toLocaleString()}` : "N/A"}</p></CardContent> </Card>
-                  <Card> <CardHeader><CardTitle className="text-base">Manager</CardTitle></CardHeader> <CardContent className="flex items-center gap-2"> <Avatar className="h-8 w-8"> <AvatarImage src={`https://placehold.co/40x40.png?text=${selectedProject.managerName ? selectedProject.managerName.substring(0,1).toUpperCase() : 'P'}`} alt={selectedProject.managerName} data-ai-hint="person avatar"/> <AvatarFallback>{selectedProject.managerName ? selectedProject.managerName.substring(0,1).toUpperCase() : "P"}</AvatarFallback> </Avatar> <p className="text-sm font-semibold">{selectedProject.managerName || "N/A"}</p> </CardContent> </Card>
+                  <Card> <CardHeader><CardTitle className="text-base">Manager</CardTitle></CardHeader> <CardContent className="flex items-center gap-2"> <Avatar className="h-8 w-8"> <AvatarImage src={`https://placehold.co/40x40.png?text=${selectedProject.managerName ? selectedProject.managerName.substring(0,1).toUpperCase() : 'P'}`} alt={selectedProject.managerName || "Manager"} data-ai-hint="person avatar"/> <AvatarFallback>{selectedProject.managerName ? selectedProject.managerName.substring(0,1).toUpperCase() : "P"}</AvatarFallback> </Avatar> <p className="text-sm font-semibold">{selectedProject.managerName || "N/A"}</p> </CardContent> </Card>
                 </div>
                 {selectedProject.budget && selectedProject.spent !== undefined && (
                   <Card className="mb-4"> <CardHeader><CardTitle className="text-base">Budget Utilization</CardTitle></CardHeader> <CardContent> <Progress value={budgetProgress} className="h-2.5" /> <p className="text-sm text-muted-foreground mt-1"> ${(selectedProject.spent || 0).toLocaleString()} spent of ${selectedProject.budget.toLocaleString()} ({budgetProgress.toFixed(1)}%) </p> </CardContent> </Card>
@@ -540,7 +557,7 @@ export default function ProjectInfoPage() {
                                             <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB | Uploaded: {formatDistanceToNow(file.uploadedAt.toDate(), { addSuffix: true })}</p>
                                         </div>
                                     </div>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteFile(file)} disabled={isUploading}><Trash2 className="h-4 w-4" /></Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive-foreground" onClick={() => handleDeleteFile(file)} disabled={isUploading}><Trash2 className="h-4 w-4" /></Button>
                                 </div>
                             ))}
                         </div>
@@ -566,7 +583,7 @@ export default function ProjectInfoPage() {
                       <CardContent className="pt-4">
                         <p className="text-sm whitespace-pre-wrap">{update.note}</p>
                         <p className="text-xs text-muted-foreground mt-2">
-                          Effective: {format(update.date.toDate(), "PPP")} | Logged by {update.authorName || "System"} on {formatDistanceToNow(update.createdAt.toDate(), { addSuffix: true })}
+                          Effective: {format(update.date.toDate(), "PPP")} | Logged by {update.authorName || "System"} {formatDistanceToNow(update.createdAt.toDate(), { addSuffix: true })}
                         </p>
                       </CardContent>
                     </Card>
@@ -619,10 +636,10 @@ export default function ProjectInfoPage() {
         <DialogContent>
             <DialogHeader><DialogTitle>Add New Task</DialogTitle><DialogDescription>Fill in the details for the new task for {selectedProject?.name}.</DialogDescription></DialogHeader>
             <form onSubmit={taskForm.handleSubmit(onTaskSubmit)} className="space-y-4 py-4">
-                <div><Label htmlFor="task-title">Title</Label><Controller name="title" control={taskForm.control} render={({ field }) => <Input id="task-title" {...field} />} />{taskForm.formState.errors.title && <p className="text-xs text-destructive">{taskForm.formState.errors.title.message}</p>}</div>
-                <div><Label htmlFor="task-description">Description (Optional)</Label><Controller name="description" control={taskForm.control} render={({ field }) => <Textarea id="task-description" {...field} />} /></div>
+                <div><Label htmlFor="task-title">Title</Label><Controller name="title" control={taskForm.control} render={({ field }) => <Input id="task-title" {...field} placeholder="Task Title"/>} />{taskForm.formState.errors.title && <p className="text-xs text-destructive">{taskForm.formState.errors.title.message}</p>}</div>
+                <div><Label htmlFor="task-description">Description (Optional)</Label><Controller name="description" control={taskForm.control} render={({ field }) => <Textarea id="task-description" {...field} placeholder="Describe the task..."/>} /></div>
                 <div><Label htmlFor="task-status">Status</Label><Controller name="status" control={taskForm.control} render={({ field }) => (<Select onValueChange={field.onChange} value={field.value}><SelectTrigger id="task-status"><SelectValue /></SelectTrigger><SelectContent>{taskStatusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select>)} /></div>
-                <DialogFooter><DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose><Button type="submit">Add Task</Button></DialogFooter>
+                <DialogFooter><DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose><Button type="submit" disabled={taskForm.formState.isSubmitting}>{taskForm.formState.isSubmitting ? "Adding..." : "Add Task"}</Button></DialogFooter>
             </form>
         </DialogContent>
       </Dialog>
@@ -632,9 +649,9 @@ export default function ProjectInfoPage() {
         <DialogContent>
             <DialogHeader><DialogTitle>Add Project Update</DialogTitle><DialogDescription>Log an update for {selectedProject?.name}.</DialogDescription></DialogHeader>
             <form onSubmit={updateNoteForm.handleSubmit(onUpdateNoteSubmit)} className="space-y-4 py-4">
-                <div><Label htmlFor="update-note">Update Note</Label><Controller name="note" control={updateNoteForm.control} render={({ field }) => <Textarea id="update-note" {...field} rows={4} />} />{updateNoteForm.formState.errors.note && <p className="text-xs text-destructive">{updateNoteForm.formState.errors.note.message}</p>}</div>
+                <div><Label htmlFor="update-note">Update Note</Label><Controller name="note" control={updateNoteForm.control} render={({ field }) => <Textarea id="update-note" {...field} rows={4} placeholder="Describe the update..."/>} />{updateNoteForm.formState.errors.note && <p className="text-xs text-destructive">{updateNoteForm.formState.errors.note.message}</p>}</div>
                 <div><Label htmlFor="update-date">Effective Date</Label><Controller name="date" control={updateNoteForm.control} render={({ field }) => (<Popover><PopoverTrigger asChild><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover>)} />{updateNoteForm.formState.errors.date && <p className="text-xs text-destructive">{updateNoteForm.formState.errors.date.message}</p>}</div>
-                <DialogFooter><DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose><Button type="submit">Add Update</Button></DialogFooter>
+                <DialogFooter><DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose><Button type="submit" disabled={updateNoteForm.formState.isSubmitting}>{updateNoteForm.formState.isSubmitting ? "Adding..." : "Add Update"}</Button></DialogFooter>
             </form>
         </DialogContent>
       </Dialog>
