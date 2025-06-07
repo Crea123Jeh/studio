@@ -15,7 +15,7 @@ import {
   Settings,
   ChevronDown,
   PanelLeft,
-  Laptop, // Changed from LayoutGrid
+  Laptop, 
   Info,
   Cake, 
   BookOpen, 
@@ -101,7 +101,7 @@ function AppSidebar() {
     <>
       <SidebarHeader className="p-4 flex items-center gap-2 border-b border-sidebar-border">
         <Link href="/dashboard" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-           <Laptop className="h-7 w-7 text-primary" />
+           <Laptop className="h-7 w-7 text-accent" />
           <h1 className="text-xl font-semibold text-sidebar-foreground font-headline">PPM Management</h1>
         </Link>
       </SidebarHeader>
@@ -158,7 +158,7 @@ function AppSidebar() {
 }
 
 function Header() {
-  const { user, username, signOut, loading } = useAuth(); // signOut is not used here but could be if needed.
+  const { user, username, signOut, loading } = useAuth(); 
   const router = useRouter();
   const { isMobile, toggleSidebar } = useSidebar();
 

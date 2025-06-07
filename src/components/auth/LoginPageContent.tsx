@@ -12,7 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { Laptop } from "lucide-react"; // Changed from LayoutGrid
+import { Laptop } from "lucide-react"; 
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -41,14 +41,13 @@ export default function LoginPageContent() {
         toast({ title: "Login Successful", description: "Welcome back!" });
         router.push("/dashboard");
       } 
-      // Removed the 'else' block for invalid credentials, as signIn now throws an error for that
     } catch (error: any) {
       let errorMessage = "An unexpected error occurred during login.";
       if (error.code) {
         switch (error.code) {
           case 'auth/user-not-found':
           case 'auth/wrong-password':
-          case 'auth/invalid-credential': // Generic error for invalid email or password
+          case 'auth/invalid-credential': 
             errorMessage = "Invalid email or password. Please try again.";
             break;
           case 'auth/invalid-email':
@@ -73,7 +72,7 @@ export default function LoginPageContent() {
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
           <div className="inline-flex items-center justify-center gap-2 mb-4">
-            <Laptop className="h-10 w-10 text-primary" /> 
+            <Laptop className="h-10 w-10 text-accent" /> 
             <CardTitle className="text-3xl font-headline">PPM Management</CardTitle>
           </div>
           <CardDescription>Enter your email and password to access your dashboard.</CardDescription>
