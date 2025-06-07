@@ -128,7 +128,7 @@ function AppSidebar() {
 
   return (
     <>
-      <SidebarHeader className="px-3 py-3 flex items-center">
+      <SidebarHeader className="pl-5 pr-3 py-3 flex items-center">
         <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
            <div className="bg-accent rounded-full h-7 w-7 flex items-center justify-center">
              <Building className="h-4 w-4 text-white" />
@@ -224,14 +224,14 @@ function Header() {
           </SidebarTrigger>
         )}
          <Link href="/dashboard" className="flex items-center hover:opacity-80 transition-opacity">
-          <span className="text-lg font-semibold text-sidebar-foreground font-headline">Para Petinggi Member</span>
+          <span className="text-lg font-semibold text-foreground font-headline">Para Petinggi Member</span>
         </Link>
       </div>
 
       <div className="flex items-center gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0 text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" className="relative h-9 w-9 p-0 rounded-full text-muted-foreground hover:text-foreground">
               <Bell className="h-5 w-5" />
               {unreadCount > 0 && (
                 <Badge variant="destructive" className="absolute top-0.5 right-0.5 h-4 w-4 min-w-fit p-0.5 text-xs flex items-center justify-center rounded-full">
