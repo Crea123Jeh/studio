@@ -149,16 +149,16 @@ export default function CalendarEventsPage() {
 
   const eventTypeDotColors: Record<CalendarEvent["type"], string> = {
     Deadline: "bg-destructive", 
-    Meeting: "bg-blue-500", 
-    Milestone: "bg-green-500", 
-    Reminder: "bg-orange-400", 
+    Meeting: "bg-primary", 
+    Milestone: "bg-green-600", 
+    Reminder: "bg-accent", 
   };
 
   const eventTypeBorderColors: Record<CalendarEvent["type"], string> = {
     Deadline: "hsl(var(--destructive))",
-    Meeting: "hsl(var(--blue-500, 217 91% 60%))", 
-    Milestone: "hsl(var(--green-500, 145 63% 49%))", 
-    Reminder: "hsl(var(--orange-400, 36 93% 59%))", 
+    Meeting: "hsl(var(--primary))", 
+    Milestone: "hsl(var(--green-600))", // Using a direct color for now
+    Reminder: "hsl(var(--accent))", 
   };
 
   const getBadgeClassNames = (type: CalendarEvent["type"]): string => {
@@ -166,11 +166,11 @@ export default function CalendarEventsPage() {
       case "Deadline":
         return "bg-destructive text-destructive-foreground hover:bg-destructive/90";
       case "Meeting":
-        return "bg-blue-500 text-white hover:bg-blue-600";
+        return "bg-primary text-primary-foreground hover:bg-primary/90";
       case "Milestone":
-        return "bg-green-500 text-white hover:bg-green-600";
+        return "bg-green-600 text-white hover:bg-green-700";
       case "Reminder":
-        return "bg-orange-400 text-black hover:bg-orange-500";
+        return "bg-accent text-accent-foreground hover:bg-accent/90";
       default:
         return "bg-secondary text-secondary-foreground hover:bg-secondary/80";
     }
@@ -261,7 +261,7 @@ export default function CalendarEventsPage() {
         <div className="flex justify-between items-start gap-2">
            <div className="flex items-center gap-2 min-w-0">
             {IconComponent && <IconComponent className="h-5 w-5 text-primary shrink-0" />}
-            <CardTitle className="text-md leading-tight truncate">{event.title}</CardTitle>
+            <CardTitle className="text-md leading-tight truncate text-foreground">{event.title}</CardTitle>
            </div>
            <div className="flex items-center gap-2 shrink-0">
             <Badge className={cn("text-xs whitespace-nowrap", getBadgeClassNames(event.type))}>
@@ -302,7 +302,7 @@ export default function CalendarEventsPage() {
           <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center">
             <CalendarDays className="h-6 w-6 text-primary" />
           </div>
-          <h1 className="text-3xl font-bold font-headline tracking-tight">PPM Calendar</h1>
+          <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">PPM Calendar</h1>
         </div>
         <Dialog open={isAddEditDialogOpen} onOpenChange={setIsAddEditDialogOpen}>
           <DialogTrigger asChild>
@@ -385,7 +385,7 @@ export default function CalendarEventsPage() {
 
       <Card className="shadow-lg">
         <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6">
-          <div className="md:col-span-2 p-4 bg-primary/80 rounded-2xl shadow-xl border-2 border-primary-foreground/30">
+          <div className="md:col-span-2 p-4 bg-primary/20 rounded-2xl shadow-xl border-2 border-primary/30">
            <Calendar
               mode="single"
               selected={selectedDate}
@@ -401,7 +401,7 @@ export default function CalendarEventsPage() {
                 nav: "space-x-2 flex items-center",
                 nav_button: cn(
                   buttonVariants({ variant: "outline" }),
-                  "h-10 w-10 bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground rounded-full p-0 transition-transform hover:scale-110 active:scale-95"
+                  "h-10 w-10 bg-primary/30 hover:bg-primary/50 text-primary-foreground rounded-full p-0 transition-transform hover:scale-110 active:scale-95"
                 ),
                 nav_button_previous: "absolute left-1",
                 nav_button_next: "absolute right-1",
@@ -416,7 +416,7 @@ export default function CalendarEventsPage() {
                   "transition-all duration-150 ease-out hover:bg-primary-foreground/20 hover:scale-110 hover:shadow-lg hover:z-10 relative"
                 ),
                 day_selected: "bg-accent text-accent-foreground hover:bg-accent hover:brightness-110 focus:bg-accent rounded-xl shadow-lg transform scale-105 ring-2 ring-offset-background ring-offset-1 ring-accent-foreground/50",
-                day_today: "bg-background/30 text-foreground hover:bg-background/40 hover:brightness-110 rounded-xl font-bold shadow-lg ring-2 ring-offset-background ring-offset-1 ring-foreground/50",
+                day_today: "bg-background/80 text-foreground hover:bg-background/90 hover:brightness-110 rounded-xl font-bold shadow-lg ring-2 ring-offset-background ring-offset-1 ring-foreground/50",
                 day_outside: "day-outside text-primary-foreground/50 opacity-50 aria-selected:bg-primary-foreground/20 aria-selected:text-primary-foreground/70 hover:text-primary-foreground/70",
                 day_disabled: "text-primary-foreground/40 opacity-50",
                 day_range_middle: "aria-selected:bg-primary-foreground/10 aria-selected:text-primary-foreground/90",
@@ -453,7 +453,7 @@ export default function CalendarEventsPage() {
             />
           </div>
           <div className="md:col-span-1">
-            <h3 className="text-xl font-semibold mb-4 pb-2 border-b">
+            <h3 className="text-xl font-semibold mb-4 pb-2 border-b text-foreground">
               Events for: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
             </h3>
             <ScrollArea className="max-h-[48vh] pr-2"> 
@@ -475,7 +475,7 @@ export default function CalendarEventsPage() {
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl">
+          <CardTitle className="flex items-center gap-2 text-xl text-foreground">
             <ListOrdered className="h-6 w-6 text-primary" />
             All Upcoming Events
           </CardTitle>

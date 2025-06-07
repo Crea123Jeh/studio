@@ -76,7 +76,7 @@ const BirthdayCountdownCell = ({ displayDate }: { displayDate: Date }) => {
 
   if (!timeLeft) {
     if (isSameDay(displayDate, new Date())) {
-        return <span className="text-purple-600 font-semibold animate-pulse">🎉 {formattedDate} (Today!)</span>;
+        return <span className="text-pink-600 font-semibold animate-pulse">🎉 {formattedDate} (Today!)</span>;
     }
     if (displayDate < new Date() && !isSameDay(displayDate, new Date())) {
         return <span className="text-muted-foreground">{formattedDate} (Passed)</span>;
@@ -85,7 +85,7 @@ const BirthdayCountdownCell = ({ displayDate }: { displayDate: Date }) => {
   }
 
   if (timeLeft.isToday) {
-    return <span className="text-purple-600 font-semibold animate-pulse">🎉 {formattedDate} (Today!)</span>;
+    return <span className="text-pink-600 font-semibold animate-pulse">🎉 {formattedDate} (Today!)</span>;
   }
   
   if (timeLeft.hasPassed) { 
@@ -304,9 +304,9 @@ export default function BirthdayCalendarPage() {
   }, [birthdays]);
 
 
-  const birthdayDotColor = "bg-purple-500";
-  const birthdayBorderColor = "hsl(var(--purple-500, 262 84% 57%))"; 
-  const birthdayBadgeClassName = "bg-purple-500 text-white hover:bg-purple-600";
+  const birthdayDotColor = "bg-pink-500"; // Specific color for birthdays
+  const birthdayBorderColor = "hsl(var(--pink-500, 330 84% 57%))"; // Approx. pink
+  const birthdayBadgeClassName = "bg-pink-500 text-white hover:bg-pink-600";
   
   const handleSaveBirthday = async (e: FormEvent) => {
     e.preventDefault();
@@ -395,7 +395,7 @@ export default function BirthdayCalendarPage() {
     >
       <CardHeader className="p-4 pb-2">
         <div className="flex justify-between items-start gap-2">
-           <CardTitle className="text-md leading-tight">{birthday.name}</CardTitle>
+           <CardTitle className="text-md leading-tight text-foreground">{birthday.name}</CardTitle>
            <div className="flex items-center gap-2">
             <Badge className={cn("text-xs whitespace-nowrap shrink-0", birthdayBadgeClassName)}>
               <PartyPopper className="inline h-3 w-3 mr-1"/>
@@ -441,7 +441,7 @@ export default function BirthdayCalendarPage() {
         {timeLeft && (
             <div className="mt-2 pt-2 border-t border-border/50">
                 {timeLeft.isToday ? (
-                     <p className="text-sm font-semibold text-center py-1 text-purple-600 animate-pulse">
+                     <p className="text-sm font-semibold text-center py-1 text-pink-600 animate-pulse">
                         🎉 Today is their Birthday! 🎉
                      </p>
                 ) : timeLeft.hasPassed ? ( 
@@ -471,7 +471,7 @@ export default function BirthdayCalendarPage() {
           <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center">
             <Cake className="h-6 w-6 text-primary" />
           </div>
-          <h1 className="text-3xl font-bold font-headline tracking-tight">Birthday Calendar</h1>
+          <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">Birthday Calendar</h1>
         </div>
         <div className="flex gap-2">
             <Dialog open={isConfigureGradeDialogOpen} onOpenChange={setIsConfigureGradeDialogOpen}>
@@ -587,7 +587,7 @@ export default function BirthdayCalendarPage() {
               onSelect={(date) => date && setSelectedDate(startOfDay(date))}
               month={currentMonth}
               onMonthChange={setCurrentMonth}
-              className="rounded-md border p-0 w-full shadow-inner bg-background"
+              className="rounded-md border p-0 w-full shadow-inner bg-card" 
               classNames={{
                 day_today: "bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-bold",
                 day_selected: "bg-accent text-accent-foreground hover:bg-accent/90 focus:bg-accent focus:text-accent-foreground rounded-md",
@@ -618,7 +618,7 @@ export default function BirthdayCalendarPage() {
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="flex items-center text-xl">
+          <CardTitle className="flex items-center text-xl text-foreground">
             <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center mr-2">
                 <PartyPopper className="h-5 w-5 text-primary" />
             </div>
@@ -631,7 +631,7 @@ export default function BirthdayCalendarPage() {
               <>
                 {todaysBirthdaysList.teachers.length > 0 && (
                   <div className="mb-6">
-                    <h4 className="text-lg font-semibold mb-3 pb-1 border-b flex items-center">
+                    <h4 className="text-lg font-semibold mb-3 pb-1 border-b flex items-center text-foreground">
                       <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center mr-2">
                         <Users className="h-5 w-5 text-primary" />
                       </div>
@@ -648,7 +648,7 @@ export default function BirthdayCalendarPage() {
                 )}
                 {todaysBirthdaysList.students.length > 0 && (
                   <div>
-                    <h4 className="text-lg font-semibold mb-3 pb-1 border-b flex items-center">
+                    <h4 className="text-lg font-semibold mb-3 pb-1 border-b flex items-center text-foreground">
                       <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center mr-2">
                         <User className="h-5 w-5 text-primary" />
                       </div>
@@ -679,7 +679,7 @@ export default function BirthdayCalendarPage() {
         <CardHeader>
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-start">
             <div>
-              <CardTitle className="flex items-center text-xl">
+              <CardTitle className="flex items-center text-xl text-foreground">
                  <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center mr-2">
                     <ListOrdered className="h-5 w-5 text-primary" />
                 </div>
@@ -705,7 +705,7 @@ export default function BirthdayCalendarPage() {
           <ScrollArea className="max-h-[700px] pr-2">
             {filteredUpcomingBirthdays.teachers.length > 0 && (
               <div className="mb-8">
-                <h4 className="text-xl font-semibold mb-3 pb-2 border-b flex items-center">
+                <h4 className="text-xl font-semibold mb-3 pb-2 border-b flex items-center text-foreground">
                     <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center mr-2">
                         <Users className="h-5 w-5 text-primary" />
                     </div>
@@ -743,7 +743,7 @@ export default function BirthdayCalendarPage() {
 
             {Object.keys(filteredUpcomingBirthdays.studentsByGrade).some(gradeKey => filteredUpcomingBirthdays.studentsByGrade[gradeKey]?.length > 0) && (
               <div>
-                <h4 className="text-xl font-semibold mb-4 pb-2 border-b flex items-center">
+                <h4 className="text-xl font-semibold mb-4 pb-2 border-b flex items-center text-foreground">
                     <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center mr-2">
                         <User className="h-5 w-5 text-primary" />
                     </div>
@@ -849,4 +849,3 @@ export default function BirthdayCalendarPage() {
     </div>
   );
 }
-

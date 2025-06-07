@@ -132,30 +132,30 @@ export default function AcademicCalendarPage() {
 
   const eventCategoryDotColors: Record<AcademicEvent["category"], string> = {
     "Holiday": "bg-green-500",
-    "Exam": "bg-red-500",
-    "School Event": "bg-blue-500",
-    "Term Break": "bg-yellow-500",
-    "Reminder": "bg-purple-500",
-    "Other": "bg-gray-500",
+    "Exam": "bg-destructive",
+    "School Event": "bg-primary",
+    "Term Break": "bg-accent",
+    "Reminder": "bg-purple-500", // Consider a theme color if purple clashes
+    "Other": "bg-muted-foreground",
   };
 
    const eventCategoryBorderColors: Record<AcademicEvent["category"], string> = {
-    "Holiday": "hsl(var(--chart-2))", // green
-    "Exam": "hsl(var(--destructive))", // red
-    "School Event": "hsl(var(--primary))", // blue-ish, using primary for now
-    "Term Break": "hsl(var(--chart-4))", // yellow
-    "Reminder": "hsl(var(--chart-5))", // purple-ish
-    "Other": "hsl(var(--muted-foreground))", // gray
+    "Holiday": "hsl(var(--green-500))", // Approx. green
+    "Exam": "hsl(var(--destructive))",
+    "School Event": "hsl(var(--primary))",
+    "Term Break": "hsl(var(--accent))",
+    "Reminder": "hsl(var(--purple-500))", // Approx. purple
+    "Other": "hsl(var(--muted-foreground))",
   };
 
   const getBadgeClassNames = (category: AcademicEvent["category"]): string => {
     switch (category) {
       case "Holiday": return "bg-green-500 text-white hover:bg-green-600";
-      case "Exam": return "bg-red-500 text-white hover:bg-red-600";
-      case "School Event": return "bg-blue-500 text-white hover:bg-blue-600";
-      case "Term Break": return "bg-yellow-500 text-black hover:bg-yellow-600";
-      case "Reminder": return "bg-purple-500 text-white hover:bg-purple-600";
-      default: return "bg-gray-500 text-white hover:bg-gray-600";
+      case "Exam": return "bg-destructive text-destructive-foreground hover:bg-destructive/90";
+      case "School Event": return "bg-primary text-primary-foreground hover:bg-primary/90";
+      case "Term Break": return "bg-accent text-accent-foreground hover:bg-accent/90";
+      case "Reminder": return "bg-purple-500 text-white hover:bg-purple-600"; // Keep or change if clashes
+      default: return "bg-muted text-muted-foreground hover:bg-muted/80";
     }
   };
   
@@ -221,7 +221,7 @@ export default function AcademicCalendarPage() {
     >
       <CardHeader className="p-4 pb-2">
         <div className="flex justify-between items-start gap-2">
-           <CardTitle className="text-md leading-tight">{event.title}</CardTitle>
+           <CardTitle className="text-md leading-tight text-foreground">{event.title}</CardTitle>
            <div className="flex items-center gap-2">
             <Badge className={cn("text-xs whitespace-nowrap shrink-0", getBadgeClassNames(event.category))}>
               {event.category}
@@ -255,7 +255,7 @@ export default function AcademicCalendarPage() {
           <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center">
             <School className="h-6 w-6 text-primary" />
           </div>
-          <h1 className="text-3xl font-bold font-headline tracking-tight">Academic Calendar</h1>
+          <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">Academic Calendar</h1>
         </div>
         <Dialog open={isAddEditDialogOpen} onOpenChange={setIsAddEditDialogOpen}>
           <DialogTrigger asChild>
@@ -323,7 +323,7 @@ export default function AcademicCalendarPage() {
               onSelect={(date) => date && setSelectedDate(startOfDay(date))}
               month={currentMonth}
               onMonthChange={setCurrentMonth}
-              className="rounded-md border p-0 w-full shadow-inner bg-background"
+              className="rounded-md border p-0 w-full shadow-inner bg-card"
               classNames={{
                 day_today: "bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-bold",
                 day_selected: "bg-accent text-accent-foreground hover:bg-accent/90 focus:bg-accent focus:text-accent-foreground rounded-md",
@@ -347,7 +347,7 @@ export default function AcademicCalendarPage() {
             />
           </div>
           <div className="md:col-span-1">
-            <h3 className="text-xl font-semibold mb-4 pb-2 border-b">
+            <h3 className="text-xl font-semibold mb-4 pb-2 border-b text-foreground">
               Events for: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
             </h3>
             <ScrollArea className="max-h-[calc(100vh-450px)] pr-2">
@@ -369,7 +369,7 @@ export default function AcademicCalendarPage() {
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl">
+          <CardTitle className="flex items-center gap-2 text-xl text-foreground">
             <ListOrdered className="h-6 w-6 text-primary" />
             All Upcoming Academic Events
           </CardTitle>

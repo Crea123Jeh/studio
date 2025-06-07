@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Bot, Info, Edit2, PlusCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 interface BotItem {
   id: string;
@@ -34,10 +35,10 @@ export default function BotsListPage() {
 
   const getStatusBadgeVariant = (status: BotItem["status"]) => {
     switch (status) {
-      case "active": return "bg-green-500 text-white hover:bg-green-600";
-      case "inactive": return "bg-gray-500 text-white hover:bg-gray-600";
-      case "error": return "bg-red-500 text-white hover:bg-red-600";
-      default: return "bg-secondary hover:bg-secondary/80";
+      case "active": return "bg-green-600 text-white hover:bg-green-700";
+      case "inactive": return "bg-muted text-muted-foreground hover:bg-muted/80";
+      case "error": return "bg-destructive text-destructive-foreground hover:bg-destructive/90";
+      default: return "bg-secondary text-secondary-foreground hover:bg-secondary/80";
     }
   };
 
@@ -48,13 +49,13 @@ export default function BotsListPage() {
             <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center">
               <Bot className="h-6 w-6 text-primary" />
             </div>
-            <h1 className="text-3xl font-bold font-headline tracking-tight">Bot's List</h1>
+            <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">Bot's List</h1>
         </div>
         <Button variant="outline"><PlusCircle className="mr-2 h-4 w-4"/> Add New Bot</Button>
       </div>
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle>Manage Your Bots</CardTitle>
+          <CardTitle className="text-foreground">Manage Your Bots</CardTitle>
           <CardDescription>Overview of all configured bots, their status, and actions.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -71,7 +72,7 @@ export default function BotsListPage() {
             </TableHeader>
             <TableBody>
               {bots.map((bot) => (
-                <TableRow key={bot.id}>
+                <TableRow key={bot.id} className="hover:bg-muted/50 transition-colors">
                   <TableCell>
                     <Checkbox
                       checked={bot.enabled}
@@ -80,17 +81,17 @@ export default function BotsListPage() {
                       aria-label={`Enable ${bot.name}`}
                     />
                   </TableCell>
-                  <TableCell className="font-medium">{bot.name}</TableCell>
+                  <TableCell className="font-medium text-foreground">{bot.name}</TableCell>
                   <TableCell>
-                    <Badge className={getStatusBadgeVariant(bot.status)}>{bot.status.charAt(0).toUpperCase() + bot.status.slice(1)}</Badge>
+                    <Badge className={cn(getStatusBadgeVariant(bot.status))}>{bot.status.charAt(0).toUpperCase() + bot.status.slice(1)}</Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground max-w-xs truncate">{bot.description}</TableCell>
                   <TableCell>{bot.lastCheckin}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit Bot">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-primary hover:bg-primary/10" title="Edit Bot">
                       <Edit2 className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" title="View Details">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-accent hover:bg-accent/10" title="View Details">
                       <Info className="h-4 w-4" />
                     </Button>
                   </TableCell>

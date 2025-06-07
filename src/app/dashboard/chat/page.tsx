@@ -72,7 +72,7 @@ export default function TeamChatPage() {
     <div className="h-[calc(100vh-120px)] flex flex-col md:flex-row gap-4">
       <Card className="w-full md:w-1/4 shadow-lg flex flex-col">
         <CardHeader className="border-b">
-          <CardTitle className="flex items-center gap-2"><Users className="h-6 w-6 text-primary"/>Channels</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-foreground"><Users className="h-6 w-6 text-primary"/>Channels</CardTitle>
           <CardDescription>Select a channel to chat in.</CardDescription>
         </CardHeader>
         <CardContent className="p-0 flex-grow">
@@ -82,7 +82,7 @@ export default function TeamChatPage() {
               <Button
                 key={channel.id}
                 variant={activeChannel === channel.id ? "secondary" : "ghost"}
-                className={`w-full justify-start gap-2 ${activeChannel === channel.id ? 'bg-primary/20 text-primary font-semibold' : ''}`}
+                className={`w-full justify-start gap-2 ${activeChannel === channel.id ? 'bg-primary/30 text-primary-foreground font-semibold hover:bg-primary/40' : 'hover:bg-muted/70'}`}
                 onClick={() => setActiveChannel(channel.id)}
               >
                 <channel.icon className="h-4 w-4" />
@@ -96,7 +96,7 @@ export default function TeamChatPage() {
 
       <Card className="w-full md:w-3/4 shadow-lg flex flex-col h-full">
         <CardHeader className="border-b">
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-foreground">
             <MessageSquare className="h-6 w-6 text-primary" /> 
             {channels.find(c => c.id === activeChannel)?.name || "Team Chat"}
           </CardTitle>
@@ -115,9 +115,9 @@ export default function TeamChatPage() {
                     </Avatar>
                   )}
                   <div className={`max-w-xs lg:max-w-md p-3 rounded-lg shadow ${msg.isSender ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                    {!msg.isSender && <p className="text-xs font-semibold mb-0.5">{msg.user}</p>}
+                    {!msg.isSender && <p className="text-xs font-semibold mb-0.5 text-foreground">{msg.user}</p>}
                     <p className="text-sm">{msg.text}</p>
-                    <p className={`text-xs mt-1 ${msg.isSender ? "text-primary-foreground/70" : "text-muted-foreground/70"} ${msg.isSender ? 'text-right' : 'text-left'}`}>
+                    <p className={`text-xs mt-1 ${msg.isSender ? "text-primary-foreground/70" : "text-muted-foreground/80"} ${msg.isSender ? 'text-right' : 'text-left'}`}>
                       {msg.timestamp}
                     </p>
                   </div>

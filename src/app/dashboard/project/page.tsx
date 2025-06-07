@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -19,15 +19,14 @@ import { Calendar } from "@/components/ui/calendar";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { db } from "@/lib/firebase"; // storage import removed as it's no longer used here
+import { db, storage } from "@/lib/firebase"; 
 import {
   collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, updateDoc, deleteDoc,
   writeBatch, getDocs,
 } from "firebase/firestore";
-// Removed storage related imports: ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject
+import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { format, formatDistanceToNow } from "date-fns";
-import { Briefcase, ListChecks, FileText, MessageCircle, PlusCircle, ArrowLeft, Edit3, Trash2, CalendarIcon, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
-// Removed Paperclip and UploadCloud as they were for documents
+import { Briefcase, ListChecks, FileText, MessageCircle, PlusCircle, ArrowLeft, Edit3, Trash2, CalendarIcon, ArrowUpDown, ArrowUp, ArrowDown, UploadCloud, Paperclip } from "lucide-react";
 import Image from "next/image";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -45,7 +44,7 @@ const projectFormSchema = z.object({
   startDate: z.date({ required_error: "Start date is required." }),
   endDate: z.date().optional().nullable(),
   budget: z.string().optional().transform(val => {
-    if (val === null || val === undefined || val.trim() === "") return undefined;
+    if (val === null || val === undefined || val.trim() === "") return undefined; // Keep undefined if empty
     const num = parseFloat(String(val).replace(/,/g, ''));
     return isNaN(num) ? undefined : num;
   }),
@@ -68,6 +67,14 @@ type UpdateNoteFormValues = z.infer<typeof updateNoteFormSchema>;
 
 
 // Interfaces
+interface UploadedFile {
+  name: string;
+  url: string;
+  type: string;
+  size: number;
+  storagePath: string;
+  uploadedAt: Timestamp;
+}
 interface ProjectData {
   id: string;
   name: string;
@@ -81,7 +88,7 @@ interface ProjectData {
   spent?: number; 
   createdAt: Timestamp;
   lastUpdatedAt: Timestamp;
-  // uploadedFiles field removed
+  uploadedFiles?: UploadedFile[];
 }
 
 interface TaskData {
@@ -124,10 +131,9 @@ export default function ProjectInfoPage() {
   const [projectTasks, setProjectTasks] = useState<TaskData[]>([]);
   const [isAddTaskDialogOpen, setIsAddTaskDialogOpen] = useState(false);
   
-  // Removed state for uploaded files
-  // const [projectUploadedFiles, setProjectUploadedFiles] = useState<UploadedFile[]>([]);
-  // const [isUploading, setIsUploading] = useState(false);
-  // const [uploadProgress, setUploadProgress] = useState(0);
+  const [projectUploadedFiles, setProjectUploadedFiles] = useState<UploadedFile[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const [projectUpdates, setProjectUpdates] = useState<UpdateNoteData[]>([]);
   const [isAddUpdateDialogOpen, setIsAddUpdateDialogOpen] = useState(false);
@@ -180,13 +186,13 @@ export default function ProjectInfoPage() {
             
             const createdAt = data.createdAt instanceof Timestamp ? data.createdAt : Timestamp.fromDate(new Date(1970,0,1));
             const lastUpdatedAt = data.lastUpdatedAt instanceof Timestamp ? data.lastUpdatedAt : createdAt;
-            
-            // Removed uploadedFiles mapping
+            const uploadedFiles = Array.isArray(data.uploadedFiles) ? data.uploadedFiles.filter((f: any) => f && f.name && f.url && f.storagePath) : [];
+
             
             const mappedData: ProjectData = {
                 id: docSnap.id, name, description, status, startDate, 
                 endDate: endDate === undefined ? null : endDate, 
-                budget: budget, managerId, managerName, spent, createdAt, lastUpdatedAt
+                budget: budget, managerId, managerName, spent, createdAt, lastUpdatedAt, uploadedFiles
             };
             return mappedData;
         } catch (e: any) {
@@ -194,7 +200,7 @@ export default function ProjectInfoPage() {
             console.error(errorMessage);
             toast({
                 title: "Data Processing Error",
-                description: `Could not process project data for ID: ${docSnap.id}. See console for details.`,
+                description: `Could not process project data for ID: ${docSnap.id}. See console.`,
                 variant: "destructive"
             });
             return null; 
@@ -228,17 +234,15 @@ export default function ProjectInfoPage() {
         setProjectUpdates(snapshot.docs.map(doc => ({ id: doc.id, projectId, ...doc.data() } as UpdateNoteData)));
       }, (err) => { console.error(`Error fetching updates for project ${projectId}:`, err); toast({title:"Error", description:`Could not fetch updates for ${selectedProject.name}.`, variant:"destructive"});});
       
-      // Removed setProjectUploadedFiles
-      // setProjectUploadedFiles(selectedProject.uploadedFiles || []);
+      setProjectUploadedFiles(selectedProject.uploadedFiles || []);
 
       return () => { unsubTasks(); unsubUpdates(); };
     } else {
       setProjectTasks([]);
       setProjectUpdates([]);
-      // Removed setProjectUploadedFiles
-      // setProjectUploadedFiles([]);
+      setProjectUploadedFiles([]);
     }
-  }, [selectedProject]); // Removed toast from dependency array
+  }, [selectedProject]);
 
   const updateProjectTimestamp = async (projectId: string) => {
     const projectRef = doc(db, "projectsPPM", projectId);
@@ -274,7 +278,7 @@ export default function ProjectInfoPage() {
 
     const budgetToSave = values.budget ?? 0; 
 
-    const projectDataToSave: Omit<ProjectData, 'id' | 'createdAt' | 'spent' > & { createdAt?: Timestamp } = {
+    const projectDataToSave: Omit<ProjectData, 'id' | 'createdAt' | 'spent' | 'uploadedFiles'> & { createdAt?: Timestamp, uploadedFiles?: UploadedFile[] } = {
       name: values.name,
       description: values.description,
       status: values.status,
@@ -303,7 +307,7 @@ export default function ProjectInfoPage() {
         }
       } else {
         projectDataToSave.createdAt = now;
-        // projectDataToSave.uploadedFiles = []; Removed
+        projectDataToSave.uploadedFiles = [];
         await addDoc(collection(db, "projectsPPM"), projectDataToSave);
         toast({ title: "Project Added", description: `"${values.name}" has been added.` });
       }
@@ -346,7 +350,103 @@ export default function ProjectInfoPage() {
     }
   };
 
-  // Removed handleFileUpload and handleDeleteFile functions
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedProject?.id || !event.target.files || event.target.files.length === 0) {
+      toast({ title: "Upload Error", description: "No file selected or no project active.", variant: "destructive" });
+      return;
+    }
+    const file = event.target.files[0];
+    const fileStoragePath = `project_documents/${selectedProject.id}/${Date.now()}_${file.name}`;
+    const fileRef = storageRef(storage, fileStoragePath);
+
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    const uploadTask = uploadBytesResumable(fileRef, file);
+
+    uploadTask.on(
+      "state_changed",
+      (snapshot) => {
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        setUploadProgress(progress);
+      },
+      (error) => {
+        console.error("Upload failed:", error);
+        toast({ title: "Upload Failed", description: error.message, variant: "destructive" });
+        setIsUploading(false);
+      },
+      async () => {
+        try {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          const newFile: UploadedFile = {
+            name: file.name,
+            url: downloadURL,
+            type: file.type,
+            size: file.size,
+            storagePath: fileStoragePath,
+            uploadedAt: Timestamp.now(),
+          };
+
+          const projectRef = doc(db, "projectsPPM", selectedProject.id);
+          const currentFiles = selectedProject.uploadedFiles || [];
+          await updateDoc(projectRef, {
+            uploadedFiles: [...currentFiles, newFile],
+            lastUpdatedAt: Timestamp.now(),
+          });
+          
+          setProjectUploadedFiles(prev => [...prev, newFile]);
+          if(selectedProject){
+            setSelectedProject(prev => prev ? {...prev, uploadedFiles: [...(prev.uploadedFiles || []), newFile], lastUpdatedAt: Timestamp.now()} : null);
+          }
+
+          toast({ title: "File Uploaded", description: `${file.name} uploaded successfully.` });
+        } catch (dbError) {
+          console.error("Error saving file metadata:", dbError);
+          toast({ title: "Metadata Error", description: "File uploaded, but failed to save metadata.", variant: "destructive" });
+          // Attempt to delete orphaned file from storage
+          try {
+            await deleteObject(fileRef);
+            console.log("Orphaned file deleted from storage:", fileStoragePath);
+          } catch (deleteError) {
+            console.error("Failed to delete orphaned file from storage:", deleteError);
+          }
+        } finally {
+          setIsUploading(false);
+          setUploadProgress(0);
+        }
+      }
+    );
+  };
+
+  const handleDeleteFile = async (fileToDelete: UploadedFile) => {
+    if (!selectedProject?.id) return;
+
+    const confirmDelete = window.confirm(`Are you sure you want to delete "${fileToDelete.name}"?`);
+    if (!confirmDelete) return;
+
+    try {
+      const fileRef = storageRef(storage, fileToDelete.storagePath);
+      await deleteObject(fileRef);
+
+      const projectRef = doc(db, "projectsPPM", selectedProject.id);
+      const updatedFiles = (selectedProject.uploadedFiles || []).filter(f => f.storagePath !== fileToDelete.storagePath);
+      await updateDoc(projectRef, {
+        uploadedFiles: updatedFiles,
+        lastUpdatedAt: Timestamp.now(),
+      });
+      
+      setProjectUploadedFiles(updatedFiles);
+       if(selectedProject){
+         setSelectedProject(prev => prev ? {...prev, uploadedFiles: updatedFiles, lastUpdatedAt: Timestamp.now()} : null);
+       }
+
+      toast({ title: "File Deleted", description: `${fileToDelete.name} deleted successfully.` });
+    } catch (error: any) {
+      console.error("Error deleting file:", error);
+      toast({ title: "Delete Failed", description: error.message, variant: "destructive" });
+    }
+  };
+
 
   const onUpdateNoteSubmit = async (values: UpdateNoteFormValues) => {
     if (!selectedProject?.id || !currentUser) {
@@ -445,18 +545,25 @@ export default function ProjectInfoPage() {
                         </TableHeader>
                         <TableBody>
                             {sortedProjects.map((project) => (
-                                <TableRow key={project.id}>
-                                    <TableCell className="font-medium">{project.name}</TableCell>
+                                <TableRow key={project.id} className="hover:bg-muted/50 transition-colors">
+                                    <TableCell className="font-medium text-foreground">{project.name}</TableCell>
                                     <TableCell>
-                                        <Badge variant={project.status === "Completed" ? "default" : "secondary"} className={cn( project.status === "Completed" && "bg-green-500 text-white", project.status === "In Progress" && "bg-blue-500 text-white", project.status === "On Hold" && "bg-yellow-500 text-black", project.status === "Cancelled" && "bg-red-500 text-white", project.status === "Planning" && "bg-gray-400 text-white" )}> {project.status} </Badge>
+                                        <Badge variant={project.status === "Completed" ? "default" : "secondary"} 
+                                          className={cn(
+                                            project.status === "Completed" && "bg-green-600 text-white hover:bg-green-700", 
+                                            project.status === "In Progress" && "bg-primary text-primary-foreground hover:bg-primary/90", 
+                                            project.status === "On Hold" && "bg-secondary text-secondary-foreground hover:bg-secondary/80", 
+                                            project.status === "Cancelled" && "bg-destructive text-destructive-foreground hover:bg-destructive/90", 
+                                            project.status === "Planning" && "bg-muted text-muted-foreground hover:bg-muted/80"
+                                          )}> {project.status} </Badge>
                                     </TableCell>
                                     <TableCell>{project.startDate ? format(project.startDate.toDate(), "PP") : "N/A"}</TableCell>
                                     <TableCell>{formatDistanceToNow(project.lastUpdatedAt.toDate(), { addSuffix: true })}</TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex justify-end gap-1">
-                                            <Button variant="ghost" size="icon" onClick={() => setSelectedProject(project)} className="h-8 w-8" title="View Details"> <FileText className="h-4 w-4" /> </Button>
-                                            <Button variant="ghost" size="icon" onClick={() => handleOpenAddProjectDialog(project)} className="h-8 w-8" title="Edit"> <Edit3 className="h-4 w-4" /> </Button>
-                                            <Button variant="ghost" size="icon" onClick={handleDeleteProjectRequest} className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" title="Delete Info"> <Trash2 className="h-4 w-4" /> </Button>
+                                            <Button variant="ghost" size="icon" onClick={() => setSelectedProject(project)} className="h-8 w-8 hover:bg-accent/20" title="View Details"> <FileText className="h-4 w-4" /> </Button>
+                                            <Button variant="ghost" size="icon" onClick={() => handleOpenAddProjectDialog(project)} className="h-8 w-8 hover:bg-accent/20" title="Edit"> <Edit3 className="h-4 w-4" /> </Button>
+                                            <Button variant="ghost" size="icon" onClick={handleDeleteProjectRequest} className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" title="Delete Project Info"> <Trash2 className="h-4 w-4" /> </Button>
                                         </div>
                                     </TableCell>
                                 </TableRow>
@@ -477,14 +584,21 @@ export default function ProjectInfoPage() {
             <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center"> <Briefcase className="h-8 w-8 text-primary" /> </div>
             <h1 className="text-3xl font-bold font-headline tracking-tight">{selectedProject.name}</h1>
           </div>
-          <Badge variant={selectedProject.status === "Completed" ? "default" : "secondary"} className={cn("text-sm whitespace-nowrap", selectedProject.status === "Completed" && "bg-green-500 text-white", selectedProject.status === "In Progress" && "bg-blue-500 text-white", selectedProject.status === "On Hold" && "bg-yellow-500 text-black", selectedProject.status === "Cancelled" && "bg-red-500 text-white", selectedProject.status === "Planning" && "bg-gray-400 text-white")}> {selectedProject.status} </Badge>
+           <Badge variant={selectedProject.status === "Completed" ? "default" : "secondary"} 
+              className={cn("text-sm whitespace-nowrap",
+                selectedProject.status === "Completed" && "bg-green-600 text-white", 
+                selectedProject.status === "In Progress" && "bg-primary text-primary-foreground", 
+                selectedProject.status === "On Hold" && "bg-secondary text-secondary-foreground", 
+                selectedProject.status === "Cancelled" && "bg-destructive text-destructive-foreground", 
+                selectedProject.status === "Planning" && "bg-muted text-muted-foreground"
+              )}> {selectedProject.status} </Badge>
         </div>
         
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-3"> {/* Adjusted grid columns */}
+          <TabsList className="grid w-full grid-cols-4"> {/* Adjusted for 4 tabs */}
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
-            {/* Document TabTrigger removed */}
+            <TabsTrigger value="documents">Documents</TabsTrigger>
             <TabsTrigger value="updates">Updates</TabsTrigger>
           </TabsList>
 
@@ -496,15 +610,15 @@ export default function ProjectInfoPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                  <Card> <CardHeader><CardTitle className="text-base">Start Date</CardTitle></CardHeader> <CardContent><p>{selectedProject.startDate ? format(selectedProject.startDate.toDate(), "PPP") : "N/A"}</p></CardContent> </Card>
-                  <Card> <CardHeader><CardTitle className="text-base">End Date</CardTitle></CardHeader> <CardContent><p>{selectedProject.endDate ? format(selectedProject.endDate.toDate(), "PPP") : "N/A"}</p></CardContent> </Card>
-                  <Card> <CardHeader><CardTitle className="text-base">Budget</CardTitle></CardHeader> <CardContent><p>{selectedProject.budget ? `$${selectedProject.budget.toLocaleString()}` : "$0"}</p></CardContent> </Card>
-                  <Card> <CardHeader><CardTitle className="text-base">Manager</CardTitle></CardHeader> <CardContent className="flex items-center gap-2"> <Avatar className="h-8 w-8"> <AvatarImage src={`https://placehold.co/40x40.png?text=${selectedProject.managerName ? selectedProject.managerName.substring(0,1).toUpperCase() : 'P'}`} alt={selectedProject.managerName || "Manager"} data-ai-hint="person avatar"/> <AvatarFallback>{selectedProject.managerName ? selectedProject.managerName.substring(0,1).toUpperCase() : "P"}</AvatarFallback> </Avatar> <p className="text-sm font-semibold">{selectedProject.managerName || "N/A"}</p> </CardContent> </Card>
+                  <Card> <CardHeader><CardTitle className="text-base font-semibold">Start Date</CardTitle></CardHeader> <CardContent><p>{selectedProject.startDate ? format(selectedProject.startDate.toDate(), "PPP") : "N/A"}</p></CardContent> </Card>
+                  <Card> <CardHeader><CardTitle className="text-base font-semibold">End Date</CardTitle></CardHeader> <CardContent><p>{selectedProject.endDate ? format(selectedProject.endDate.toDate(), "PPP") : "N/A"}</p></CardContent> </Card>
+                  <Card> <CardHeader><CardTitle className="text-base font-semibold">Budget</CardTitle></CardHeader> <CardContent><p>{selectedProject.budget ? `$${selectedProject.budget.toLocaleString()}` : "$0"}</p></CardContent> </Card>
+                  <Card> <CardHeader><CardTitle className="text-base font-semibold">Manager</CardTitle></CardHeader> <CardContent className="flex items-center gap-2"> <Avatar className="h-8 w-8"> <AvatarImage src={`https://placehold.co/40x40.png?text=${selectedProject.managerName ? selectedProject.managerName.substring(0,1).toUpperCase() : 'P'}`} alt={selectedProject.managerName || "Manager"} data-ai-hint="person avatar"/> <AvatarFallback>{selectedProject.managerName ? selectedProject.managerName.substring(0,1).toUpperCase() : "P"}</AvatarFallback> </Avatar> <p className="text-sm font-semibold">{selectedProject.managerName || "N/A"}</p> </CardContent> </Card>
                 </div>
                 {selectedProject.budget > 0 && typeof selectedProject.spent === 'number' && (
-                  <Card className="mb-4"> <CardHeader><CardTitle className="text-base">Budget Utilization</CardTitle></CardHeader> <CardContent> <Progress value={(selectedProject.spent / selectedProject.budget) * 100} className="h-2.5" /> <p className="text-sm text-muted-foreground mt-1"> ${(selectedProject.spent || 0).toLocaleString()} spent of ${selectedProject.budget.toLocaleString()} ({((selectedProject.spent / selectedProject.budget) * 100).toFixed(1)}%) </p> </CardContent> </Card>
+                  <Card className="mb-4"> <CardHeader><CardTitle className="text-base font-semibold">Budget Utilization</CardTitle></CardHeader> <CardContent> <Progress value={(selectedProject.spent / selectedProject.budget) * 100} className="h-2.5" /> <p className="text-sm text-muted-foreground mt-1"> ${(selectedProject.spent || 0).toLocaleString()} spent of ${selectedProject.budget.toLocaleString()} ({((selectedProject.spent / selectedProject.budget) * 100).toFixed(1)}%) </p> </CardContent> </Card>
                 )}
-                <h4 className="font-semibold text-lg">Description</h4>
+                <h4 className="font-semibold text-lg text-foreground">Description</h4>
                 <p className="text-muted-foreground whitespace-pre-wrap">{selectedProject.description}</p>
               </CardContent>
             </Card>
@@ -528,11 +642,11 @@ export default function ProjectInfoPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {projectTasks.length > 0 ? projectTasks.map(task => (
-                  <Card key={task.id}>
+                  <Card key={task.id} className="hover:shadow-lg transition-shadow">
                     <CardHeader className="pb-2">
                       <div className="flex justify-between items-start">
-                        <CardTitle className="text-md">{task.title}</CardTitle>
-                        <Badge variant={task.status === "Done" ? "default" : "secondary"} className={cn(task.status === "Done" && "bg-green-600", task.status === "In Progress" && "bg-blue-600", task.status === "To Do" && "bg-slate-500", "text-white")}>{task.status}</Badge>
+                        <CardTitle className="text-md text-foreground">{task.title}</CardTitle>
+                        <Badge variant={task.status === "Done" ? "default" : "secondary"} className={cn(task.status === "Done" && "bg-green-600 text-white", task.status === "In Progress" && "bg-primary text-primary-foreground", task.status === "To Do" && "bg-muted text-muted-foreground", "text-white")}>{task.status}</Badge>
                       </div>
                     </CardHeader>
                     <CardContent className="text-sm space-y-1">
@@ -545,7 +659,39 @@ export default function ProjectInfoPage() {
             </Card>
           </TabsContent>
           
-          {/* Document TabContent removed */}
+           <TabsContent value="documents" className="mt-4">
+            <Card className="shadow-md">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2"><Paperclip className="h-5 w-5 text-primary"/>Documents</CardTitle>
+                  <CardDescription>Upload and manage project documents. Last project update: {formatDistanceToNow(selectedProject.lastUpdatedAt.toDate(), { addSuffix: true })}</CardDescription>
+                </div>
+                <Label htmlFor="file-upload" className={cn(buttonVariants({variant: "outline"}), "cursor-pointer")}> <UploadCloud className="mr-2 h-4 w-4"/> Upload File </Label>
+                <Input id="file-upload" type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading}/>
+              </CardHeader>
+              <CardContent>
+                {isUploading && ( <div className="mb-4"> <Progress value={uploadProgress} className="h-2.5"/> <p className="text-sm text-muted-foreground text-center mt-1">Uploading: {uploadProgress.toFixed(0)}%</p> </div> )}
+                {projectUploadedFiles.length > 0 ? (
+                  <ul className="space-y-3">
+                    {projectUploadedFiles.map((file, index) => (
+                      <li key={index} className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <Paperclip className="h-5 w-5 text-primary" />
+                          <div>
+                            <a href={file.url} target="_blank" rel="noopener noreferrer" className="font-medium text-foreground hover:underline hover:text-primary transition-colors"> {file.name} </a>
+                            <p className="text-xs text-muted-foreground"> {(file.size / 1024).toFixed(1)} KB | Uploaded: {formatDistanceToNow(file.uploadedAt.toDate(), {addSuffix: true})} </p>
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteFile(file)} className="text-muted-foreground hover:text-destructive hover:bg-destructive/10" title="Delete File"> <Trash2 className="h-4 w-4"/> </Button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-muted-foreground text-center py-4">No documents uploaded yet.</p>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="updates" className="mt-4">
             <Card className="shadow-md">
@@ -565,9 +711,9 @@ export default function ProjectInfoPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {projectUpdates.length > 0 ? projectUpdates.map(update => (
-                    <Card key={update.id}>
+                    <Card key={update.id} className="hover:shadow-lg transition-shadow">
                       <CardContent className="pt-4">
-                        <p className="text-sm whitespace-pre-wrap">{update.note}</p>
+                        <p className="text-sm text-foreground whitespace-pre-wrap">{update.note}</p>
                         <p className="text-xs text-muted-foreground mt-2">
                           Effective: {format(update.date.toDate(), "PPP")} | Logged by {update.authorName || "System"} {formatDistanceToNow(update.createdAt.toDate(), { addSuffix: true })}
                         </p>
@@ -584,7 +730,6 @@ export default function ProjectInfoPage() {
             <Button variant="destructive" onClick={handleDeleteProjectRequest}> <Trash2 className="mr-2 h-4 w-4" /> Delete Project </Button>
         </div>
 
-        {/* Dialogs for Add Task and Add Update - moved inside detail view */}
         <Dialog open={isAddTaskDialogOpen} onOpenChange={setIsAddTaskDialogOpen}>
           <DialogContent key={`${selectedProject.id}-task-dialog`}>
               <DialogHeader><DialogTitle>Add New Task</DialogTitle><DialogDescription>Fill in the details for the new task for {selectedProject?.name || "the current project"}.</DialogDescription></DialogHeader>
@@ -644,4 +789,3 @@ export default function ProjectInfoPage() {
     </div>
   );
 }
-

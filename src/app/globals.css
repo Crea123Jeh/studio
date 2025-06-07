@@ -1,97 +1,97 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 34 60% 88%; /* Light Orange #FFE0B2 (desaturated) */
-    --foreground: 30 30% 25%; /* Dark Brownish Gray */
+    --background: 45 60% 96%; /* #FCFBEF - Very light, warm cream */
+    --foreground: 45 15% 35%; /* #625F51 - Dark, warm grey/brown */
 
-    --muted: 33 50% 92%;
-    --muted-foreground: 30 25% 45%;
+    --muted: 45 50% 93%; /* #F7F5EC */
+    --muted-foreground: 45 15% 55%; /* #98958A */
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 30 30% 25%;
+    --popover: 0 0% 100%; /* White */
+    --popover-foreground: 45 15% 35%; /* var(--foreground) */
 
-    --card: 0 0% 100%;
-    --card-foreground: 30 30% 25%;
+    --card: 0 0% 100%; /* White */
+    --card-foreground: 45 15% 35%; /* var(--foreground) */
 
-    --border: 33 50% 78%;
-    --input: 33 50% 80%;
+    --border: 45 40% 88%; /* #F0EEDF */
+    --input: 45 40% 90%; /* #F2F0E5 */
 
-    --primary: 47 100% 70%; /* Soft Yellow #FFDA63 */
-    --primary-foreground: 47 50% 30%; /* Darker Yellow/Brown */
+    --primary: 47 90% 72%; /* #FADE74 - Soft, slightly desaturated yellow */
+    --primary-foreground: 47 45% 30%; /* #6E6435 */
 
-    --secondary: 33 70% 80%; /* Lighter shade of background for secondary elements */
-    --secondary-foreground: 33 40% 35%;
+    --secondary: 45 70% 90%; /* #F7F3E0 - Light beige/yellow */
+    --secondary-foreground: 45 30% 45%; /* #858069 */
 
-    --accent: 0 100% 71%; /* Orange-Red #FF6B6B */
-    --accent-foreground: 0 0% 100%; /* White */
+    --accent: 38 95% 68%; /* #FBCF70 - Warm, slightly orangey-yellow */
+    --accent-foreground: 38 50% 25%; /* #66522B */
 
-    --destructive: 0 70% 55%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%; /* #F85A5A - Standard vivid red */
+    --destructive-foreground: 0 0% 100%; /* White */
 
-    --ring: 0 100% 71%; /* Accent for focus rings */
+    --ring: 38 95% 68%; /* var(--accent) for focus rings */
 
     --radius: 0.5rem;
 
     /* Sidebar specific colors */
-    --sidebar-background: 30 75% 88%; /* Light Orange */
-    --sidebar-foreground: 30 30% 20%;
-    --sidebar-primary: 47 100% 65%; /* Slightly darker yellow for active items */
-    --sidebar-primary-foreground: 47 40% 25%;
-    --sidebar-accent: 30 75% 83%; /* Hover states in sidebar - slightly darker orange */
-    --sidebar-accent-foreground: 30 30% 15%;
-    --sidebar-border: 30 60% 78%;
-    --sidebar-ring: 0 100% 71%;
+    --sidebar-background: 45 65% 92%; /* #F8F5E6 - Light warm cream, slightly deeper than main bg */
+    --sidebar-foreground: 45 18% 30%; /* #5B584E - Darker warm grey for sidebar text */
+    --sidebar-primary: 47 90% 72%; /* var(--primary) */
+    --sidebar-primary-foreground: 47 45% 30%; /* var(--primary-foreground) */
+    --sidebar-accent: 45 60% 88%; /* #F5F2DF - Hover states in sidebar */
+    --sidebar-accent-foreground: 45 18% 25%; /* #4D4A41 */
+    --sidebar-border: 45 40% 85%; /* #EDEAD9 */
+    --sidebar-ring: 38 95% 68%; /* var(--ring) */
 
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --chart-1: 38 95% 68%; /* Accent as first chart color */
+    --chart-2: 47 90% 72%; /* Primary as second chart color */
+    --chart-3: 25 80% 65%; /* Muted Orange */
+    --chart-4: 180 40% 60%; /* Muted Teal */
+    --chart-5: 300 40% 70%; /* Muted Purple */
   }
 
   .dark {
-    /* Define dark theme colors if necessary, for now PPM is light themed */
-    --background: 30 30% 10%;
-    --foreground: 33 60% 88%;
+    /* PPM is primarily light-themed as per PRD. Define basic dark theme for completeness if ever toggled. */
+    --background: 45 10% 15%; /* Dark warm grey */
+    --foreground: 45 30% 85%; /* Light cream */
 
-    --muted: 30 25% 15%;
-    --muted-foreground: 33 50% 75%;
+    --muted: 45 10% 20%;
+    --muted-foreground: 45 30% 70%;
 
-    --popover: 30 30% 5%;
-    --popover-foreground: 33 60% 88%;
+    --popover: 45 8% 10%;
+    --popover-foreground: 45 30% 85%;
 
-    --card: 30 30% 7%;
-    --card-foreground: 33 60% 88%;
+    --card: 45 8% 12%;
+    --card-foreground: 45 30% 85%;
 
-    --border: 30 25% 20%;
-    --input: 30 25% 22%;
+    --border: 45 10% 25%;
+    --input: 45 10% 28%;
 
-    --primary: 47 100% 70%;
-    --primary-foreground: 47 50% 30%;
+    --primary: 47 90% 72%; /* Keep primary yellow vibrant */
+    --primary-foreground: 47 45% 30%;
 
-    --secondary: 33 40% 25%;
-    --secondary-foreground: 33 70% 85%;
+    --secondary: 45 15% 25%;
+    --secondary-foreground: 45 50% 80%;
 
-    --accent: 0 100% 71%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 38 95% 68%; /* Keep accent yellow/orange vibrant */
+    --accent-foreground: 38 50% 25%;
 
-    --destructive: 0 70% 55%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --ring: 0 100% 71%;
+    --ring: 38 95% 68%;
     
-    /* Sidebar specific colors for dark theme */
-    --sidebar-background: 25 35% 14%; /* Dark Orange/Brown */
-    --sidebar-foreground: 25 60% 85%;
-    --sidebar-primary: 47 100% 65%; /* Yellow for active items */
-    --sidebar-primary-foreground: 47 40% 25%;
-    --sidebar-accent: 25 35% 19%; /* Hover states in sidebar - slightly lighter dark orange */
-    --sidebar-accent-foreground: 25 60% 80%;
-    --sidebar-border: 25 25% 22%;
-    --sidebar-ring: 0 100% 71%;
+    --sidebar-background: 45 12% 18%; 
+    --sidebar-foreground: 45 30% 80%;
+    --sidebar-primary: 47 90% 72%; 
+    --sidebar-primary-foreground: 47 45% 30%;
+    --sidebar-accent: 45 12% 22%; 
+    --sidebar-accent-foreground: 45 30% 75%;
+    --sidebar-border: 45 10% 28%;
+    --sidebar-ring: 38 95% 68%;
   }
 }
 
@@ -101,7 +101,11 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', sans-serif;
   }
 }
