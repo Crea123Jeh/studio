@@ -5,7 +5,7 @@
 
 @layer base {
   :root {
-    --background: 45 60% 96%; /* #FCFBEF - Very light, warm cream */
+    --background: 45 60% 96%; /* #FCFBEF - Very light, warm cream (Yellowish White) */
     --foreground: 45 15% 35%; /* #625F51 - Dark, warm grey/brown */
 
     --muted: 45 50% 93%; /* #F7F5EC */
@@ -37,13 +37,13 @@
     --radius: 0.5rem;
 
     /* Sidebar specific colors */
-    --sidebar-background: 45 65% 92%; /* #F8F5E6 - Light warm cream, slightly deeper than main bg */
+    --sidebar-background: 47 80% 88%; /* #FCF3CC - Subtle Yellow */
     --sidebar-foreground: 45 18% 30%; /* #5B584E - Darker warm grey for sidebar text */
-    --sidebar-primary: 47 90% 72%; /* var(--primary) */
+    --sidebar-primary: 47 90% 72%; /* var(--primary) - For active items */
     --sidebar-primary-foreground: 47 45% 30%; /* var(--primary-foreground) */
-    --sidebar-accent: 45 60% 88%; /* #F5F2DF - Hover states in sidebar */
+    --sidebar-accent: 47 75% 82%;    /* #F8EDB6 - Hover states in sidebar (richer yellow) */
     --sidebar-accent-foreground: 45 18% 25%; /* #4D4A41 */
-    --sidebar-border: 45 40% 85%; /* #EDEAD9 */
+    --sidebar-border: 47 60% 80%; /* #F5EBAB - Subtle border for sidebar elements */
     --sidebar-ring: 38 95% 68%; /* var(--ring) */
 
     --chart-1: 38 95% 68%; /* Accent as first chart color */
@@ -54,8 +54,7 @@
   }
 
   .dark {
-    /* PPM is primarily light-themed as per PRD. Define basic dark theme for completeness if ever toggled. */
-    --background: 45 10% 15%; /* Dark warm grey */
+    --background: 45 10% 15%; /* #292621 - Dark warm grey (Page BG in Dark) */
     --foreground: 45 30% 85%; /* Light cream */
 
     --muted: 45 10% 20%;
@@ -84,13 +83,14 @@
 
     --ring: 38 95% 68%;
     
-    --sidebar-background: 45 12% 18%; 
-    --sidebar-foreground: 45 30% 80%;
+    /* Dark Sidebar specific colors */
+    --sidebar-background: 47 30% 20%; /* #423E29 - Dark desaturated yellow/olive */
+    --sidebar-foreground: 45 30% 80%; /* #D4CEC3 */
     --sidebar-primary: 47 90% 72%; 
     --sidebar-primary-foreground: 47 45% 30%;
-    --sidebar-accent: 45 12% 22%; 
-    --sidebar-accent-foreground: 45 30% 75%;
-    --sidebar-border: 45 10% 28%;
+    --sidebar-accent: 47 30% 25%;    /* #524C33 - Hover for dark sidebar */
+    --sidebar-accent-foreground: 45 30% 85%; /* Lighter text for dark hover */
+    --sidebar-border: 47 25% 30%;   /* #5C5742 - Border for dark sidebar elements */
     --sidebar-ring: 38 95% 68%;
   }
 }
@@ -109,3 +109,4 @@
     font-family: 'Inter', sans-serif;
   }
 }
+
