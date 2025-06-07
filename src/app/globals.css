@@ -5,97 +5,103 @@
 
 @layer base {
   :root {
-    --background: 50 100% 97%; /* #FEFEEF - Very Pale Yellow/Off-white (Page BG) */
-    --foreground: 45 25% 35%; /* #736C5B - Dark grayish brown (Default text) */
+    --background: 48 100% 97%; /* Very pale yellow, almost off-white (Page BG) */
+    --foreground: 45 30% 25%; /* Dark, desaturated warm grey/brown (Default text) */
 
-    --muted: 50 60% 94%; /* #F9F8E9 */
-    --muted-foreground: 45 25% 55%; /* #9B9381 */
+    --muted: 48 80% 92%; /* Light, soft yellow */
+    --muted-foreground: 45 25% 45%; /* Medium warm grey/brown */
 
     --popover: 0 0% 100%; /* White */
-    --popover-foreground: 45 25% 35%; /* var(--foreground) */
+    --popover-foreground: 45 30% 25%; /* var(--foreground) */
 
-    --card: 0 0% 100%; /* #FFFFFF - White (Panel BG) */
-    --card-foreground: 45 25% 30%; /* #655F4D - Dark grayish brown (Text on cards) */
+    --card: 50 100% 98%; /* Very light, almost white-yellow (Panel BG) */
+    --card-foreground: 45 30% 20%; /* Darker warm grey/brown (Text on cards) */
 
-    --border: 48 40% 85%; /* #EDE9D4 */
-    --input: 48 50% 90%; /* #F2EFE2 */
+    --border: 50 70% 85%; /* Soft yellow border */
+    --input: 50 80% 90%; /* Light yellow input background */
 
-    --primary: 47 88% 55%; /* #EACD2E - Clear, medium gold/yellow (Interactive elements, active text) */
-    --primary-foreground: 45 40% 20%; /* #453F2B - Dark brown (Text on primary elements) */
+    --primary: 45 90% 55%; /* Vibrant, pure yellow (Interactive elements, active text) */
+    --primary-foreground: 45 40% 15%; /* Very dark brown (Text on primary elements) */
 
-    --secondary: 48 65% 92%; /* #F7F5E6 - Light beige/yellow */
-    --secondary-foreground: 45 30% 40%; /* #7A725F */
+    --secondary: 45 85% 75%; /* Medium-light, pleasant yellow */
+    --secondary-foreground: 45 35% 30%; /* Darker brown for text on secondary */
 
-    --accent: 40 90% 60%; /* #F7C851 - Warmer, slightly orangey yellow (Highlights) */
-    --accent-foreground: 40 40% 20%; /* #52401B */
+    --accent: 40 95% 60%; /* Warmer, slightly orangey yellow (Highlights) */
+    --accent-foreground: 40 40% 18%; /* Dark brown for text on accent */
 
-    --destructive: 0 84% 60%; /* #F85A5A - Standard vivid red */
+    --destructive: 0 84% 60%; /* Standard vivid red */
     --destructive-foreground: 0 0% 100%; /* White */
 
-    --ring: 47 88% 55%; /* var(--primary) for focus rings */
+    --ring: 45 90% 55%; /* var(--primary) for focus rings */
 
     --radius: 0.5rem;
 
     /* Sidebar specific colors */
-    --sidebar-background: 48 55% 88%; /* #F4EFD9 - Soft, desaturated yellow (Darker than page) */
-    --sidebar-foreground: 45 25% 30%; /* #655F4D - Darker text for sidebar */
+    --sidebar-background: 48 70% 90%; /* Soft, desaturated yellow */
+    --sidebar-foreground: 45 30% 28%; /* Dark warm grey/brown for sidebar text */
     
     /* Used for active/hover BACKGROUND in SidebarMenuButton */
-    --sidebar-accent: 48 75% 93%; /* #FBF8E8 - Very light yellow (Lighter than sidebar-background) */
+    --sidebar-accent: 45 90% 65%; /* A brighter yellow for hover/active backgrounds */
     /* Used for active/hover TEXT in SidebarMenuButton */
-    --sidebar-accent-foreground: hsl(var(--primary)); /* Main primary color for text pop */
+    --sidebar-accent-foreground: hsl(var(--primary-foreground)); /* High contrast text on hover */
     
-    --sidebar-border: 48 40% 80%; /* #EAE4C8 */
+    --sidebar-border: 48 60% 82%; /* Softer yellow border for sidebar */
+    --sidebar-ring: hsl(var(--primary));
+
+    --chart-1: hsl(var(--accent)); /* Warmer yellow */
+    --chart-2: hsl(var(--primary)); /* Primary yellow */
+    --chart-3: 30 85% 65%; /* A distinct orange */
+    --chart-4: 160 50% 60%; /* A muted teal/green as a cooler complement */
+    --chart-5: 200 60% 65%; /* A muted blue as another cooler complement */
+  }
+
+  .dark {
+    --background: 45 15% 10%; /* Very dark, slightly warm brown/desaturated yellow */
+    --foreground: 45 60% 85%; /* Light, warm off-white/pale yellow */
+
+    --muted: 45 15% 15%;
+    --muted-foreground: 45 50% 70%;
+
+    --popover: 45 12% 8%;
+    --popover-foreground: 45 60% 85%;
+
+    --card: 45 15% 12%; /* Dark card background for dark mode */
+    --card-foreground: 45 60% 85%;
+
+    --border: 45 15% 20%;
+    --input: 45 15% 22%;
+
+    --primary: 45 90% 55%; /* Keep primary yellow vibrant */
+    --primary-foreground: 45 40% 15%; /* Text on primary */
+
+    --secondary: 45 20% 25%; /* Darker, desaturated yellow */
+    --secondary-foreground: 45 50% 80%; /* Text on secondary */
+
+    --accent: 40 95% 60%; /* Keep accent yellow/orange vibrant */
+    --accent-foreground: 40 40% 18%; /* Text on accent */
+
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --ring: 45 90% 55%;
+    
+    /* Dark Sidebar specific colors */
+    --sidebar-background: 45 20% 18%; /* Dark, desaturated warm yellow/brown for sidebar */
+    --sidebar-foreground: 45 55% 80%; /* Light text for dark sidebar */
+    
+    /* Used for active/hover BACKGROUND in Dark SidebarMenuButton */
+    --sidebar-accent: 45 70% 45%;    /* A muted but distinctly yellow hover for dark mode sidebar */
+     /* Used for active/hover TEXT in Dark SidebarMenuButton */
+    --sidebar-accent-foreground: hsl(var(--primary-foreground)); /* High contrast text on hover */
+    
+    --sidebar-border: 45 18% 25%;   /* Border for dark sidebar elements */
     --sidebar-ring: hsl(var(--primary));
 
     --chart-1: hsl(var(--accent)); 
     --chart-2: hsl(var(--primary)); 
-    --chart-3: 25 80% 65%; /* Muted Orange */
-    --chart-4: 180 40% 60%; /* Muted Teal */
-    --chart-5: 300 40% 70%; /* Muted Purple */
-  }
-
-  .dark {
-    --background: 45 10% 15%; /* #292621 */
-    --foreground: 45 30% 85%; /* Light cream */
-
-    --muted: 45 10% 20%;
-    --muted-foreground: 45 30% 70%;
-
-    --popover: 45 8% 10%;
-    --popover-foreground: 45 30% 85%;
-
-    --card: 45 8% 12%; /* Dark card background for dark mode */
-    --card-foreground: 45 30% 85%;
-
-    --border: 45 10% 25%;
-    --input: 45 10% 28%;
-
-    --primary: 47 88% 55%; /* Keep primary yellow vibrant */
-    --primary-foreground: 45 40% 20%;
-
-    --secondary: 45 15% 25%;
-    --secondary-foreground: 45 50% 80%;
-
-    --accent: 40 90% 60%; /* Keep accent yellow/orange vibrant */
-    --accent-foreground: 40 40% 20%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-
-    --ring: 47 88% 55%;
-    
-    /* Dark Sidebar specific colors */
-    --sidebar-background: 47 30% 20%; /* #423E29 - Dark desaturated yellow/olive */
-    --sidebar-foreground: 45 30% 80%; /* #D4CEC3 */
-
-    /* Used for active/hover BACKGROUND in Dark SidebarMenuButton */
-    --sidebar-accent: 47 30% 28%;    /* #5C553B - Slightly lighter than dark sidebar bg */
-     /* Used for active/hover TEXT in Dark SidebarMenuButton */
-    --sidebar-accent-foreground: hsl(var(--primary)); /* Main primary color for text pop */
-    
-    --sidebar-border: 47 25% 30%;   /* #5C5742 - Border for dark sidebar elements */
-    --sidebar-ring: hsl(var(--primary));
+    --chart-3: 30 75% 55%; 
+    --chart-4: 160 40% 50%;
+    --chart-5: 200 50% 55%;
   }
 }
 
@@ -105,12 +111,11 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Poppins', sans-serif; /* Ensuring Poppins is still primary */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Poppins', sans-serif; /* Ensuring Poppins is still primary */
   }
 }
-
