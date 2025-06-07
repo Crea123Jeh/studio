@@ -520,9 +520,7 @@ export default function ProjectInfoPage() {
         <>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="bg-accent rounded-full h-8 w-8 flex items-center justify-center">
-                <Briefcase className="h-4 w-4 text-white" />
-              </div>
+              <Briefcase className="h-7 w-7 text-primary" />
               <h1 className="text-3xl font-bold font-headline tracking-tight">Projects Portfolio</h1>
             </div>
             <Button onClick={() => handleOpenAddProjectDialog()}> <PlusCircle className="mr-2 h-4 w-4" /> Add New Project </Button>
@@ -586,9 +584,7 @@ export default function ProjectInfoPage() {
         <Button variant="outline" onClick={() => setSelectedProject(null)} className="mb-4"> <ArrowLeft className="mr-2 h-4 w-4" /> Back to Project List </Button>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-3">
-             <div className="bg-accent rounded-full h-8 w-8 flex items-center justify-center">
-                <Briefcase className="h-4 w-4 text-white" />
-              </div>
+            <Briefcase className="h-7 w-7 text-primary" />
             <h1 className="text-3xl font-bold font-headline tracking-tight">{selectedProject.name}</h1>
           </div>
            <Badge variant={selectedProject.status === "Completed" ? "default" : "secondary"} 
@@ -796,3 +792,5 @@ export default function ProjectInfoPage() {
     </div>
   );
 }
+
+    

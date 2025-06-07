@@ -62,9 +62,7 @@ export default function KnowledgeHubPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 mb-2">
-        <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center">
-            <BookOpen className="h-6 w-6 text-primary" />
-        </div>
+        <BookOpen className="h-7 w-7 text-primary" />
         <h1 className="text-3xl font-bold font-headline tracking-tight">Knowledge Hub</h1>
       </div>
       <p className="text-muted-foreground text-md">
@@ -74,10 +72,8 @@ export default function KnowledgeHubPage() {
       <Card className="shadow-lg">
         <CardHeader>
            <div className="flex items-center gap-2 mb-1">
-                <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center">
-                     <Youtube className="h-5 w-5 text-primary" />
-                </div>
-                <CardTitle className="text-xl">Learning Feed</CardTitle>
+              <Youtube className="h-6 w-6 text-primary" />
+              <CardTitle className="text-xl">Learning Feed</CardTitle>
             </div>
           <CardDescription>
             Latest videos and tutorials relevant to project management, methodologies, and tools.
@@ -125,3 +121,5 @@ export default function KnowledgeHubPage() {
     </div>
   );
 }
+
+    

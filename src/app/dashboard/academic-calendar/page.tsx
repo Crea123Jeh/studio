@@ -284,9 +284,7 @@ export default function AcademicCalendarPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-           <div className="bg-accent rounded-full h-8 w-8 flex items-center justify-center">
-             <School className="h-4 w-4 text-white" />
-           </div>
+          <School className="h-7 w-7 text-primary" />
           <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">Academic Calendar</h1>
         </div>
         <Dialog open={isAddEditDialogOpen} onOpenChange={setIsAddEditDialogOpen}>
@@ -423,3 +421,5 @@ export default function AcademicCalendarPage() {
     </div>
   );
 }
+
+    

@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageSquare, Send, Users, CornerDownLeft, Briefcase } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
 import Image from 'next/image';
+import { cn } from '@/lib/utils';
 
 interface Message {
   id: string;
@@ -71,22 +72,22 @@ export default function TeamChatPage() {
   return (
     <div className="h-[calc(100vh-120px)] flex flex-col md:flex-row gap-4">
       <Card className="w-full md:w-1/4 shadow-lg flex flex-col">
-        <CardHeader className="border-b p-4">
-          <CardTitle className="flex items-center gap-2 text-foreground"><Users className="h-6 w-6 text-primary"/>Channels</CardTitle>
-          <CardDescription>Select a channel to chat in.</CardDescription>
+        <CardHeader className="border-b p-3">
+          <CardTitle className="flex items-center gap-2 text-foreground text-lg"><Users className="h-5 w-5 text-primary"/>Channels</CardTitle>
+          <CardDescription className="text-xs">Select a channel.</CardDescription>
         </CardHeader>
         <CardContent className="p-0 flex-grow">
           <ScrollArea className="h-full">
-            <nav className="p-2 space-y-1">
+            <nav className="p-1.5 space-y-0.5">
             {channels.map(channel => (
               <Button
                 key={channel.id}
                 variant={activeChannel === channel.id ? "secondary" : "ghost"}
                 size="sm"
-                className={`w-full justify-start gap-2 ${activeChannel === channel.id ? 'bg-primary/30 text-primary-foreground font-semibold hover:bg-primary/40' : 'hover:bg-muted/70'}`}
+                className={`w-full justify-start gap-2 h-8 px-2 text-sm ${activeChannel === channel.id ? 'bg-primary/30 text-primary-foreground font-semibold hover:bg-primary/40' : 'hover:bg-muted/70'}`}
                 onClick={() => setActiveChannel(channel.id)}
               >
-                <channel.icon className="h-4 w-4" />
+                <channel.icon className={cn("h-4 w-4", activeChannel === channel.id ? "text-primary-foreground" : "text-primary")} />
                 {channel.name}
               </Button>
             ))}
@@ -96,36 +97,36 @@ export default function TeamChatPage() {
       </Card>
 
       <Card className="w-full md:w-3/4 shadow-lg flex flex-col h-full">
-        <CardHeader className="border-b p-4">
-          <CardTitle className="flex items-center gap-2 text-foreground">
-            <MessageSquare className="h-6 w-6 text-primary" /> 
+        <CardHeader className="border-b p-3">
+          <CardTitle className="flex items-center gap-2 text-foreground text-lg">
+            <MessageSquare className="h-5 w-5 text-primary" /> 
             {channels.find(c => c.id === activeChannel)?.name || "Team Chat"}
           </CardTitle>
-          <CardDescription>Real-time communication with your team.</CardDescription>
+          <CardDescription className="text-xs">Real-time communication.</CardDescription>
         </CardHeader>
         
         <CardContent className="flex-grow p-0 overflow-hidden">
-          <ScrollArea className="h-full p-4" ref={scrollAreaRef}>
-            <div className="space-y-3">
+          <ScrollArea className="h-full p-3" ref={scrollAreaRef}>
+            <div className="space-y-2.5">
               {messages.map((msg) => (
-                <div key={msg.id} className={`flex items-end gap-2 ${msg.isSender ? "justify-end" : ""}`}>
+                <div key={msg.id} className={`flex items-end gap-1.5 ${msg.isSender ? "justify-end" : ""}`}>
                   {!msg.isSender && (
-                     <Avatar className="h-7 w-7 self-start">
+                     <Avatar className="h-6 w-6 self-start">
                       <AvatarImage src={msg.avatar} alt={msg.user} data-ai-hint="person avatar"/>
-                      <AvatarFallback>{msg.user.charAt(0)}</AvatarFallback>
+                      <AvatarFallback className="text-xs">{msg.user.charAt(0)}</AvatarFallback>
                     </Avatar>
                   )}
-                  <div className={`max-w-xs lg:max-w-md p-2 rounded-lg shadow ${msg.isSender ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                  <div className={`max-w-[70%] lg:max-w-[65%] p-1.5 rounded-md shadow ${msg.isSender ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
                     {!msg.isSender && <p className="text-xs font-semibold mb-0.5 text-foreground">{msg.user}</p>}
                     <p className="text-sm">{msg.text}</p>
-                    <p className={`text-xs mt-1 ${msg.isSender ? "text-primary-foreground/70" : "text-muted-foreground/80"} ${msg.isSender ? 'text-right' : 'text-left'}`}>
+                    <p className={`text-[10px] mt-0.5 ${msg.isSender ? "text-primary-foreground/70" : "text-muted-foreground/80"} ${msg.isSender ? 'text-right' : 'text-left'}`}>
                       {msg.timestamp}
                     </p>
                   </div>
                    {msg.isSender && (
-                    <Avatar className="h-7 w-7 self-start">
+                    <Avatar className="h-6 w-6 self-start">
                       <AvatarImage src={msg.avatar} alt={msg.user} data-ai-hint="user avatar" />
-                      <AvatarFallback>{msg.user.charAt(0)}</AvatarFallback>
+                      <AvatarFallback className="text-xs">{msg.user.charAt(0)}</AvatarFallback>
                     </Avatar>
                   )}
                 </div>
@@ -134,17 +135,17 @@ export default function TeamChatPage() {
           </ScrollArea>
         </CardContent>
         
-        <div className="border-t p-3">
-          <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+        <div className="border-t p-2">
+          <form onSubmit={handleSendMessage} className="flex items-center gap-1.5">
             <Input
               type="text"
-              placeholder="Type your message..."
+              placeholder="Type message..."
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              className="flex-grow h-9 text-sm"
+              className="flex-grow h-8 text-sm px-2.5"
             />
-            <Button type="submit" size="icon" className="h-9 w-9 bg-accent hover:bg-accent/90">
-              <Send className="h-4 w-4" />
+            <Button type="submit" size="icon" className="h-8 w-8 bg-accent hover:bg-accent/90">
+              <Send className="h-3.5 w-3.5" />
               <span className="sr-only">Send</span>
             </Button>
           </form>
@@ -153,3 +154,5 @@ export default function TeamChatPage() {
     </div>
   );
 }
+
+    

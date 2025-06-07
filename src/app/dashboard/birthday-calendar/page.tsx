@@ -500,9 +500,7 @@ export default function BirthdayCalendarPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="bg-accent rounded-full h-8 w-8 flex items-center justify-center">
-            <Cake className="h-4 w-4 text-white" />
-          </div>
+          <Cake className="h-7 w-7 text-primary" />
           <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">Birthday Calendar</h1>
         </div>
         <div className="flex gap-2">
@@ -648,9 +646,7 @@ export default function BirthdayCalendarPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center text-xl text-foreground">
-             <div className="bg-accent rounded-full h-7 w-7 flex items-center justify-center mr-2">
-                <PartyPopper className="h-4 w-4 text-white" />
-            </div>
+            <PartyPopper className="h-6 w-6 text-primary mr-2" />
             Today&apos;s Birthdays
           </CardTitle>
         </CardHeader>
@@ -661,9 +657,7 @@ export default function BirthdayCalendarPage() {
                 {todaysBirthdaysList.teachers.length > 0 && (
                   <div className="mb-6">
                     <h4 className="text-lg font-semibold mb-3 pb-1 border-b flex items-center text-foreground">
-                       <div className="bg-accent rounded-full h-7 w-7 flex items-center justify-center mr-2">
-                        <Users className="h-4 w-4 text-white" />
-                      </div>
+                      <Users className="h-6 w-6 text-primary mr-2" />
                       Teachers
                     </h4>
                     <ul className="space-y-4">
@@ -678,9 +672,7 @@ export default function BirthdayCalendarPage() {
                 {todaysBirthdaysList.students.length > 0 && (
                   <div>
                     <h4 className="text-lg font-semibold mb-3 pb-1 border-b flex items-center text-foreground">
-                       <div className="bg-accent rounded-full h-7 w-7 flex items-center justify-center mr-2">
-                        <User className="h-4 w-4 text-white" />
-                      </div>
+                      <User className="h-6 w-6 text-primary mr-2" />
                       Students
                     </h4>
                     <ul className="space-y-4">
@@ -709,9 +701,7 @@ export default function BirthdayCalendarPage() {
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-start">
             <div>
               <CardTitle className="flex items-center text-xl text-foreground">
-                  <div className="bg-accent rounded-full h-7 w-7 flex items-center justify-center mr-2">
-                    <ListOrdered className="h-4 w-4 text-white" />
-                </div>
+                <ListOrdered className="h-6 w-6 text-primary mr-2" />
                 All Upcoming Birthdays
               </CardTitle>
               <CardDescription className="mt-1">
@@ -735,10 +725,8 @@ export default function BirthdayCalendarPage() {
             {filteredUpcomingBirthdays.teachers.length > 0 && (
               <div className="mb-8">
                 <h4 className="text-xl font-semibold mb-3 pb-2 border-b flex items-center text-foreground">
-                    <div className="bg-accent rounded-full h-7 w-7 flex items-center justify-center mr-2">
-                        <Users className="h-4 w-4 text-white" />
-                    </div>
-                    Teachers
+                  <Users className="h-6 w-6 text-primary mr-2" />
+                  Teachers
                 </h4>
                 <Table>
                   <TableHeader>
@@ -773,10 +761,8 @@ export default function BirthdayCalendarPage() {
             {Object.keys(filteredUpcomingBirthdays.studentsByGrade).some(gradeKey => filteredUpcomingBirthdays.studentsByGrade[gradeKey]?.length > 0) && (
               <div>
                 <h4 className="text-xl font-semibold mb-4 pb-2 border-b flex items-center text-foreground">
-                    <div className="bg-accent rounded-full h-7 w-7 flex items-center justify-center mr-2">
-                        <User className="h-4 w-4 text-white" />
-                    </div>
-                    Students
+                  <User className="h-6 w-6 text-primary mr-2" />
+                  Students
                 </h4>
                 {studentGradeOptions.map(gradeKey => {
                     const studentsInGrade = filteredUpcomingBirthdays.studentsByGrade[gradeKey];
@@ -784,9 +770,7 @@ export default function BirthdayCalendarPage() {
                         return (
                             <div key={`grade-section-table-${gradeKey}`} className="mb-6">
                                 <h5 className="text-lg font-medium text-muted-foreground mb-2 ml-1 flex items-center">
-                                    <div className="bg-accent rounded-full h-6 w-6 flex items-center justify-center mr-2">
-                                        <User className="h-3 w-3 text-white" />
-                                    </div>
+                                    <User className="h-5 w-5 text-primary mr-2" />
                                     Grade: {gradeKey}
                                 </h5>
                                 <Table>
@@ -824,9 +808,7 @@ export default function BirthdayCalendarPage() {
                 {filteredUpcomingBirthdays.studentsByGrade["Ungraded"] && filteredUpcomingBirthdays.studentsByGrade["Ungraded"].length > 0 && (
                      <div key="grade-section-table-ungraded" className="mb-6">
                         <h5 className="text-lg font-medium text-muted-foreground mb-2 ml-1 flex items-center">
-                            <div className="bg-accent rounded-full h-6 w-6 flex items-center justify-center mr-2">
-                                <User className="h-3 w-3 text-white" />
-                            </div>
+                            <User className="h-5 w-5 text-primary mr-2" />
                             Grade: Ungraded/Other
                         </h5>
                         <Table>
@@ -878,3 +860,5 @@ export default function BirthdayCalendarPage() {
     </div>
   );
 }
+
+    

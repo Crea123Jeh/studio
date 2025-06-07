@@ -25,9 +25,7 @@ export default function InformationPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 mb-2">
-        <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center">
-          <Info className="h-6 w-6 text-primary" />
-        </div>
+        <Info className="h-7 w-7 text-primary" />
         <h1 className="text-3xl font-bold font-headline tracking-tight">Information Hub</h1>
       </div>
       <p className="text-muted-foreground text-md">
@@ -38,9 +36,7 @@ export default function InformationPage() {
         <Card className="shadow-lg">
           <CardHeader>
              <div className="flex items-center gap-2 mb-1">
-                <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center">
-                    <Newspaper className="h-5 w-5 text-primary" />
-                </div>
+                <Newspaper className="h-6 w-6 text-primary" />
                 <CardTitle className="text-xl">What&apos;s Happening</CardTitle>
             </div>
             <CardDescription>Latest updates, articles, and important announcements.</CardDescription>
@@ -52,9 +48,7 @@ export default function InformationPage() {
                   <Card key={item.id} className="hover:shadow-md transition-shadow">
                     <CardHeader className="p-4 pb-2">
                        <div className="flex items-start gap-3">
-                        <div className={`p-1.5 rounded-md inline-flex items-center justify-center ${item.icon === AlertTriangle ? "bg-destructive/20 text-destructive" : "bg-primary/20 text-primary"}`}>
-                           <item.icon className="h-5 w-5" />
-                        </div>
+                        <item.icon className={`h-5 w-5 ${item.icon === AlertTriangle ? "text-destructive" : "text-primary"}`} />
                         <div className="flex-1">
                             <CardTitle className="text-md leading-tight">{item.title}</CardTitle>
                              <span className="text-xs font-medium text-primary mt-0.5 block">{item.category}</span>
@@ -75,9 +69,7 @@ export default function InformationPage() {
         <Card className="shadow-lg">
           <CardHeader>
              <div className="flex items-center gap-2 mb-1">
-                <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center">
-                    <TrendingUp className="h-5 w-5 text-primary" />
-                </div>
+                <TrendingUp className="h-6 w-6 text-primary" />
                 <CardTitle className="text-xl">Current Trends</CardTitle>
             </div>
             <CardDescription>Emerging patterns and insights in technology and project management.</CardDescription>
@@ -104,3 +96,5 @@ export default function InformationPage() {
     </div>
   );
 }
+
+    

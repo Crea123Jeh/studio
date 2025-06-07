@@ -46,10 +46,8 @@ export default function BotsListPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-            <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center">
-              <Bot className="h-6 w-6 text-primary" />
-            </div>
-            <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">Bot's List</h1>
+            <Bot className="h-7 w-7 text-primary" />
+            <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">Bot&apos;s List</h1>
         </div>
         <Button variant="outline"><PlusCircle className="mr-2 h-4 w-4"/> Add New Bot</Button>
       </div>
@@ -110,3 +108,5 @@ export default function BotsListPage() {
     </div>
   );
 }
+
+    

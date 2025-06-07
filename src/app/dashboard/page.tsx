@@ -9,16 +9,14 @@ interface SummaryMetric {
   title: string;
   value: string;
   icon: React.ElementType;
-  iconBgClass: string; // Use this for icon background directly for simplicity here
-  iconColorClass: string; // Use this for icon color directly
   description?: string;
 }
 
 const summaryMetrics: SummaryMetric[] = [
-  { title: "Active Projects", value: "12", icon: Briefcase, iconBgClass: "bg-primary/20", iconColorClass: "text-primary", description: "+2 from last month" },
-  { title: "Tasks Due This Week", value: "8", icon: ListChecks, iconBgClass: "bg-accent/20", iconColorClass: "text-accent", description: "3 overdue" },
-  { title: "Team Members", value: "27", icon: Users, iconBgClass: "bg-green-500/20", iconColorClass: "text-green-600", description: "5 new hires" },
-  { title: "Upcoming Milestones", value: "4", icon: CalendarCheck, iconBgClass: "bg-purple-500/20", iconColorClass: "text-purple-600", description: "Next: Project Alpha Launch" },
+  { title: "Active Projects", value: "12", icon: Briefcase, description: "+2 from last month" },
+  { title: "Tasks Due This Week", value: "8", icon: ListChecks, description: "3 overdue" },
+  { title: "Team Members", value: "27", icon: Users, description: "5 new hires" },
+  { title: "Upcoming Milestones", value: "4", icon: CalendarCheck, description: "Next: Project Alpha Launch" },
 ];
 
 interface ActivityItem {
@@ -48,9 +46,7 @@ export default function DashboardPage() {
           <Card key={metric.title} className="shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300 ease-in-out">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">{metric.title}</CardTitle>
-              <div className={`p-2 rounded-full ${metric.iconBgClass}`}>
-                <metric.icon className={`h-5 w-5 ${metric.iconColorClass}`} />
-              </div>
+              <metric.icon className="h-6 w-6 text-primary" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-foreground">{metric.value}</div>
@@ -121,3 +117,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
