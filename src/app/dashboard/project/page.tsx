@@ -19,14 +19,15 @@ import { Calendar } from "@/components/ui/calendar";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { db, storage } from "@/lib/firebase";
+import { db } from "@/lib/firebase"; // storage import removed as it's no longer used here
 import {
   collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, updateDoc, deleteDoc,
-  arrayUnion, arrayRemove, writeBatch, getDocs,
+  writeBatch, getDocs,
 } from "firebase/firestore";
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+// Removed storage related imports: ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject
 import { format, formatDistanceToNow } from "date-fns";
-import { Briefcase, ListChecks, FileText, Paperclip, MessageCircle, PlusCircle, ArrowLeft, Edit3, Trash2, CalendarIcon, UploadCloud, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Briefcase, ListChecks, FileText, MessageCircle, PlusCircle, ArrowLeft, Edit3, Trash2, CalendarIcon, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+// Removed Paperclip and UploadCloud as they were for documents
 import Image from "next/image";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -37,16 +38,6 @@ const projectStatusOptions = ["Planning", "In Progress", "Completed", "On Hold",
 const taskStatusOptions = ["To Do", "In Progress", "Done"] as const;
 
 // Zod Schemas
-const uploadedFileSchema = z.object({
-  name: z.string(),
-  url: z.string().url(),
-  type: z.string(),
-  size: z.number(),
-  storagePath: z.string(),
-  uploadedAt: z.custom((val) => val instanceof Timestamp, "Expected Firestore Timestamp for uploadedAt"),
-});
-type UploadedFile = z.infer<typeof uploadedFileSchema>;
-
 const projectFormSchema = z.object({
   name: z.string().min(3, "Project name must be at least 3 characters."),
   description: z.string().min(10, "Description must be at least 10 characters."),
@@ -90,7 +81,7 @@ interface ProjectData {
   spent?: number; 
   createdAt: Timestamp;
   lastUpdatedAt: Timestamp;
-  uploadedFiles: UploadedFile[];
+  // uploadedFiles field removed
 }
 
 interface TaskData {
@@ -133,9 +124,10 @@ export default function ProjectInfoPage() {
   const [projectTasks, setProjectTasks] = useState<TaskData[]>([]);
   const [isAddTaskDialogOpen, setIsAddTaskDialogOpen] = useState(false);
   
-  const [projectUploadedFiles, setProjectUploadedFiles] = useState<UploadedFile[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  // Removed state for uploaded files
+  // const [projectUploadedFiles, setProjectUploadedFiles] = useState<UploadedFile[]>([]);
+  // const [isUploading, setIsUploading] = useState(false);
+  // const [uploadProgress, setUploadProgress] = useState(0);
 
   const [projectUpdates, setProjectUpdates] = useState<UpdateNoteData[]>([]);
   const [isAddUpdateDialogOpen, setIsAddUpdateDialogOpen] = useState(false);
@@ -167,7 +159,7 @@ export default function ProjectInfoPage() {
   useEffect(() => {
     setIsLoading(true);
     const projectsCollectionRef = collection(db, "projectsPPM");
-    const q = query(projectsCollectionRef, orderBy("createdAt", "desc")); // Initial fetch order
+    const q = query(projectsCollectionRef, orderBy("createdAt", "desc")); 
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedProjects = snapshot.docs.map(docSnap => {
@@ -179,7 +171,7 @@ export default function ProjectInfoPage() {
             const status = projectStatusOptions.includes(data.status) ? data.status : "Planning";
             
             const startDate = data.startDate instanceof Timestamp ? data.startDate : Timestamp.fromDate(new Date(1970,0,1));
-            const endDate = data.endDate instanceof Timestamp ? data.endDate : (data.endDate === null ? null : undefined); // Handle null explicitly
+            const endDate = data.endDate instanceof Timestamp ? data.endDate : (data.endDate === null ? null : undefined);
             
             const budget = typeof data.budget === 'number' ? data.budget : 0; 
             const managerId = typeof data.managerId === 'string' ? data.managerId : undefined;
@@ -189,20 +181,12 @@ export default function ProjectInfoPage() {
             const createdAt = data.createdAt instanceof Timestamp ? data.createdAt : Timestamp.fromDate(new Date(1970,0,1));
             const lastUpdatedAt = data.lastUpdatedAt instanceof Timestamp ? data.lastUpdatedAt : createdAt;
             
-            const uploadedFilesRaw = Array.isArray(data.uploadedFiles) ? data.uploadedFiles : [];
-            const uploadedFiles = uploadedFilesRaw.map((f: any) => ({
-                name: typeof f.name === 'string' ? f.name : 'Untitled File',
-                url: typeof f.url === 'string' ? f.url : '',
-                type: typeof f.type === 'string' ? f.type : 'application/octet-stream',
-                size: typeof f.size === 'number' ? f.size : 0,
-                storagePath: typeof f.storagePath === 'string' ? f.storagePath : '',
-                uploadedAt: f.uploadedAt instanceof Timestamp ? f.uploadedAt : Timestamp.now(),
-              })).filter(f => f.url && f.storagePath && f.name && f.storagePath); // Ensure critical fields exist
-
+            // Removed uploadedFiles mapping
+            
             const mappedData: ProjectData = {
                 id: docSnap.id, name, description, status, startDate, 
-                endDate: endDate === undefined ? null : endDate, // Ensure endDate is null if undefined 
-                budget: budget, managerId, managerName, spent, createdAt, lastUpdatedAt, uploadedFiles
+                endDate: endDate === undefined ? null : endDate, 
+                budget: budget, managerId, managerName, spent, createdAt, lastUpdatedAt
             };
             return mappedData;
         } catch (e: any) {
@@ -244,15 +228,17 @@ export default function ProjectInfoPage() {
         setProjectUpdates(snapshot.docs.map(doc => ({ id: doc.id, projectId, ...doc.data() } as UpdateNoteData)));
       }, (err) => { console.error(`Error fetching updates for project ${projectId}:`, err); toast({title:"Error", description:`Could not fetch updates for ${selectedProject.name}.`, variant:"destructive"});});
       
-      setProjectUploadedFiles(selectedProject.uploadedFiles || []);
+      // Removed setProjectUploadedFiles
+      // setProjectUploadedFiles(selectedProject.uploadedFiles || []);
 
       return () => { unsubTasks(); unsubUpdates(); };
     } else {
       setProjectTasks([]);
       setProjectUpdates([]);
-      setProjectUploadedFiles([]);
+      // Removed setProjectUploadedFiles
+      // setProjectUploadedFiles([]);
     }
-  }, [selectedProject]);
+  }, [selectedProject]); // Removed toast from dependency array
 
   const updateProjectTimestamp = async (projectId: string) => {
     const projectRef = doc(db, "projectsPPM", projectId);
@@ -288,7 +274,7 @@ export default function ProjectInfoPage() {
 
     const budgetToSave = values.budget ?? 0; 
 
-    const projectDataToSave: Omit<ProjectData, 'id' | 'createdAt' | 'spent' | 'uploadedFiles'> & { createdAt?: Timestamp, uploadedFiles?: UploadedFile[] } = {
+    const projectDataToSave: Omit<ProjectData, 'id' | 'createdAt' | 'spent' > & { createdAt?: Timestamp } = {
       name: values.name,
       description: values.description,
       status: values.status,
@@ -317,7 +303,7 @@ export default function ProjectInfoPage() {
         }
       } else {
         projectDataToSave.createdAt = now;
-        projectDataToSave.uploadedFiles = []; 
+        // projectDataToSave.uploadedFiles = []; Removed
         await addDoc(collection(db, "projectsPPM"), projectDataToSave);
         toast({ title: "Project Added", description: `"${values.name}" has been added.` });
       }
@@ -360,95 +346,7 @@ export default function ProjectInfoPage() {
     }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!selectedProject?.id || !event.target.files || event.target.files.length === 0) return;
-    const projectId = selectedProject.id;
-    const file = event.target.files[0];
-    setIsUploading(true);
-    setUploadProgress(0);
-
-    const filePath = `project_documents/${projectId}/${Date.now()}_${file.name}`;
-    const fileUploadRef = storageRef(storage, filePath);
-    const uploadTask = uploadBytesResumable(fileUploadRef, file);
-
-    uploadTask.on('state_changed',
-      (snapshot) => setUploadProgress((snapshot.bytesTransferred / snapshot.totalBytes) * 100),
-      (error) => {
-        console.error("Upload failed:", error);
-        toast({ title: "Upload Failed", description: error.message, variant: "destructive" });
-        setIsUploading(false);
-      },
-      async () => {
-        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-        const newFile: UploadedFile = {
-          name: file.name,
-          url: downloadURL,
-          type: file.type,
-          size: file.size,
-          storagePath: filePath,
-          uploadedAt: Timestamp.now(),
-        };
-        const projectRef = doc(db, "projectsPPM", projectId);
-        try {
-            await updateDoc(projectRef, { uploadedFiles: arrayUnion(newFile), lastUpdatedAt: Timestamp.now() });
-            setSelectedProject(prev => {
-                if (!prev) return null;
-                const updatedFiles = [...(prev.uploadedFiles || []), newFile];
-                return { ...prev, uploadedFiles: updatedFiles, lastUpdatedAt: Timestamp.now() };
-            });
-            setProjectUploadedFiles(prev => [...prev, newFile]);
-            toast({ title: "File Uploaded", description: `"${file.name}" uploaded successfully.` });
-        } catch (updateError) {
-            console.error("Error updating project with new file metadata:", updateError);
-            toast({ title: "File Save Error", description: "File uploaded, but failed to save metadata.", variant: "destructive" });
-            try {
-                await deleteObject(fileUploadRef);
-                console.log("Orphaned file deleted from storage:", filePath);
-            } catch (orphanDeleteError) {
-                console.error("Failed to delete orphaned file from storage:", orphanDeleteError);
-            }
-        } finally {
-            setIsUploading(false);
-            setUploadProgress(0);
-            if (event.target) event.target.value = ""; 
-        }
-      }
-    );
-  };
-
-  const handleDeleteFile = async (fileToDelete: UploadedFile) => {
-    if (!selectedProject?.id || !confirm(`Are you sure you want to delete the file "${fileToDelete.name}"?`)) return;
-    const projectId = selectedProject.id;
-    try {
-      const fileStorageRefToDelete = storageRef(storage, fileToDelete.storagePath);
-      await deleteObject(fileStorageRefToDelete);
-
-      const projectRef = doc(db, "projectsPPM", projectId);
-      
-      const fileObjectToRemove = {
-        name: fileToDelete.name,
-        url: fileToDelete.url,
-        type: fileToDelete.type,
-        size: fileToDelete.size,
-        storagePath: fileToDelete.storagePath,
-        uploadedAt: fileToDelete.uploadedAt, 
-      };
-
-      await updateDoc(projectRef, { uploadedFiles: arrayRemove(fileObjectToRemove), lastUpdatedAt: Timestamp.now() });
-      
-      setSelectedProject(prev => {
-          if (!prev) return null;
-          const updatedFiles = (prev.uploadedFiles || []).filter(f => f.storagePath !== fileToDelete.storagePath);
-          return { ...prev, uploadedFiles: updatedFiles, lastUpdatedAt: Timestamp.now() };
-      });
-      setProjectUploadedFiles(prev => prev.filter(f => f.storagePath !== fileToDelete.storagePath));
-
-      toast({ title: "File Deleted", description: `"${fileToDelete.name}" deleted.` });
-    } catch (error) {
-      console.error("Error deleting file:", error);
-      toast({ title: "Error Deleting File", description: `Could not delete file. ${error instanceof Error ? error.message : ''}`, variant: "destructive" });
-    }
-  };
+  // Removed handleFileUpload and handleDeleteFile functions
 
   const onUpdateNoteSubmit = async (values: UpdateNoteFormValues) => {
     if (!selectedProject?.id || !currentUser) {
@@ -583,10 +481,10 @@ export default function ProjectInfoPage() {
         </div>
         
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3"> {/* Adjusted grid columns */}
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
-            <TabsTrigger value="documents">Documents</TabsTrigger>
+            {/* Document TabTrigger removed */}
             <TabsTrigger value="updates">Updates</TabsTrigger>
           </TabsList>
 
@@ -647,46 +545,7 @@ export default function ProjectInfoPage() {
             </Card>
           </TabsContent>
           
-          <TabsContent value="documents" className="mt-4">
-            <Card className="shadow-md">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Paperclip className="h-5 w-5 text-primary"/>Documents</CardTitle>
-                    <CardDescription>Upload and manage project files. Last project update: {formatDistanceToNow(selectedProject.lastUpdatedAt.toDate(), { addSuffix: true })}</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div>
-                        <Label htmlFor="file-upload" className={cn("flex items-center justify-center w-full h-32 px-4 transition bg-background border-2 border-gray-300 border-dashed rounded-md appearance-none focus:outline-none", isUploading ? "cursor-not-allowed opacity-70" : "cursor-pointer hover:border-gray-400")}>
-                            <span className="flex items-center space-x-2">
-                                <UploadCloud className="w-6 h-6 text-gray-600" />
-                                <span className="font-medium text-gray-600">
-                                    {isUploading ? "Uploading..." : <span>Drop files to Attach, or <span className="text-blue-600 underline">browse</span></span>}
-                                </span>
-                            </span>
-                            <Input id="file-upload" type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading || !selectedProject?.id}/>
-                        </Label>
-                        {isUploading && <div className="mt-2"><Progress value={uploadProgress} className="h-2" /><p className="text-xs text-center">{uploadProgress.toFixed(0)}%</p></div>}
-                    </div>
-                    {projectUploadedFiles.length > 0 ? (
-                        <div className="space-y-2">
-                            {projectUploadedFiles.map((file) => (
-                                <div key={file.storagePath || file.name} className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50 gap-2">
-                                    <div className="flex items-center gap-3 overflow-hidden">
-                                        {file.type.startsWith("image/") ? <Image src={file.url} alt={file.name} width={40} height={40} className="rounded object-cover" data-ai-hint="file image"/> : <FileText className="h-8 w-8 text-muted-foreground flex-shrink-0"/>}
-                                        <div className="overflow-hidden">
-                                            <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline truncate block">{file.name}</a>
-                                            <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB | Uploaded: {formatDistanceToNow(file.uploadedAt.toDate(), { addSuffix: true })}</p>
-                                        </div>
-                                    </div>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => handleDeleteFile(file)} disabled={isUploading}><Trash2 className="h-4 w-4" /></Button>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        !isUploading && <p className="text-sm text-muted-foreground italic text-center py-4">No files uploaded yet.</p>
-                    )}
-                </CardContent>
-            </Card>
-          </TabsContent>
+          {/* Document TabContent removed */}
 
           <TabsContent value="updates" className="mt-4">
             <Card className="shadow-md">
@@ -763,7 +622,7 @@ export default function ProjectInfoPage() {
             <div className="grid grid-cols-4 items-center gap-4"> <Label htmlFor="startDate" className="text-right">Start Date</Label> <Controller name="startDate" control={projectForm.control} render={({ field }) => ( <Popover><PopoverTrigger asChild><Button variant="outline" className={cn("col-span-3 justify-start text-left font-normal", !field.value && "text-muted-foreground")}> <CalendarIcon className="mr-2 h-4 w-4" /> {field.value ? format(field.value, "PPP") : <span>Pick start date</span>} </Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover> )} /> {projectForm.formState.errors.startDate && <p className="col-span-4 text-right text-xs text-destructive">{projectForm.formState.errors.startDate.message}</p>} </div>
             <div className="grid grid-cols-4 items-center gap-4"> <Label htmlFor="endDate" className="text-right">End Date</Label> <Controller name="endDate" control={projectForm.control} render={({ field }) => ( <Popover><PopoverTrigger asChild><Button variant="outline" className={cn("col-span-3 justify-start text-left font-normal", !field.value && "text-muted-foreground")}> <CalendarIcon className="mr-2 h-4 w-4" /> {field.value ? format(field.value, "PPP") : <span className="text-muted-foreground">Pick end date (optional)</span>} </Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value ?? undefined} onSelect={field.onChange} /></PopoverContent></Popover> )} /> {projectForm.formState.errors.endDate && <p className="col-span-4 text-right text-xs text-destructive">{projectForm.formState.errors.endDate.message}</p>} </div>
             <div className="grid grid-cols-4 items-center gap-4"> <Label htmlFor="budget" className="text-right">Budget ($)</Label> <Controller name="budget" control={projectForm.control} render={({ field }) => <Input id="budget" type="text" {...field} value={field.value === undefined ? "" : String(field.value)} onChange={e => { const value = e.target.value.replace(/[^0-9.]/g, ''); field.onChange(value === '' ? undefined : value);}} className="col-span-3" placeholder="e.g., 50000 (defaults to 0)"/>} /> {projectForm.formState.errors.budget && <p className="col-span-4 text-right text-xs text-destructive">{projectForm.formState.errors.budget.message}</p>} </div>
-            <DialogFooter> <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose> <Button type="submit" disabled={projectForm.formState.isSubmitting || isUploading}> {projectForm.formState.isSubmitting ? (editingProject ? "Saving..." : "Adding...") : (editingProject ? "Save Changes" : "Add Project")} </Button> </DialogFooter>
+            <DialogFooter> <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose> <Button type="submit" disabled={projectForm.formState.isSubmitting}> {projectForm.formState.isSubmitting ? (editingProject ? "Saving..." : "Adding...") : (editingProject ? "Save Changes" : "Add Project")} </Button> </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
