@@ -45,11 +45,11 @@ interface ProjectData {
   description: string;
   status: typeof projectStatusOptions[number];
   startDate: Timestamp;
-  endDate?: Timestamp;
+  endDate: Timestamp | null; // Explicitly Timestamp or null
   budget?: number;
   managerName: string;
-  managerAvatar?: string; // Placeholder for future use
-  spent?: number; // Placeholder for future use
+  managerAvatar?: string; 
+  spent?: number; 
   createdAt: Timestamp;
 }
 
@@ -79,10 +79,25 @@ export default function ProjectInfoPage() {
     const q = query(projectsCollection, orderBy("createdAt", "desc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedProjects = snapshot.docs.map(docSnap => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      } as ProjectData));
+      const fetchedProjects = snapshot.docs.map(docSnap => {
+        const data = docSnap.data();
+        
+        // Defensive mapping to ensure types match ProjectData
+        const mappedData: ProjectData = {
+            id: docSnap.id,
+            name: data.name || "Untitled Project", 
+            description: data.description || "No description provided.", 
+            status: projectStatusOptions.includes(data.status) ? data.status : "Planning",
+            startDate: data.startDate instanceof Timestamp ? data.startDate : Timestamp.fromDate(new Date(1970, 0, 1)),
+            endDate: data.endDate instanceof Timestamp ? data.endDate : (data.endDate === null ? null : null),
+            budget: typeof data.budget === 'number' ? data.budget : undefined,
+            managerName: data.managerName || "N/A", 
+            managerAvatar: data.managerAvatar, 
+            spent: typeof data.spent === 'number' ? data.spent : undefined,
+            createdAt: data.createdAt instanceof Timestamp ? data.createdAt : Timestamp.fromDate(new Date(1970, 0, 1)), 
+        };
+        return mappedData;
+      });
       setProjects(fetchedProjects);
       setIsLoading(false);
     }, (error) => {
@@ -102,7 +117,7 @@ export default function ProjectInfoPage() {
         description: projectToEdit.description,
         status: projectToEdit.status,
         startDate: projectToEdit.startDate.toDate(),
-        endDate: projectToEdit.endDate?.toDate(),
+        endDate: projectToEdit.endDate ? projectToEdit.endDate.toDate() : undefined,
         budget: projectToEdit.budget?.toString(),
         managerName: projectToEdit.managerName,
       });
@@ -125,7 +140,7 @@ export default function ProjectInfoPage() {
       ...values,
       startDate: Timestamp.fromDate(values.startDate),
       endDate: values.endDate ? Timestamp.fromDate(values.endDate) : null,
-      budget: values.budget, // Already a number or undefined
+      budget: values.budget, 
     };
 
     try {
@@ -154,7 +169,7 @@ export default function ProjectInfoPage() {
       await deleteDoc(doc(db, "projectsPPM", projectId));
       toast({title: "Project Deleted", description: `"${projectName}" has been deleted.`});
       if (selectedProject?.id === projectId) {
-        setSelectedProject(null); // Go back to list if deleting the currently viewed project
+        setSelectedProject(null); 
       }
     } catch (error) {
       console.error("Error deleting project:", error);
@@ -182,7 +197,7 @@ export default function ProjectInfoPage() {
           </Badge>
         </div>
         <CardDescription className="text-xs text-muted-foreground">
-          Manager: {project.managerName} | Start: {format(project.startDate.toDate(), "PP")}
+          Manager: {project.managerName} | Start: {project.startDate ? format(project.startDate.toDate(), "PP") : "N/A"}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -239,7 +254,7 @@ export default function ProjectInfoPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="shadow-md">
             <CardHeader><CardTitle className="text-base">Start Date</CardTitle></CardHeader>
-            <CardContent><p className="text-lg font-semibold">{format(selectedProject.startDate.toDate(), "PPP")}</p></CardContent>
+            <CardContent><p className="text-lg font-semibold">{selectedProject.startDate ? format(selectedProject.startDate.toDate(), "PPP") : "N/A"}</p></CardContent>
           </Card>
           <Card className="shadow-md">
             <CardHeader><CardTitle className="text-base">End Date</CardTitle></CardHeader>
@@ -253,8 +268,8 @@ export default function ProjectInfoPage() {
             <CardHeader><CardTitle className="text-base">Project Manager</CardTitle></CardHeader>
             <CardContent className="flex items-center gap-2">
               <Avatar className="h-8 w-8">
-                <AvatarImage src={selectedProject.managerAvatar || `https://placehold.co/40x40.png?text=${selectedProject.managerName.substring(0,1)}`} alt={selectedProject.managerName} data-ai-hint="person avatar"/>
-                <AvatarFallback>{selectedProject.managerName.substring(0,1)}</AvatarFallback>
+                <AvatarImage src={selectedProject.managerAvatar || `https://placehold.co/40x40.png?text=${selectedProject.managerName ? selectedProject.managerName.substring(0,1) : 'P'}`} alt={selectedProject.managerName} data-ai-hint="person avatar"/>
+                <AvatarFallback>{selectedProject.managerName ? selectedProject.managerName.substring(0,1) : "P"}</AvatarFallback>
               </Avatar>
               <p className="text-sm font-semibold">{selectedProject.managerName}</p>
             </CardContent>
@@ -402,7 +417,7 @@ export default function ProjectInfoPage() {
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button variant="outline" className={cn("col-span-3 justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                        <ListChecks className="mr-2 h-4 w-4" /> {/* Changed Icon */}
+                        <ListChecks className="mr-2 h-4 w-4" /> 
                         {field.value ? format(field.value, "PPP") : <span>Pick start date</span>}
                       </Button>
                     </PopoverTrigger>
@@ -423,7 +438,7 @@ export default function ProjectInfoPage() {
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button variant="outline" className={cn("col-span-3 justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                        <ListChecks className="mr-2 h-4 w-4" /> {/* Changed Icon */}
+                        <ListChecks className="mr-2 h-4 w-4" /> 
                         {field.value ? format(field.value, "PPP") : 
                           <span className="text-muted-foreground">Pick end date (optional)</span>
                         }
