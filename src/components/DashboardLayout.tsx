@@ -129,7 +129,7 @@ function AppSidebar() {
 
   return (
     <>
-      <SidebarHeader className="px-3 py-3 flex items-center border-b border-sidebar-border">
+      <SidebarHeader className="px-3 py-3 flex items-center"> {/* Removed border-b border-sidebar-border */}
         <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
            <div className="bg-accent rounded-full h-7 w-7 flex items-center justify-center">
              <Building className="h-4 w-4 text-white" />
@@ -138,7 +138,7 @@ function AppSidebar() {
         </Link>
       </SidebarHeader>
       <SidebarContent className="flex flex-col">
-        <ScrollArea className="flex-grow">
+        <ScrollArea className="flex-grow pt-2"> {/* Added pt-2 for slight spacing from header */}
           <SidebarMenu>
             {mainNavItems.map((item) => (
               <SidebarMenuItem key={item.href}>
@@ -224,7 +224,7 @@ function Header() {
             </Button>
           </SidebarTrigger>
         )}
-        <Link href="/dashboard" className="flex items-center hover:opacity-80 transition-opacity">
+         <Link href="/dashboard" className="flex items-center hover:opacity-80 transition-opacity">
           <span className="text-lg font-semibold text-sidebar-foreground font-headline">Para Petinggi Member</span>
         </Link>
       </div>
@@ -369,3 +369,4 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
+
