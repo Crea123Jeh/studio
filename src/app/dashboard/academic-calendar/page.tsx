@@ -252,9 +252,9 @@ export default function AcademicCalendarPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center">
-            <School className="h-6 w-6 text-primary" />
-          </div>
+           <div className="bg-accent rounded-full h-8 w-8 flex items-center justify-center">
+             <School className="h-4 w-4 text-white" />
+           </div>
           <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">Academic Calendar</h1>
         </div>
         <Dialog open={isAddEditDialogOpen} onOpenChange={setIsAddEditDialogOpen}>
@@ -316,7 +316,7 @@ export default function AcademicCalendarPage() {
 
       <Card className="shadow-lg">
         <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6">
-          <div className="md:col-span-2">
+          <div className="md:col-span-2 min-w-0">
            <Calendar
               mode="single"
               selected={selectedDate}

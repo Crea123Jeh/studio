@@ -15,7 +15,7 @@ import {
   Settings,
   ChevronDown,
   PanelLeft,
-  Building, // Changed from Laptop to Building
+  Building, 
   Info,
   Cake,
   BookOpen,
@@ -30,6 +30,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Circle,
+  Laptop // Added for logo
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -146,6 +147,7 @@ function AppSidebar() {
                     isActive={pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))}
                     tooltip={item.label}
                     asChild
+                    className="pl-5"
                   >
                     <a>
                       <item.icon />
@@ -168,6 +170,7 @@ function AppSidebar() {
                     isActive={pathname === item.href}
                     tooltip={item.label}
                     asChild
+                    className="pl-5"
                   >
                     <a>
                       <item.icon />
@@ -178,7 +181,7 @@ function AppSidebar() {
               </SidebarMenuItem>
             ))}
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={signOut} tooltip="Logout">
+              <SidebarMenuButton onClick={signOut} tooltip="Logout" className="pl-5">
                 <LogOut/>
                 <span>Logout</span>
               </SidebarMenuButton>
@@ -222,10 +225,9 @@ function Header() {
             </Button>
           </SidebarTrigger>
         )}
-        {/* Always visible logo in the top bar */}
         <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <div className="bg-accent rounded-full h-6 w-6 flex items-center justify-center">
-            <Building className="h-3 w-3 text-white" />
+          <div className="bg-accent rounded-full h-7 w-7 flex items-center justify-center">
+            <Building className="h-4 w-4 text-white" />
           </div>
           <span className="text-lg font-semibold text-sidebar-foreground font-headline">PPM Management</span>
         </Link>
