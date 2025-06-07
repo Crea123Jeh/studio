@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
@@ -519,7 +519,12 @@ export default function ProjectInfoPage() {
       {!selectedProject ? (
         <>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3"> <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center"> <Briefcase className="h-8 w-8 text-primary" /> </div> <h1 className="text-3xl font-bold font-headline tracking-tight">Projects Portfolio</h1> </div>
+            <div className="flex items-center gap-3">
+              <div className="bg-accent rounded-full h-8 w-8 flex items-center justify-center">
+                <Briefcase className="h-4 w-4 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold font-headline tracking-tight">Projects Portfolio</h1>
+            </div>
             <Button onClick={() => handleOpenAddProjectDialog()}> <PlusCircle className="mr-2 h-4 w-4" /> Add New Project </Button>
           </div>
           {projects.length > 0 ? (
@@ -581,7 +586,9 @@ export default function ProjectInfoPage() {
         <Button variant="outline" onClick={() => setSelectedProject(null)} className="mb-4"> <ArrowLeft className="mr-2 h-4 w-4" /> Back to Project List </Button>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center"> <Briefcase className="h-8 w-8 text-primary" /> </div>
+             <div className="bg-accent rounded-full h-8 w-8 flex items-center justify-center">
+                <Briefcase className="h-4 w-4 text-white" />
+              </div>
             <h1 className="text-3xl font-bold font-headline tracking-tight">{selectedProject.name}</h1>
           </div>
            <Badge variant={selectedProject.status === "Completed" ? "default" : "secondary"} 
