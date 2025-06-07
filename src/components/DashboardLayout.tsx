@@ -361,10 +361,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider defaultOpen>
       <Sidebar variant="sidebar" collapsible="icon" className="border-r border-sidebar-border">
-         {/* The SheetHeader and SheetTitle below are for Radix UI accessibility for the mobile sheet (sidebar) */}
-        <SheetHeader className="sr-only">
-          <SheetTitle>Main Navigation</SheetTitle>
-        </SheetHeader>
         <AppSidebar />
       </Sidebar>
       <div className="flex flex-col flex-1 md:ml-[var(--sidebar-width-icon)] group-data-[state=expanded]:md:ml-[var(--sidebar-width)] transition-[margin-left] duration-200 ease-linear">
@@ -376,3 +372,4 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
+
