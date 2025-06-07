@@ -230,7 +230,7 @@ function Header() {
           <div className="bg-accent rounded-full h-7 w-7 flex items-center justify-center">
             <Building className="h-4 w-4 text-white" />
           </div>
-          <span className="text-lg font-semibold text-sidebar-foreground font-headline">PPM Management</span>
+          <span className="text-lg font-semibold text-sidebar-foreground font-headline">Para Petinggi Member</span>
         </Link>
       </div>
 
