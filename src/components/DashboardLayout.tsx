@@ -31,7 +31,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Circle,
-  Laptop
+  ShieldAlert
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -77,6 +77,7 @@ const mainNavItems: NavItem[] = [
   { href: '/dashboard/previous-activity', label: 'Previous Activity', icon: History },
   { href: '/dashboard/birthday-calendar', label: 'Birthday Calendar', icon: Cake },
   { href: '/dashboard/academic-calendar', label: 'Academic Calendar', icon: School },
+  { href: '/dashboard/violations', label: 'Violations', icon: ShieldAlert },
   { href: '/dashboard/chat', label: 'Team Chat', icon: MessageSquare },
   { href: '/dashboard/information', label: 'Information', icon: Info },
   { href: '/dashboard/knowledge', label: 'Knowledge Hub', icon: BookOpen },
@@ -117,7 +118,7 @@ function AppSidebar() {
 
   if (loading) {
     return (
-      <SidebarHeader className="p-4">
+      <SidebarHeader className="px-3 py-3">
         <Skeleton className="h-8 w-32 mb-4" />
         <div className="space-y-2">
           {[...Array(mainNavItems.length + bottomNavItems.length + 1)].map((_, i) => (
@@ -379,4 +380,3 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
-
