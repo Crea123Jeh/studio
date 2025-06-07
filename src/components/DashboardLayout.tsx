@@ -21,10 +21,10 @@ import {
   BookOpen, 
   School,
   History,
-  Package, // Added for Total Assets
-  FileSpreadsheet, // Added for Sheet 5B7S
-  RadioTower, // Added for PPM Radio
-  Bot, // Added for Bot's List
+  Package, 
+  FileSpreadsheet, 
+  RadioTower, 
+  Bot, 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -47,6 +47,7 @@ import {
   SidebarInset,
   SidebarTrigger,
   useSidebar,
+  SidebarSeparator,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from './ui/skeleton';
@@ -57,7 +58,7 @@ interface NavItem {
   icon: React.ElementType;
 }
 
-const navItems: NavItem[] = [
+const mainNavItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/project', label: 'Projects', icon: Briefcase },
   { href: '/dashboard/calendar', label: 'PPM Calendar', icon: CalendarDays },
@@ -71,19 +72,24 @@ const navItems: NavItem[] = [
   { href: '/dashboard/sheet-5b7s', label: 'Sheet 5B7S', icon: FileSpreadsheet },
   { href: '/dashboard/ppm-radio', label: 'PPM Radio', icon: RadioTower },
   { href: '/dashboard/bots-list', label: 'Bot\'s List', icon: Bot },
-  { href: '/dashboard/profile', label: 'Profile Settings', icon: UserCircle },
+];
+
+const bottomNavItems: NavItem[] = [
+  { href: '/dashboard/profile', label: 'Profile', icon: UserCircle },
+  { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
 
 function AppSidebar() {
   const pathname = usePathname();
-  const { user, username, loading } = useAuth();
+  const { user, username, loading, signOut } = useAuth();
+  const router = useRouter();
 
   if (loading) {
     return (
       <SidebarHeader className="p-4">
         <Skeleton className="h-8 w-32 mb-4" />
         <div className="space-y-2">
-          {[...Array(navItems.length)].map((_, i) => ( 
+          {[...Array(mainNavItems.length + bottomNavItems.length + 1)].map((_, i) => ( 
             <Skeleton key={i} className="h-10 w-full" />
           ))}
         </div>
@@ -101,9 +107,9 @@ function AppSidebar() {
           <h1 className="text-xl font-semibold text-sidebar-foreground font-headline">PPM Management</h1>
         </Link>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="flex flex-col">
         <SidebarMenu>
-          {navItems.map((item) => (
+          {mainNavItems.map((item) => (
             <SidebarMenuItem key={item.href}>
               <Link href={item.href} legacyBehavior passHref>
                 <SidebarMenuButton
@@ -120,13 +126,41 @@ function AppSidebar() {
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
+        
+        <div className="mt-auto flex flex-col pt-2">
+          <SidebarSeparator className="my-2"/>
+          <SidebarMenu>
+            {bottomNavItems.map((item) => (
+              <SidebarMenuItem key={item.href}>
+                <Link href={item.href} legacyBehavior passHref>
+                  <SidebarMenuButton
+                    isActive={pathname === item.href}
+                    tooltip={item.label}
+                    asChild
+                  >
+                    <a>
+                      <item.icon />
+                      <span>{item.label}</span>
+                    </a>
+                  </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
+            ))}
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={signOut} tooltip="Logout">
+                <LogOut/>
+                <span>Logout</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </div>
       </SidebarContent>
     </>
   );
 }
 
 function Header() {
-  const { user, username, signOut, loading } = useAuth();
+  const { user, username, signOut, loading } = useAuth(); // signOut is not used here but could be if needed.
   const router = useRouter();
   const { isMobile, toggleSidebar } = useSidebar();
 
@@ -173,7 +207,7 @@ function Header() {
                 <span>Settings</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={signOut}>
+              <DropdownMenuItem onClick={signOut}> 
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>
               </DropdownMenuItem>
@@ -220,4 +254,3 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
-

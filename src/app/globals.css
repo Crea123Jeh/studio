@@ -5,56 +5,58 @@
 
 @layer base {
   :root {
-    --background: 45 60% 96%; /* #FCFBEF - Very light, warm cream (Yellowish White) */
-    --foreground: 45 15% 35%; /* #625F51 - Dark, warm grey/brown */
+    --background: 50 100% 97%; /* #FEFEEF - Very Pale Yellow/Off-white (Page BG) */
+    --foreground: 45 25% 35%; /* #736C5B - Dark grayish brown (Default text) */
 
-    --muted: 45 50% 93%; /* #F7F5EC */
-    --muted-foreground: 45 15% 55%; /* #98958A */
+    --muted: 50 60% 94%; /* #F9F8E9 */
+    --muted-foreground: 45 25% 55%; /* #9B9381 */
 
     --popover: 0 0% 100%; /* White */
-    --popover-foreground: 45 15% 35%; /* var(--foreground) */
+    --popover-foreground: 45 25% 35%; /* var(--foreground) */
 
-    --card: 0 0% 100%; /* White */
-    --card-foreground: 45 15% 35%; /* var(--foreground) */
+    --card: 50 80% 96%; /* #FCFBF0 - Slightly creamier than page bg */
+    --card-foreground: 45 25% 35%; /* var(--foreground) */
 
-    --border: 45 40% 88%; /* #F0EEDF */
-    --input: 45 40% 90%; /* #F2F0E5 */
+    --border: 48 40% 85%; /* #EDE9D4 */
+    --input: 48 50% 90%; /* #F2EFE2 */
 
-    --primary: 47 90% 72%; /* #FADE74 - Soft, slightly desaturated yellow */
-    --primary-foreground: 47 45% 30%; /* #6E6435 */
+    --primary: 47 88% 55%; /* #EACD2E - Clear, medium gold/yellow (Interactive elements, active text) */
+    --primary-foreground: 45 40% 20%; /* #453F2B - Dark brown (Text on primary elements) */
 
-    --secondary: 45 70% 90%; /* #F7F3E0 - Light beige/yellow */
-    --secondary-foreground: 45 30% 45%; /* #858069 */
+    --secondary: 48 65% 92%; /* #F7F5E6 - Light beige/yellow */
+    --secondary-foreground: 45 30% 40%; /* #7A725F */
 
-    --accent: 38 95% 68%; /* #FBCF70 - Warm, slightly orangey-yellow */
-    --accent-foreground: 38 50% 25%; /* #66522B */
+    --accent: 40 90% 60%; /* #F7C851 - Warmer, slightly orangey yellow (Highlights) */
+    --accent-foreground: 40 40% 20%; /* #52401B */
 
     --destructive: 0 84% 60%; /* #F85A5A - Standard vivid red */
     --destructive-foreground: 0 0% 100%; /* White */
 
-    --ring: 38 95% 68%; /* var(--accent) for focus rings */
+    --ring: 47 88% 55%; /* var(--primary) for focus rings */
 
     --radius: 0.5rem;
 
     /* Sidebar specific colors */
-    --sidebar-background: 47 80% 88%; /* #FCF3CC - Subtle Yellow */
-    --sidebar-foreground: 45 18% 30%; /* #5B584E - Darker warm grey for sidebar text */
-    --sidebar-primary: 47 90% 72%; /* var(--primary) - For active items */
-    --sidebar-primary-foreground: 47 45% 30%; /* var(--primary-foreground) */
-    --sidebar-accent: 47 75% 82%;    /* #F8EDB6 - Hover states in sidebar (richer yellow) */
-    --sidebar-accent-foreground: 45 18% 25%; /* #4D4A41 */
-    --sidebar-border: 47 60% 80%; /* #F5EBAB - Subtle border for sidebar elements */
-    --sidebar-ring: 38 95% 68%; /* var(--ring) */
+    --sidebar-background: 48 55% 88%; /* #F4EFD9 - Soft, desaturated yellow (Darker than page) */
+    --sidebar-foreground: 45 25% 30%; /* #655F4D - Darker text for sidebar */
+    
+    /* Used for active/hover BACKGROUND in SidebarMenuButton */
+    --sidebar-accent: 48 75% 93%; /* #FBF8E8 - Very light yellow (Lighter than sidebar-background) */
+    /* Used for active/hover TEXT in SidebarMenuButton */
+    --sidebar-accent-foreground: hsl(var(--primary)); /* Main primary color for text pop */
+    
+    --sidebar-border: 48 40% 80%; /* #EAE4C8 */
+    --sidebar-ring: hsl(var(--primary));
 
-    --chart-1: 38 95% 68%; /* Accent as first chart color */
-    --chart-2: 47 90% 72%; /* Primary as second chart color */
+    --chart-1: hsl(var(--accent)); 
+    --chart-2: hsl(var(--primary)); 
     --chart-3: 25 80% 65%; /* Muted Orange */
     --chart-4: 180 40% 60%; /* Muted Teal */
     --chart-5: 300 40% 70%; /* Muted Purple */
   }
 
   .dark {
-    --background: 45 10% 15%; /* #292621 - Dark warm grey (Page BG in Dark) */
+    --background: 45 10% 15%; /* #292621 */
     --foreground: 45 30% 85%; /* Light cream */
 
     --muted: 45 10% 20%;
@@ -69,29 +71,31 @@
     --border: 45 10% 25%;
     --input: 45 10% 28%;
 
-    --primary: 47 90% 72%; /* Keep primary yellow vibrant */
-    --primary-foreground: 47 45% 30%;
+    --primary: 47 88% 55%; /* Keep primary yellow vibrant */
+    --primary-foreground: 45 40% 20%;
 
     --secondary: 45 15% 25%;
     --secondary-foreground: 45 50% 80%;
 
-    --accent: 38 95% 68%; /* Keep accent yellow/orange vibrant */
-    --accent-foreground: 38 50% 25%;
+    --accent: 40 90% 60%; /* Keep accent yellow/orange vibrant */
+    --accent-foreground: 40 40% 20%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --ring: 38 95% 68%;
+    --ring: 47 88% 55%;
     
     /* Dark Sidebar specific colors */
     --sidebar-background: 47 30% 20%; /* #423E29 - Dark desaturated yellow/olive */
     --sidebar-foreground: 45 30% 80%; /* #D4CEC3 */
-    --sidebar-primary: 47 90% 72%; 
-    --sidebar-primary-foreground: 47 45% 30%;
-    --sidebar-accent: 47 30% 25%;    /* #524C33 - Hover for dark sidebar */
-    --sidebar-accent-foreground: 45 30% 85%; /* Lighter text for dark hover */
+
+    /* Used for active/hover BACKGROUND in Dark SidebarMenuButton */
+    --sidebar-accent: 47 30% 28%;    /* #5C553B - Slightly lighter than dark sidebar bg */
+     /* Used for active/hover TEXT in Dark SidebarMenuButton */
+    --sidebar-accent-foreground: hsl(var(--primary)); /* Main primary color for text pop */
+    
     --sidebar-border: 47 25% 30%;   /* #5C5742 - Border for dark sidebar elements */
-    --sidebar-ring: 38 95% 68%;
+    --sidebar-ring: hsl(var(--primary));
   }
 }
 
@@ -109,4 +113,3 @@
     font-family: 'Inter', sans-serif;
   }
 }
-
