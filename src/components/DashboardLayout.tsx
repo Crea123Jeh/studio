@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import type { ReactNode } from 'react';
@@ -88,8 +87,7 @@ const mainNavItems: NavItem[] = [
 ];
 
 const bottomNavItems: NavItem[] = [
-  { href: '/dashboard/profile', label: 'Profile', icon: UserCircle },
-  { href: '/dashboard/settings', label: 'Settings', icon: Settings },
+  { href: '/dashboard/profile', label: 'Profile & Settings', icon: UserCircle },
 ];
 
 interface NotificationItem {
@@ -218,7 +216,6 @@ function Header() {
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/80 backdrop-blur-sm px-4 sm:px-6">
-      {/* Left section: Sidebar Trigger (mobile) + Title */}
       <div className="flex items-center gap-2">
         {isMobile && (
           <SidebarTrigger asChild>
@@ -228,12 +225,10 @@ function Header() {
           </SidebarTrigger>
         )}
         <Link href="/dashboard" className="flex items-center hover:opacity-80 transition-opacity">
-          {/* Logo removed from here */}
           <span className="text-lg font-semibold text-sidebar-foreground font-headline">Para Petinggi Member</span>
         </Link>
       </div>
 
-      {/* Right section: Notifications + Profile */}
       <div className="flex items-center gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -271,7 +266,7 @@ function Header() {
                       onClick={() => handleMarkAsRead(notification.id, notification.link)}
                     >
                       {!notification.read && <Circle className="h-2 w-2 mt-1.5 fill-primary text-primary flex-shrink-0" />}
-                      {notification.read && <div className="w-2 h-2 mt-1.5 flex-shrink-0" /> /* Placeholder for alignment */}
+                      {notification.read && <div className="w-2 h-2 mt-1.5 flex-shrink-0" />} 
 
                       <Icon className={cn("h-5 w-5 mt-0.5 text-muted-foreground flex-shrink-0", !notification.read && "text-primary")} />
                       <div className="flex-grow">
@@ -292,7 +287,7 @@ function Header() {
               <CheckCircle2 className="mr-2 h-4 w-4" />
               Mark all as read
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push('/dashboard/notifications')} className="cursor-pointer"> {/* Placeholder link */}
+            <DropdownMenuItem onClick={() => router.push('/dashboard/notifications')} className="cursor-pointer"> 
               View all notifications
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -324,11 +319,7 @@ function Header() {
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => router.push('/dashboard/profile')} className="cursor-pointer">
                 <UserCircle className="mr-2 h-4 w-4" />
-                <span>Profile</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push('/dashboard/settings')} className="cursor-pointer">
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Settings</span>
+                <span>Profile & Settings</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={signOut} className="cursor-pointer">
@@ -378,4 +369,3 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
-
