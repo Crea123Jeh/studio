@@ -14,8 +14,8 @@
     --popover: 0 0% 100%; /* White */
     --popover-foreground: 45 25% 35%; /* var(--foreground) */
 
-    --card: 50 80% 96%; /* #FCFBF0 - Slightly creamier than page bg */
-    --card-foreground: 45 25% 35%; /* var(--foreground) */
+    --card: 0 0% 100%; /* #FFFFFF - White (Panel BG) */
+    --card-foreground: 45 25% 30%; /* #655F4D - Dark grayish brown (Text on cards) */
 
     --border: 48 40% 85%; /* #EDE9D4 */
     --input: 48 50% 90%; /* #F2EFE2 */
@@ -65,7 +65,7 @@
     --popover: 45 8% 10%;
     --popover-foreground: 45 30% 85%;
 
-    --card: 45 8% 12%;
+    --card: 45 8% 12%; /* Dark card background for dark mode */
     --card-foreground: 45 30% 85%;
 
     --border: 45 10% 25%;
@@ -113,3 +113,4 @@
     font-family: 'Inter', sans-serif;
   }
 }
+
