@@ -18,9 +18,7 @@ export default function RootLayout({
     <AuthProvider>
       <html lang="en" suppressHydrationWarning>
         <head>
-          <link rel="preconnect" href="https://fonts.googleapis.com" />
-          <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-          <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+          {/* Removed Google Font import for Baloo 2 */}
         </head>
         <body className="font-body antialiased">
           {children}
@@ -30,4 +28,3 @@ export default function RootLayout({
     </AuthProvider>
   );
 }
-

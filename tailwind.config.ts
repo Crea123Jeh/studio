@@ -11,8 +11,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['"Baloo 2"', 'sans-serif'],
-        headline: ['"Baloo 2"', 'sans-serif'],
+        body: ['Helvetica', 'Arial', 'sans-serif'],
+        headline: ['Helvetica', 'Arial', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {
@@ -98,4 +98,3 @@ export default {
   },
   plugins: [require('tailwindcss-animate')],
 } satisfies Config;
-
