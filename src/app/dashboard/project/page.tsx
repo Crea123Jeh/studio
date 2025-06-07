@@ -1,8 +1,9 @@
 
 "use client";
 
-import { useState, useEffect, type FormEvent, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -25,7 +26,7 @@ import {
 } from "firebase/firestore";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { format, formatDistanceToNow } from "date-fns";
-import { Briefcase, ListChecks, FileText, Paperclip, MessageCircle, PlusCircle, ArrowLeft, Edit3, Trash2, CalendarIcon, UploadCloud } from "lucide-react";
+import { Briefcase, ListChecks, FileText, Paperclip, MessageCircle, PlusCircle, ArrowLeft, Edit3, Trash2, CalendarIcon, UploadCloud, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import Image from "next/image";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -53,7 +54,7 @@ const projectFormSchema = z.object({
   startDate: z.date({ required_error: "Start date is required." }),
   endDate: z.date().optional().nullable(),
   budget: z.string().optional().transform(val => {
-    if (val === null || val === undefined || val.trim() === "") return undefined; // Allow empty string to become undefined
+    if (val === null || val === undefined || val.trim() === "") return undefined;
     const num = parseFloat(String(val).replace(/,/g, ''));
     return isNaN(num) ? undefined : num;
   }),
@@ -119,6 +120,8 @@ const mockUsers = [
   { id: "user_diana_004", name: "Diana Prince" },
 ];
 
+type SortableProjectKeys = 'name' | 'status' | 'managerName' | 'startDate' | 'budget' | 'lastUpdatedAt';
+
 
 export default function ProjectInfoPage() {
   const [projects, setProjects] = useState<ProjectData[]>([]);
@@ -138,6 +141,8 @@ export default function ProjectInfoPage() {
   const [isAddUpdateDialogOpen, setIsAddUpdateDialogOpen] = useState(false);
 
   const [showDeleteInfoAlert, setShowDeleteInfoAlert] = useState(false);
+  
+  const [sortConfig, setSortConfig] = useState<{ key: SortableProjectKeys; direction: 'ascending' | 'descending' }>({ key: 'lastUpdatedAt', direction: 'descending' });
 
 
   const { toast } = useToast();
@@ -162,7 +167,7 @@ export default function ProjectInfoPage() {
   useEffect(() => {
     setIsLoading(true);
     const projectsCollectionRef = collection(db, "projectsPPM");
-    const q = query(projectsCollectionRef, orderBy("createdAt", "desc"));
+    const q = query(projectsCollectionRef, orderBy("createdAt", "desc")); // Initial fetch order
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedProjects = snapshot.docs.map(docSnap => {
@@ -174,7 +179,7 @@ export default function ProjectInfoPage() {
             const status = projectStatusOptions.includes(data.status) ? data.status : "Planning";
             
             const startDate = data.startDate instanceof Timestamp ? data.startDate : Timestamp.fromDate(new Date(1970,0,1));
-            const endDate = data.endDate instanceof Timestamp ? data.endDate : null; // Ensure null if not a Timestamp
+            const endDate = data.endDate instanceof Timestamp ? data.endDate : null;
             
             const budget = typeof data.budget === 'number' ? data.budget : 0; 
             const managerId = typeof data.managerId === 'string' ? data.managerId : undefined;
@@ -192,12 +197,12 @@ export default function ProjectInfoPage() {
                 size: typeof f.size === 'number' ? f.size : 0,
                 storagePath: typeof f.storagePath === 'string' ? f.storagePath : '',
                 uploadedAt: f.uploadedAt instanceof Timestamp ? f.uploadedAt : Timestamp.now(),
-              })).filter(f => f.url && f.storagePath);
+              })).filter(f => f.url && f.storagePath && f.name && f.storagePath); // Ensure critical fields exist
 
             const mappedData: ProjectData = {
                 id: docSnap.id, name, description, status, startDate, 
                 endDate: endDate, 
-                budget, managerId, managerName, spent, createdAt, lastUpdatedAt, uploadedFiles
+                budget: budget, managerId, managerName, spent, createdAt, lastUpdatedAt, uploadedFiles
             };
             return mappedData;
         } catch (e: any) {
@@ -215,7 +220,8 @@ export default function ProjectInfoPage() {
       setIsLoading(false);
     }, (error) => {
       console.error("Error fetching projects: ", error);
-      toast({ title: "Error", description: `Could not fetch projects. Firestore query might be failing. ${error.message}`, variant: "destructive" });
+      const specificError = error.message || 'Unknown Firestore error';
+      toast({ title: "Error", description: `Could not fetch projects. Firestore query might be failing. Details: ${specificError}`, variant: "destructive" });
       setIsLoading(false);
     });
     return () => unsubscribe();
@@ -246,7 +252,7 @@ export default function ProjectInfoPage() {
       setProjectUpdates([]);
       setProjectUploadedFiles([]);
     }
-  }, [selectedProject]);
+  }, [selectedProject]); // Removed toast from dependencies
 
   const updateProjectTimestamp = async (projectId: string) => {
     const projectRef = doc(db, "projectsPPM", projectId);
@@ -324,7 +330,7 @@ export default function ProjectInfoPage() {
     }
   };
   
-  const handleDeleteProjectRequest = () => { // Renamed function
+  const handleDeleteProjectRequest = () => {
     setShowDeleteInfoAlert(true);
   };
 
@@ -390,7 +396,7 @@ export default function ProjectInfoPage() {
                 const updatedFiles = [...(prev.uploadedFiles || []), newFile];
                 return { ...prev, uploadedFiles: updatedFiles, lastUpdatedAt: Timestamp.now() };
             });
-            setProjectUploadedFiles(prev => [...prev, newFile]); // Also update direct state for files list
+            setProjectUploadedFiles(prev => [...prev, newFile]);
             toast({ title: "File Uploaded", description: `"${file.name}" uploaded successfully.` });
         } catch (updateError) {
             console.error("Error updating project with new file metadata:", updateError);
@@ -471,32 +477,44 @@ export default function ProjectInfoPage() {
     }
   };
   
+  const requestSort = (key: SortableProjectKeys) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
 
-  const ProjectCard = ({ project }: { project: ProjectData }) => (
-    <Card className="shadow-md hover:shadow-lg transition-shadow w-full">
-      <CardHeader>
-        <div className="flex justify-between items-start">
-          <CardTitle className="text-lg">{project.name}</CardTitle>
-          <Badge variant={project.status === "Completed" ? "default" : "secondary"} className={cn( project.status === "Completed" && "bg-green-500 text-white", project.status === "In Progress" && "bg-blue-500 text-white", project.status === "On Hold" && "bg-yellow-500 text-black", project.status === "Cancelled" && "bg-red-500 text-white", project.status === "Planning" && "bg-gray-400 text-white" )}> {project.status} </Badge>
-        </div>
-        <CardDescription className="text-xs text-muted-foreground">
-          Manager: {project.managerName || "N/A"} | Start: {project.startDate ? format(project.startDate.toDate(), "PP") : "N/A"}
-          <br/>Last Updated: {formatDistanceToNow(project.lastUpdatedAt.toDate(), { addSuffix: true })}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground line-clamp-2">{project.description}</p>
-        <p className="text-xs text-muted-foreground mt-1">Budget: ${project.budget?.toLocaleString() ?? '0'}</p>
-      </CardContent>
-      <CardFooter className="flex justify-between">
-        <Button variant="outline" onClick={() => setSelectedProject(project)}>View Details</Button>
-        <div className="flex gap-1">
-            <Button variant="ghost" size="icon" onClick={() => handleOpenAddProjectDialog(project)} className="h-8 w-8"> <Edit3 className="h-4 w-4" /> </Button>
-            <Button variant="ghost" size="icon" onClick={() => handleDeleteProjectRequest()} className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"> <Trash2 className="h-4 w-4" /> </Button>
-        </div>
-      </CardFooter>
-    </Card>
-  );
+  const sortedProjects = useMemo(() => {
+    let sortableItems = [...projects];
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        const aValue = a[sortConfig.key];
+        const bValue = b[sortConfig.key];
+
+        let comparison = 0;
+
+        if (sortConfig.key === 'startDate' || sortConfig.key === 'lastUpdatedAt') {
+          comparison = (aValue as Timestamp).toDate().getTime() - (bValue as Timestamp).toDate().getTime();
+        } else if (sortConfig.key === 'budget') {
+            comparison = (aValue as number) - (bValue as number);
+        } else if (typeof aValue === 'string' && typeof bValue === 'string') {
+          comparison = (aValue as string).localeCompare(bValue as string);
+        }
+        
+        return sortConfig.direction === 'ascending' ? comparison : -comparison;
+      });
+    }
+    return sortableItems;
+  }, [projects, sortConfig]);
+
+  const getSortIcon = (key: SortableProjectKeys) => {
+    if (!sortConfig || sortConfig.key !== key) {
+      return <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />;
+    }
+    return sortConfig.direction === 'ascending' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />;
+  };
+
 
   if (isLoading) return <div className="flex justify-center items-center h-64"><p>Loading projects...</p></div>;
 
@@ -509,9 +527,56 @@ export default function ProjectInfoPage() {
             <Button onClick={() => handleOpenAddProjectDialog()}> <PlusCircle className="mr-2 h-4 w-4" /> Add New Project </Button>
           </div>
           {projects.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {projects.map(project => (<ProjectCard key={project.id} project={project} />))}
-            </div>
+             <Card className="shadow-lg">
+                <CardContent className="pt-6">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead onClick={() => requestSort('name')} className="cursor-pointer hover:bg-muted/50">
+                                    Project Name {getSortIcon('name')}
+                                </TableHead>
+                                <TableHead onClick={() => requestSort('status')} className="cursor-pointer hover:bg-muted/50">
+                                    Status {getSortIcon('status')}
+                                </TableHead>
+                                <TableHead onClick={() => requestSort('managerName')} className="cursor-pointer hover:bg-muted/50">
+                                    Manager {getSortIcon('managerName')}
+                                </TableHead>
+                                <TableHead onClick={() => requestSort('startDate')} className="cursor-pointer hover:bg-muted/50">
+                                    Start Date {getSortIcon('startDate')}
+                                </TableHead>
+                                <TableHead onClick={() => requestSort('budget')} className="cursor-pointer hover:bg-muted/50 text-right">
+                                    Budget {getSortIcon('budget')}
+                                </TableHead>
+                                <TableHead onClick={() => requestSort('lastUpdatedAt')} className="cursor-pointer hover:bg-muted/50">
+                                    Last Updated {getSortIcon('lastUpdatedAt')}
+                                </TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {sortedProjects.map((project) => (
+                                <TableRow key={project.id}>
+                                    <TableCell className="font-medium">{project.name}</TableCell>
+                                    <TableCell>
+                                        <Badge variant={project.status === "Completed" ? "default" : "secondary"} className={cn( project.status === "Completed" && "bg-green-500 text-white", project.status === "In Progress" && "bg-blue-500 text-white", project.status === "On Hold" && "bg-yellow-500 text-black", project.status === "Cancelled" && "bg-red-500 text-white", project.status === "Planning" && "bg-gray-400 text-white" )}> {project.status} </Badge>
+                                    </TableCell>
+                                    <TableCell>{project.managerName || "N/A"}</TableCell>
+                                    <TableCell>{project.startDate ? format(project.startDate.toDate(), "PP") : "N/A"}</TableCell>
+                                    <TableCell className="text-right">${project.budget?.toLocaleString() ?? '0'}</TableCell>
+                                    <TableCell>{formatDistanceToNow(project.lastUpdatedAt.toDate(), { addSuffix: true })}</TableCell>
+                                    <TableCell className="text-right">
+                                        <div className="flex justify-end gap-1">
+                                            <Button variant="ghost" size="icon" onClick={() => setSelectedProject(project)} className="h-8 w-8" title="View Details"> <FileText className="h-4 w-4" /> </Button>
+                                            <Button variant="ghost" size="icon" onClick={() => handleOpenAddProjectDialog(project)} className="h-8 w-8" title="Edit"> <Edit3 className="h-4 w-4" /> </Button>
+                                            <Button variant="ghost" size="icon" onClick={handleDeleteProjectRequest} className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" title="Delete Info"> <Trash2 className="h-4 w-4" /> </Button>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+             </Card>
           ) : (
             <Card><CardContent className="pt-6 text-center text-muted-foreground"> <Briefcase className="mx-auto h-12 w-12 text-gray-400 mb-3" /> <p className="text-lg font-medium">No projects found.</p> <p>Get started by adding your first project!</p> </CardContent></Card>
           )}
@@ -665,9 +730,14 @@ export default function ProjectInfoPage() {
           </TabsContent>
         </Tabs>
 
-         {/* Dialogs for Add Task and Add Update - moved inside selectedProject conditional block */}
+        <div className="mt-6 flex justify-end gap-2">
+            <Button variant="outline" onClick={() => handleOpenAddProjectDialog(selectedProject)}> <Edit3 className="mr-2 h-4 w-4" /> Edit Project </Button>
+            <Button variant="destructive" onClick={handleDeleteProjectRequest}> <Trash2 className="mr-2 h-4 w-4" /> Delete Project </Button>
+        </div>
+
+        {/* Dialogs need to be within the detail view conditional render if they depend on selectedProject */}
         <Dialog open={isAddTaskDialogOpen} onOpenChange={setIsAddTaskDialogOpen}>
-          <DialogContent key={`task-dialog-${selectedProject.id}`}> {/* Keying for re-mount on project change */}
+          <DialogContent key={`${selectedProject.id}-task-dialog`}>
               <DialogHeader><DialogTitle>Add New Task</DialogTitle><DialogDescription>Fill in the details for the new task for {selectedProject?.name || "the current project"}.</DialogDescription></DialogHeader>
               <form onSubmit={taskForm.handleSubmit(onTaskSubmit)} className="space-y-4 py-4">
                   <div><Label htmlFor="task-title">Title</Label><Controller name="title" control={taskForm.control} render={({ field }) => <Input id="task-title" {...field} placeholder="Task Title"/>} />{taskForm.formState.errors.title && <p className="text-xs text-destructive">{taskForm.formState.errors.title.message}</p>}</div>
@@ -679,7 +749,7 @@ export default function ProjectInfoPage() {
         </Dialog>
 
         <Dialog open={isAddUpdateDialogOpen} onOpenChange={setIsAddUpdateDialogOpen}>
-          <DialogContent key={`update-dialog-${selectedProject.id}`}> {/* Keying for re-mount on project change */}
+          <DialogContent key={`${selectedProject.id}-update-dialog`}> 
               <DialogHeader><DialogTitle>Add Project Update</DialogTitle><DialogDescription>Log an update for {selectedProject?.name || "the current project"}.</DialogDescription></DialogHeader>
               <form onSubmit={updateNoteForm.handleSubmit(onUpdateNoteSubmit)} className="space-y-4 py-4">
                   <div><Label htmlFor="update-note">Update Note</Label><Controller name="note" control={updateNoteForm.control} render={({ field }) => <Textarea id="update-note" {...field} rows={4} placeholder="Describe the update..."/>} />{updateNoteForm.formState.errors.note && <p className="text-xs text-destructive">{updateNoteForm.formState.errors.note.message}</p>}</div>
@@ -688,11 +758,6 @@ export default function ProjectInfoPage() {
               </form>
           </DialogContent>
         </Dialog>
-
-         <div className="mt-6 flex justify-end gap-2">
-            <Button variant="outline" onClick={() => handleOpenAddProjectDialog(selectedProject)}> <Edit3 className="mr-2 h-4 w-4" /> Edit Project </Button>
-            <Button variant="destructive" onClick={() => handleDeleteProjectRequest()}> <Trash2 className="mr-2 h-4 w-4" /> Delete Project </Button>
-        </div>
       </div>
       )}
 
