@@ -12,7 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { Building } from "lucide-react";
+import { LayoutGrid } from "lucide-react"; // Changed from Building
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -73,7 +73,7 @@ export default function LoginPageContent() {
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
           <div className="inline-flex items-center justify-center gap-2 mb-4">
-            <Building className="h-10 w-10 text-primary" />
+            <LayoutGrid className="h-10 w-10 text-primary" /> {/* Changed from Building */}
             <CardTitle className="text-3xl font-headline">PPM Management</CardTitle>
           </div>
           <CardDescription>Enter your email and password to access your dashboard.</CardDescription>
