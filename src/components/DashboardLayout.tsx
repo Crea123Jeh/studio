@@ -24,7 +24,8 @@ import {
   Package, 
   FileSpreadsheet, 
   RadioTower, 
-  Bot, 
+  Bot,
+  Bell, 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -163,7 +164,7 @@ function Header() {
   const { isMobile, toggleSidebar } = useSidebar();
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 sm:px-6">
       {isMobile && (
         <SidebarTrigger asChild>
           <Button variant="ghost" size="icon">
@@ -172,12 +173,20 @@ function Header() {
         </SidebarTrigger>
       )}
       <div className="ml-auto flex items-center gap-2">
+        <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
+          <Bell className="h-5 w-5" />
+          <span className="absolute top-1 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-xs font-bold text-destructive-foreground">
+            2
+          </span>
+          <span className="sr-only">Notifications</span>
+        </Button>
+
         {loading ? (
           <Skeleton className="h-8 w-24 rounded-md" />
         ) : user ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 flex items-center gap-2 rounded-full mt-3">
+              <Button variant="ghost" className="relative h-8 flex items-center gap-2 rounded-full"> {/* Removed mt-3 */}
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={`https://placehold.co/40x40.png?text=${username ? username.charAt(0).toUpperCase() : 'U'}`} alt={username || 'User'} data-ai-hint="user avatar" />
                   <AvatarFallback>{username ? username.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
