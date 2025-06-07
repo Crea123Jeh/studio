@@ -32,7 +32,7 @@ const projectFormSchema = z.object({
   description: z.string().min(10, "Description must be at least 10 characters."),
   status: z.enum(projectStatusOptions),
   startDate: z.date({ required_error: "Start date is required." }),
-  endDate: z.date().optional(),
+  endDate: z.date().optional().nullable(),
   budget: z.string().optional().refine(val => !val || !isNaN(parseFloat(val)), { message: "Budget must be a number."}).transform(val => val ? parseFloat(val) : undefined),
   managerName: z.string().min(2, "Manager name is required."),
 });
@@ -45,7 +45,7 @@ interface ProjectData {
   description: string;
   status: typeof projectStatusOptions[number];
   startDate: Timestamp;
-  endDate: Timestamp | null; // Explicitly Timestamp or null
+  endDate: Timestamp | null;
   budget?: number;
   managerName: string;
   managerAvatar?: string; 
@@ -70,6 +70,7 @@ export default function ProjectInfoPage() {
       description: "",
       status: "Planning",
       managerName: "",
+      endDate: null,
     },
   });
 
@@ -80,24 +81,34 @@ export default function ProjectInfoPage() {
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedProjects = snapshot.docs.map(docSnap => {
-        const data = docSnap.data();
-        
-        // Defensive mapping to ensure types match ProjectData
-        const mappedData: ProjectData = {
-            id: docSnap.id,
-            name: data.name || "Untitled Project", 
-            description: data.description || "No description provided.", 
-            status: projectStatusOptions.includes(data.status) ? data.status : "Planning",
-            startDate: data.startDate instanceof Timestamp ? data.startDate : Timestamp.fromDate(new Date(1970, 0, 1)),
-            endDate: data.endDate instanceof Timestamp ? data.endDate : (data.endDate === null ? null : null),
-            budget: typeof data.budget === 'number' ? data.budget : undefined,
-            managerName: data.managerName || "N/A", 
-            managerAvatar: data.managerAvatar, 
-            spent: typeof data.spent === 'number' ? data.spent : undefined,
-            createdAt: data.createdAt instanceof Timestamp ? data.createdAt : Timestamp.fromDate(new Date(1970, 0, 1)), 
-        };
-        return mappedData;
-      });
+        try {
+            const data = docSnap.data();
+            
+            const mappedData: ProjectData = {
+                id: docSnap.id,
+                name: typeof data.name === 'string' ? data.name : "Untitled Project", 
+                description: typeof data.description === 'string' ? data.description : "No description provided.", 
+                status: projectStatusOptions.includes(data.status) ? data.status : "Planning",
+                startDate: data.startDate instanceof Timestamp ? data.startDate : Timestamp.fromDate(new Date(1970, 0, 1)),
+                endDate: data.endDate instanceof Timestamp ? data.endDate : null,
+                budget: typeof data.budget === 'number' ? data.budget : undefined,
+                managerName: typeof data.managerName === 'string' ? data.managerName : "N/A", 
+                managerAvatar: typeof data.managerAvatar === 'string' ? data.managerAvatar : undefined, 
+                spent: typeof data.spent === 'number' ? data.spent : undefined,
+                createdAt: data.createdAt instanceof Timestamp ? data.createdAt : Timestamp.fromDate(new Date(1970, 0, 1)), 
+            };
+            return mappedData;
+        } catch (e) {
+            console.error(`Error processing document ${docSnap.id}:`, e);
+            toast({
+                title: "Data Processing Error",
+                description: `Could not process project data for ${docSnap.id}. It may be corrupted.`,
+                variant: "destructive"
+            });
+            return null; 
+        }
+      }).filter(project => project !== null) as ProjectData[]; // Filter out any nulls from errors
+      
       setProjects(fetchedProjects);
       setIsLoading(false);
     }, (error) => {
@@ -117,7 +128,7 @@ export default function ProjectInfoPage() {
         description: projectToEdit.description,
         status: projectToEdit.status,
         startDate: projectToEdit.startDate.toDate(),
-        endDate: projectToEdit.endDate ? projectToEdit.endDate.toDate() : undefined,
+        endDate: projectToEdit.endDate ? projectToEdit.endDate.toDate() : null,
         budget: projectToEdit.budget?.toString(),
         managerName: projectToEdit.managerName,
       });
@@ -127,7 +138,7 @@ export default function ProjectInfoPage() {
         description: "",
         status: "Planning",
         startDate: new Date(),
-        endDate: undefined,
+        endDate: null,
         budget: "",
         managerName: "",
       });
@@ -445,7 +456,7 @@ export default function ProjectInfoPage() {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
-                      <Calendar mode="single" selected={field.value} onSelect={field.onChange} />
+                      <Calendar mode="single" selected={field.value ?? undefined} onSelect={field.onChange} />
                     </PopoverContent>
                   </Popover>
                 )}
