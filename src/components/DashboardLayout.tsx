@@ -15,17 +15,17 @@ import {
   Settings,
   ChevronDown,
   PanelLeft,
-  Laptop, 
+  Laptop,
   Info,
-  Cake, 
-  BookOpen, 
+  Cake,
+  BookOpen,
   School,
   History,
-  Package, 
-  FileSpreadsheet, 
-  RadioTower, 
+  Package,
+  FileSpreadsheet,
+  RadioTower,
   Bot,
-  Bell, 
+  Bell,
   ListChecks,
   AlertCircle,
   CheckCircle2,
@@ -53,9 +53,8 @@ import {
   SidebarTrigger,
   useSidebar,
   SidebarSeparator,
-  SheetHeader,
-  SheetTitle
 } from '@/components/ui/sidebar';
+import { SheetHeader, SheetTitle } from '@/components/ui/sheet'; // Corrected import
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
@@ -78,7 +77,7 @@ const mainNavItems: NavItem[] = [
   { href: '/dashboard/academic-calendar', label: 'Academic Calendar', icon: School },
   { href: '/dashboard/chat', label: 'Team Chat', icon: MessageSquare },
   { href: '/dashboard/information', label: 'Information', icon: Info },
-  { href: '/dashboard/knowledge', label: 'Knowledge Hub', icon: BookOpen }, 
+  { href: '/dashboard/knowledge', label: 'Knowledge Hub', icon: BookOpen },
   { href: '/dashboard/total-assets', label: 'Total Assets', icon: Package },
   { href: '/dashboard/sheet-5b7s', label: 'Sheet 5B7S', icon: FileSpreadsheet },
   { href: '/dashboard/ppm-radio', label: 'PPM Radio', icon: RadioTower },
@@ -119,7 +118,7 @@ function AppSidebar() {
       <SidebarHeader className="p-4">
         <Skeleton className="h-8 w-32 mb-4" />
         <div className="space-y-2">
-          {[...Array(mainNavItems.length + bottomNavItems.length + 1)].map((_, i) => ( 
+          {[...Array(mainNavItems.length + bottomNavItems.length + 1)].map((_, i) => (
             <Skeleton key={i} className="h-10 w-full" />
           ))}
         </div>
@@ -156,7 +155,7 @@ function AppSidebar() {
             ))}
           </SidebarMenu>
         </ScrollArea>
-        
+
         <div className="mt-auto flex flex-col pt-2">
           <SidebarSeparator className="my-2"/>
           <SidebarMenu>
@@ -190,7 +189,7 @@ function AppSidebar() {
 }
 
 function Header() {
-  const { user, username, signOut, loading: authLoading } = useAuth(); 
+  const { user, username, signOut, loading: authLoading } = useAuth();
   const router = useRouter();
   const { isMobile, toggleSidebar } = useSidebar();
   const [notifications, setNotifications] = useState<NotificationItem[]>(initialMockNotifications);
@@ -267,7 +266,7 @@ function Header() {
                     >
                       {!notification.read && <Circle className="h-2 w-2 mt-1.5 fill-primary text-primary flex-shrink-0" />}
                       {notification.read && <div className="w-2 h-2 mt-1.5 flex-shrink-0" /> /* Placeholder for alignment */}
-                      
+
                       <Icon className={cn("h-5 w-5 mt-0.5 text-muted-foreground flex-shrink-0", !notification.read && "text-primary")} />
                       <div className="flex-grow">
                         <p className={cn("text-sm leading-snug text-foreground", !notification.read && "font-semibold")}>
@@ -326,7 +325,7 @@ function Header() {
                 <span>Settings</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={signOut} className="cursor-pointer"> 
+              <DropdownMenuItem onClick={signOut} className="cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>
               </DropdownMenuItem>
@@ -377,4 +376,3 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
-
