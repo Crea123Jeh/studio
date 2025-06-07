@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect } from "react";
-import { Laptop } from "lucide-react"; 
+import { Building } from "lucide-react"; // Changed from Laptop to Building
 
 const signupSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -105,7 +105,9 @@ export default function SignupPage() {
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
            <div className="inline-flex items-center justify-center gap-2 mb-4">
-            <Laptop className="h-10 w-10 text-accent" />
+            <div className="bg-accent rounded-full h-10 w-10 flex items-center justify-center">
+              <Building className="h-5 w-5 text-white" />
+            </div>
             <CardTitle className="text-3xl font-headline">Create Account</CardTitle>
           </div>
           <CardDescription>Enter your details to get started with PPM Management.</CardDescription>

@@ -15,7 +15,7 @@ import {
   Settings,
   ChevronDown,
   PanelLeft,
-  Laptop,
+  Building, // Changed from Laptop to Building
   Info,
   Cake,
   BookOpen,
@@ -130,7 +130,9 @@ function AppSidebar() {
     <>
       <SidebarHeader className="p-4 flex items-center gap-2 border-b border-sidebar-border">
         <Link href="/dashboard" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-           <Laptop className="h-7 w-7 text-accent" />
+           <div className="bg-accent rounded-full h-7 w-7 flex items-center justify-center">
+             <Building className="h-4 w-4 text-white" />
+           </div>
           <h1 className="text-lg font-semibold text-sidebar-foreground font-headline">PPM Management</h1>
         </Link>
       </SidebarHeader>
@@ -222,7 +224,9 @@ function Header() {
         )}
         {/* Always visible logo in the top bar */}
         <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <Laptop className="h-6 w-6 text-accent" />
+          <div className="bg-accent rounded-full h-6 w-6 flex items-center justify-center">
+            <Building className="h-3 w-3 text-white" />
+          </div>
           <span className="text-lg font-semibold text-sidebar-foreground font-headline">PPM Management</span>
         </Link>
       </div>
