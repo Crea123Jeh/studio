@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, type FormEvent, useMemo } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -17,15 +17,20 @@ import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, updateDoc, deleteDoc } from "firebase/firestore";
-import { format, parseISO } from "date-fns";
-import { Briefcase, ListChecks, FileText, Users, Paperclip, MessageCircle, PlusCircle, ArrowLeft, Edit3, Trash2 } from "lucide-react";
+import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, updateDoc, deleteDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import { format } from "date-fns";
+import { Briefcase, ListChecks, FileText, Users, Paperclip, MessageCircle, PlusCircle, ArrowLeft, Edit3, Trash2, Link as LinkIcon, CalendarIcon } from "lucide-react";
 import Image from "next/image";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
 const projectStatusOptions = ["Planning", "In Progress", "Completed", "On Hold", "Cancelled"] as const;
+
+const fileLinkSchema = z.object({
+  name: z.string().min(1, "Link name is required."),
+  url: z.string().url("Please enter a valid URL."),
+});
 
 const projectFormSchema = z.object({
   name: z.string().min(3, "Project name must be at least 3 characters."),
@@ -34,10 +39,12 @@ const projectFormSchema = z.object({
   startDate: z.date({ required_error: "Start date is required." }),
   endDate: z.date().optional().nullable(),
   budget: z.string().optional().refine(val => !val || !isNaN(parseFloat(val)), { message: "Budget must be a number."}).transform(val => val ? parseFloat(val) : undefined),
-  managerName: z.string().min(2, "Manager name is required."),
+  managerId: z.string().min(1, "Manager selection is required."),
+  fileLinks: z.array(fileLinkSchema).optional(),
 });
 
 type ProjectFormValues = z.infer<typeof projectFormSchema>;
+type FileLink = z.infer<typeof fileLinkSchema>;
 
 interface ProjectData {
   id: string;
@@ -47,11 +54,20 @@ interface ProjectData {
   startDate: Timestamp;
   endDate: Timestamp | null;
   budget?: number;
-  managerName: string;
-  managerAvatar?: string; 
+  managerId?: string;
+  managerName?: string; 
   spent?: number; 
   createdAt: Timestamp;
+  fileLinks?: FileLink[];
 }
+
+// Mock user data for Project Manager selection
+const mockUsers = [
+  { id: "user_alice_001", name: "Alice Wonderland" },
+  { id: "user_bob_002", name: "Bob The Builder" },
+  { id: "user_charlie_003", name: "Charlie Brown" },
+  { id: "user_diana_004", name: "Diana Prince" },
+];
 
 
 export default function ProjectInfoPage() {
@@ -61,6 +77,9 @@ export default function ProjectInfoPage() {
   const [isAddProjectDialogOpen, setIsAddProjectDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<ProjectData | null>(null);
 
+  const [newLinkName, setNewLinkName] = useState("");
+  const [newLinkUrl, setNewLinkUrl] = useState("");
+
   const { toast } = useToast();
 
   const form = useForm<ProjectFormValues>({
@@ -69,18 +88,17 @@ export default function ProjectInfoPage() {
       name: "",
       description: "",
       status: "Planning",
-      managerName: "",
+      managerId: "",
       endDate: null,
+      fileLinks: [],
     },
   });
 
  useEffect(() => {
     setIsLoading(true);
     const projectsCollection = collection(db, "projectsPPM");
-    // POTENTIAL ISSUE AREA: If `createdAt` field has inconsistent data types (not all Timestamps)
-    // in the Firestore `projectsPPM` collection, the `orderBy` clause can lead to
-    // "INTERNAL ASSERTION FAILED" errors from the Firestore SDK.
-    // Ensure all `createdAt` fields are valid Firestore Timestamps in your database.
+    // Ensure all `createdAt` fields are valid Firestore Timestamps in your database if errors persist.
+    // This query can cause "INTERNAL ASSERTION FAILED" if `createdAt` has inconsistent data types.
     const q = query(projectsCollection, orderBy("createdAt", "desc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -88,17 +106,18 @@ export default function ProjectInfoPage() {
         try {
             const data = docSnap.data();
             
-            // Ensure data types are consistent. Provide defaults for resilience.
             const name = typeof data.name === 'string' ? data.name : "Untitled Project";
             const description = typeof data.description === 'string' ? data.description : "No description provided.";
             const status = projectStatusOptions.includes(data.status) ? data.status : "Planning";
             const startDate = data.startDate instanceof Timestamp ? data.startDate : Timestamp.fromDate(new Date(1970, 0, 1));
-            const endDate = data.endDate instanceof Timestamp ? data.endDate : null; // Simplified
+            const endDate = data.endDate instanceof Timestamp ? data.endDate : null;
             const budget = typeof data.budget === 'number' ? data.budget : undefined;
+            const managerId = typeof data.managerId === 'string' ? data.managerId : undefined;
             const managerName = typeof data.managerName === 'string' ? data.managerName : "N/A";
-            const managerAvatar = typeof data.managerAvatar === 'string' ? data.managerAvatar : undefined;
             const spent = typeof data.spent === 'number' ? data.spent : undefined;
             const createdAt = data.createdAt instanceof Timestamp ? data.createdAt : Timestamp.fromDate(new Date(1970, 0, 1));
+            const fileLinks = Array.isArray(data.fileLinks) ? data.fileLinks.filter((link: any) => typeof link.name === 'string' && typeof link.url === 'string') : [];
+
 
             const mappedData: ProjectData = {
                 id: docSnap.id,
@@ -108,17 +127,18 @@ export default function ProjectInfoPage() {
                 startDate,
                 endDate,
                 budget,
+                managerId,
                 managerName, 
-                managerAvatar, 
                 spent,
                 createdAt, 
+                fileLinks,
             };
             return mappedData;
         } catch (e: any) {
-            console.error(`Error processing document ${docSnap.id}:`, e.message, e.stack, docSnap.data());
+            console.error(`Error processing document ${docSnap.id}:`, e.message, e.stack, `Data: ${JSON.stringify(docSnap.data())}`);
             toast({
                 title: "Data Processing Error",
-                description: `Could not process project data for ID: ${docSnap.id}. It may be corrupted. Please check console for details.`,
+                description: `Could not process project data for ID: ${docSnap.id}. It may be corrupted. See console.`,
                 variant: "destructive"
             });
             return null; 
@@ -129,7 +149,7 @@ export default function ProjectInfoPage() {
       setIsLoading(false);
     }, (error) => {
       console.error("Error fetching projects: ", error);
-      toast({ title: "Error", description: "Could not fetch projects.", variant: "destructive" });
+      toast({ title: "Error", description: "Could not fetch projects. Firestore query might be failing due to inconsistent 'createdAt' field types.", variant: "destructive" });
       setIsLoading(false);
     });
 
@@ -146,7 +166,8 @@ export default function ProjectInfoPage() {
         startDate: projectToEdit.startDate.toDate(),
         endDate: projectToEdit.endDate ? projectToEdit.endDate.toDate() : null,
         budget: projectToEdit.budget?.toString(),
-        managerName: projectToEdit.managerName,
+        managerId: projectToEdit.managerId || "",
+        fileLinks: projectToEdit.fileLinks || [],
       });
     } else {
       form.reset({
@@ -156,18 +177,24 @@ export default function ProjectInfoPage() {
         startDate: new Date(),
         endDate: null,
         budget: "",
-        managerName: "",
+        managerId: "",
+        fileLinks: [],
       });
     }
     setIsAddProjectDialogOpen(true);
   };
 
   const onSubmit = async (values: ProjectFormValues) => {
+    const selectedManager = mockUsers.find(user => user.id === values.managerId);
+    const managerName = selectedManager ? selectedManager.name : "N/A";
+
     const projectDataToSave = {
       ...values,
       startDate: Timestamp.fromDate(values.startDate),
       endDate: values.endDate ? Timestamp.fromDate(values.endDate) : null,
       budget: values.budget, 
+      managerName: managerName,
+      fileLinks: values.fileLinks || [],
     };
 
     try {
@@ -175,6 +202,9 @@ export default function ProjectInfoPage() {
         const projectRef = doc(db, "projectsPPM", editingProject.id);
         await updateDoc(projectRef, projectDataToSave);
         toast({ title: "Project Updated", description: `"${values.name}" has been updated successfully.` });
+        if(selectedProject?.id === editingProject.id) {
+            setSelectedProject(prev => prev ? {...prev, ...projectDataToSave, startDate: projectDataToSave.startDate, endDate: projectDataToSave.endDate } as ProjectData : null);
+        }
       } else {
         await addDoc(collection(db, "projectsPPM"), { ...projectDataToSave, createdAt: Timestamp.now() });
         toast({ title: "Project Added", description: `"${values.name}" has been added successfully.` });
@@ -204,6 +234,50 @@ export default function ProjectInfoPage() {
     }
   };
 
+  const handleAddLink = async () => {
+    if (!selectedProject || !newLinkName.trim() || !newLinkUrl.trim()) {
+      toast({ title: "Invalid Input", description: "Link name and URL cannot be empty.", variant: "destructive" });
+      return;
+    }
+    try {
+      // Validate URL format (basic client-side, more robust on server if needed)
+      new URL(newLinkUrl);
+    } catch (_) {
+      toast({ title: "Invalid URL", description: "Please enter a valid URL.", variant: "destructive" });
+      return;
+    }
+
+    const newLink: FileLink = { name: newLinkName.trim(), url: newLinkUrl.trim() };
+    const projectRef = doc(db, "projectsPPM", selectedProject.id);
+    try {
+      await updateDoc(projectRef, {
+        fileLinks: arrayUnion(newLink)
+      });
+      setSelectedProject(prev => prev ? { ...prev, fileLinks: [...(prev.fileLinks || []), newLink] } : null);
+      setNewLinkName("");
+      setNewLinkUrl("");
+      toast({ title: "Link Added", description: `Link "${newLink.name}" added.` });
+    } catch (error) {
+      console.error("Error adding link:", error);
+      toast({ title: "Error", description: "Could not add link.", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteLink = async (linkToDelete: FileLink) => {
+    if (!selectedProject) return;
+    const projectRef = doc(db, "projectsPPM", selectedProject.id);
+    try {
+      await updateDoc(projectRef, {
+        fileLinks: arrayRemove(linkToDelete)
+      });
+      setSelectedProject(prev => prev ? { ...prev, fileLinks: (prev.fileLinks || []).filter(link => link.url !== linkToDelete.url || link.name !== linkToDelete.name) } : null);
+      toast({ title: "Link Removed", description: `Link "${linkToDelete.name}" removed.` });
+    } catch (error) {
+      console.error("Error removing link:", error);
+      toast({ title: "Error", description: "Could not remove link.", variant: "destructive" });
+    }
+  };
+
 
   const ProjectCard = ({ project }: { project: ProjectData }) => (
     <Card className="shadow-md hover:shadow-lg transition-shadow w-full">
@@ -224,7 +298,7 @@ export default function ProjectInfoPage() {
           </Badge>
         </div>
         <CardDescription className="text-xs text-muted-foreground">
-          Manager: {project.managerName} | Start: {project.startDate ? format(project.startDate.toDate(), "PP") : "N/A"}
+          Manager: {project.managerName || "N/A"} | Start: {project.startDate ? format(project.startDate.toDate(), "PP") : "N/A"}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -295,10 +369,10 @@ export default function ProjectInfoPage() {
             <CardHeader><CardTitle className="text-base">Project Manager</CardTitle></CardHeader>
             <CardContent className="flex items-center gap-2">
               <Avatar className="h-8 w-8">
-                <AvatarImage src={selectedProject.managerAvatar || `https://placehold.co/40x40.png?text=${selectedProject.managerName ? selectedProject.managerName.substring(0,1) : 'P'}`} alt={selectedProject.managerName} data-ai-hint="person avatar"/>
-                <AvatarFallback>{selectedProject.managerName ? selectedProject.managerName.substring(0,1) : "P"}</AvatarFallback>
+                <AvatarImage src={`https://placehold.co/40x40.png?text=${selectedProject.managerName ? selectedProject.managerName.substring(0,1).toUpperCase() : 'P'}`} alt={selectedProject.managerName} data-ai-hint="person avatar"/>
+                <AvatarFallback>{selectedProject.managerName ? selectedProject.managerName.substring(0,1).toUpperCase() : "P"}</AvatarFallback>
               </Avatar>
-              <p className="text-sm font-semibold">{selectedProject.managerName}</p>
+              <p className="text-sm font-semibold">{selectedProject.managerName || "N/A"}</p>
             </CardContent>
           </Card>
         </div>
@@ -308,7 +382,7 @@ export default function ProjectInfoPage() {
             <CardHeader><CardTitle className="text-base">Budget Utilization</CardTitle></CardHeader>
             <CardContent>
               <div className="w-full bg-muted rounded-full h-2.5">
-                <div className="bg-primary h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
+                <div className="bg-primary h-2.5 rounded-full" style={{ width: `${Math.min(100, progress)}%` }}></div>
               </div>
               <p className="text-sm text-muted-foreground mt-1">
                 ${(selectedProject.spent || 0).toLocaleString()} spent of ${selectedProject.budget.toLocaleString()} ({progress.toFixed(1)}%)
@@ -334,14 +408,62 @@ export default function ProjectInfoPage() {
               </CardContent>
             </Card>
           </TabsContent>
-          {[ "tasks", "team", "documents", "updates"].map(tabName => (
+          <TabsContent value="documents" className="mt-4">
+            <Card className="shadow-md">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Paperclip className="h-5 w-5 text-primary"/>Documents & Links</CardTitle>
+                    <CardDescription>Manage important files and URLs related to this project.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        {(selectedProject.fileLinks && selectedProject.fileLinks.length > 0) ? (
+                            selectedProject.fileLinks.map((link, index) => (
+                                <div key={index} className="flex items-center justify-between p-2 border rounded-md hover:bg-muted/50">
+                                    <div className="flex items-center gap-2">
+                                        <LinkIcon className="h-4 w-4 text-primary" />
+                                        <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline">
+                                            {link.name}
+                                        </a>
+                                         <span className="text-xs text-muted-foreground truncate max-w-xs">({link.url})</span>
+                                    </div>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteLink(link)}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            ))
+                        ) : (
+                            <p className="text-sm text-muted-foreground italic">No documents or links added yet.</p>
+                        )}
+                    </div>
+                    <div className="pt-4 border-t">
+                        <h4 className="text-sm font-medium mb-2">Add New Link</h4>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                            <Input 
+                                placeholder="Link Name (e.g., Design Specs)" 
+                                value={newLinkName} 
+                                onChange={(e) => setNewLinkName(e.target.value)}
+                                className="flex-grow"
+                            />
+                            <Input 
+                                placeholder="URL (e.g., https://example.com/doc)" 
+                                value={newLinkUrl} 
+                                onChange={(e) => setNewLinkUrl(e.target.value)}
+                                className="flex-grow"
+                                type="url"
+                            />
+                            <Button onClick={handleAddLink}><PlusCircle className="mr-2 h-4 w-4"/>Add Link</Button>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+          </TabsContent>
+          {[ "tasks", "team", "updates"].map(tabName => (
              <TabsContent key={tabName} value={tabName} className="mt-4">
                 <Card className="shadow-md">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 capitalize">
                             {tabName === "tasks" && <ListChecks className="h-5 w-5 text-primary"/>}
                             {tabName === "team" && <Users className="h-5 w-5 text-primary"/>}
-                            {tabName === "documents" && <Paperclip className="h-5 w-5 text-primary"/>}
                             {tabName === "updates" && <MessageCircle className="h-5 w-5 text-primary"/>}
                             {tabName.charAt(0).toUpperCase() + tabName.slice(1)}
                         </CardTitle>
@@ -396,7 +518,13 @@ export default function ProjectInfoPage() {
         </Card>
       )}
 
-      <Dialog open={isAddProjectDialogOpen} onOpenChange={setIsAddProjectDialogOpen}>
+      <Dialog open={isAddProjectDialogOpen} onOpenChange={(isOpen) => {
+          setIsAddProjectDialogOpen(isOpen);
+          if (!isOpen) {
+            form.reset(); // Reset form when dialog closes
+            setEditingProject(null);
+          }
+      }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingProject ? "Edit Project" : "Add New Project"}</DialogTitle>
@@ -407,12 +535,20 @@ export default function ProjectInfoPage() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="name" className="text-right">Name</Label>
-              <Input id="name" {...form.register("name")} className="col-span-3" placeholder="Project Alpha"/>
+              <Controller
+                name="name"
+                control={form.control}
+                render={({ field }) => <Input id="name" {...field} className="col-span-3" placeholder="Project Alpha"/>}
+              />
               {form.formState.errors.name && <p className="col-span-4 text-right text-xs text-destructive">{form.formState.errors.name.message}</p>}
             </div>
             <div className="grid grid-cols-4 items-start gap-4">
               <Label htmlFor="description" className="text-right pt-2">Description</Label>
-              <Textarea id="description" {...form.register("description")} className="col-span-3" rows={3} placeholder="Briefly describe the project..."/>
+              <Controller
+                name="description"
+                control={form.control}
+                render={({ field }) => <Textarea id="description" {...field} className="col-span-3" rows={3} placeholder="Briefly describe the project..."/>}
+              />
               {form.formState.errors.description && <p className="col-span-4 text-right text-xs text-destructive">{form.formState.errors.description.message}</p>}
             </div>
              <div className="grid grid-cols-4 items-center gap-4">
@@ -436,6 +572,26 @@ export default function ProjectInfoPage() {
               {form.formState.errors.status && <p className="col-span-4 text-right text-xs text-destructive">{form.formState.errors.status.message}</p>}
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="managerId" className="text-right">Manager</Label>
+              <Controller
+                name="managerId"
+                control={form.control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger className="col-span-3" id="managerId">
+                      <SelectValue placeholder="Select manager" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {mockUsers.map(user => (
+                        <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {form.formState.errors.managerId && <p className="col-span-4 text-right text-xs text-destructive">{form.formState.errors.managerId.message}</p>}
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="startDate" className="text-right">Start Date</Label>
               <Controller
                 name="startDate"
@@ -444,7 +600,7 @@ export default function ProjectInfoPage() {
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button variant="outline" className={cn("col-span-3 justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                        <ListChecks className="mr-2 h-4 w-4" /> 
+                        <CalendarIcon className="mr-2 h-4 w-4" /> 
                         {field.value ? format(field.value, "PPP") : <span>Pick start date</span>}
                       </Button>
                     </PopoverTrigger>
@@ -465,7 +621,7 @@ export default function ProjectInfoPage() {
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button variant="outline" className={cn("col-span-3 justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                        <ListChecks className="mr-2 h-4 w-4" /> 
+                        <CalendarIcon className="mr-2 h-4 w-4" /> 
                         {field.value ? format(field.value, "PPP") : 
                           <span className="text-muted-foreground">Pick end date (optional)</span>
                         }
@@ -481,14 +637,14 @@ export default function ProjectInfoPage() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="budget" className="text-right">Budget ($)</Label>
-              <Input id="budget" type="number" {...form.register("budget")} className="col-span-3" placeholder="e.g., 50000 (optional)"/>
+               <Controller
+                name="budget"
+                control={form.control}
+                render={({ field }) => <Input id="budget" type="number" {...field} value={field.value ?? ""} className="col-span-3" placeholder="e.g., 50000 (optional)"/>}
+              />
               {form.formState.errors.budget && <p className="col-span-4 text-right text-xs text-destructive">{form.formState.errors.budget.message}</p>}
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="managerName" className="text-right">Manager</Label>
-              <Input id="managerName" {...form.register("managerName")} className="col-span-3" placeholder="Manager's name"/>
-              {form.formState.errors.managerName && <p className="col-span-4 text-right text-xs text-destructive">{form.formState.errors.managerName.message}</p>}
-            </div>
+            
             <DialogFooter>
               <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
               <Button type="submit" disabled={form.formState.isSubmitting}>
