@@ -51,7 +51,11 @@ const projectFormSchema = z.object({
   status: z.enum(projectStatusOptions),
   startDate: z.date({ required_error: "Start date is required." }),
   endDate: z.date().optional().nullable(),
-  budget: z.string().optional().refine(val => !val || !isNaN(parseFloat(val.replace(/,/g, ''))), { message: "Budget must be a number."}).transform(val => val ? parseFloat(val.replace(/,/g, '')) : undefined),
+  budget: z.string().optional().transform(val => {
+    if (val === null || val === undefined || val.trim() === "") return undefined; // Keep it undefined if empty to use ?? 0 later
+    const num = parseFloat(String(val).replace(/,/g, ''));
+    return isNaN(num) ? undefined : num; // Keep undefined if not a number
+  }),
   managerId: z.string().min(1, "Manager selection is required."),
 });
 type ProjectFormValues = z.infer<typeof projectFormSchema>;
@@ -81,7 +85,7 @@ interface ProjectData {
   budget?: number;
   managerId?: string;
   managerName?: string;
-  spent?: number; // Example field, not fully implemented for calculation
+  spent?: number; 
   createdAt: Timestamp;
   lastUpdatedAt: Timestamp;
   uploadedFiles: UploadedFile[];
@@ -89,6 +93,7 @@ interface ProjectData {
 
 interface TaskData {
   id: string;
+  projectId: string;
   title: string;
   description?: string;
   status: typeof taskStatusOptions[number];
@@ -98,13 +103,15 @@ interface TaskData {
 
 interface UpdateNoteData {
   id: string;
+  projectId: string;
   note: string;
-  date: Timestamp; // Effective date of the update
+  date: Timestamp; 
+  authorId?: string;
   authorName?: string;
-  createdAt: Timestamp; // When the log was created
+  createdAt: Timestamp;
 }
 
-const mockUsers = [ // Replace with actual user fetching logic if available
+const mockUsers = [ 
   { id: "user_alice_001", name: "Alice Wonderland" },
   { id: "user_bob_002", name: "Bob The Builder" },
   { id: "user_charlie_003", name: "Charlie Brown" },
@@ -152,8 +159,6 @@ export default function ProjectInfoPage() {
   useEffect(() => {
     setIsLoading(true);
     const projectsCollectionRef = collection(db, "projectsPPM");
-    // If you suspect issues with 'createdAt' data consistency (e.g., not all are Timestamps),
-    // this orderBy might cause Firestore internal errors. Ensure 'createdAt' is always a Timestamp.
     const q = query(projectsCollectionRef, orderBy("createdAt", "desc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -166,9 +171,9 @@ export default function ProjectInfoPage() {
             const status = projectStatusOptions.includes(data.status) ? data.status : "Planning";
             
             const startDate = data.startDate instanceof Timestamp ? data.startDate : Timestamp.fromDate(new Date(1970,0,1));
-            const endDate = data.endDate instanceof Timestamp ? data.endDate : null; // endDate can be null
+            const endDate = data.endDate instanceof Timestamp ? data.endDate : (data.endDate === null ? null : undefined);
             
-            const budget = typeof data.budget === 'number' ? data.budget : undefined;
+            const budget = typeof data.budget === 'number' ? data.budget : 0; // Default to 0
             const managerId = typeof data.managerId === 'string' ? data.managerId : undefined;
             const managerName = typeof data.managerName ==='string' ? data.managerName : "N/A";
             const spent = typeof data.spent === 'number' ? data.spent : undefined;
@@ -184,7 +189,7 @@ export default function ProjectInfoPage() {
                   size: typeof f.size === 'number' ? f.size : 0,
                   storagePath: typeof f.storagePath === 'string' ? f.storagePath : '',
                   uploadedAt: f.uploadedAt instanceof Timestamp ? f.uploadedAt : Timestamp.now(),
-                }))
+                })).filter(f => f.url && f.storagePath) // Ensure valid files
               : [];
 
             const mappedData: ProjectData = {
@@ -195,7 +200,7 @@ export default function ProjectInfoPage() {
             console.error(`Error processing document ${docSnap.id}:`, e.message, `Raw Data: ${JSON.stringify(docSnap.data ? docSnap.data() : 'N/A')}`, e.stack);
             toast({
                 title: "Data Processing Error",
-                description: `Could not process project data for ID: ${docSnap.id}. It may be corrupted. See console.`,
+                description: `Could not process project data for ID: ${docSnap.id}. It may be corrupted or have an unexpected structure. See console.`,
                 variant: "destructive"
             });
             return null; 
@@ -205,7 +210,7 @@ export default function ProjectInfoPage() {
       setIsLoading(false);
     }, (error) => {
       console.error("Error fetching projects: ", error);
-      toast({ title: "Error", description: "Could not fetch projects. Firestore query might be failing.", variant: "destructive" });
+      toast({ title: "Error", description: "Could not fetch projects. Firestore query might be failing (ensure 'createdAt' field exists in all project documents and is a Timestamp).", variant: "destructive" });
       setIsLoading(false);
     });
     return () => unsubscribe();
@@ -213,27 +218,33 @@ export default function ProjectInfoPage() {
 
   // Fetch Subcollections when selectedProject changes
   useEffect(() => {
-    if (selectedProject) {
+    if (selectedProject?.id) {
+      const projectId = selectedProject.id;
+
       // Fetch Tasks
-      const tasksCol = collection(db, "projectsPPM", selectedProject.id, "tasks");
+      const tasksCol = collection(db, "projectsPPM", projectId, "tasks");
       const tasksQuery = query(tasksCol, orderBy("createdAt", "desc"));
       const unsubTasks = onSnapshot(tasksQuery, (snapshot) => {
         setProjectTasks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TaskData)));
-      }, (err) => { console.error("Error fetching tasks:", err); toast({title:"Error", description:"Could not fetch tasks.", variant:"destructive"});});
-
-      // Set Uploaded Files from project data
-      setProjectUploadedFiles(selectedProject.uploadedFiles || []);
+      }, (err) => { console.error(`Error fetching tasks for project ${projectId}:`, err); toast({title:"Error", description:`Could not fetch tasks for ${selectedProject.name}.`, variant:"destructive"});});
 
       // Fetch Updates
-      const updatesCol = collection(db, "projectsPPM", selectedProject.id, "updates");
-      const updatesQuery = query(updatesCol, orderBy("date", "desc")); // Order by effective date
+      const updatesCol = collection(db, "projectsPPM", projectId, "updates");
+      const updatesQuery = query(updatesCol, orderBy("date", "desc")); 
       const unsubUpdates = onSnapshot(updatesQuery, (snapshot) => {
         setProjectUpdates(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UpdateNoteData)));
-      }, (err) => { console.error("Error fetching updates:", err); toast({title:"Error", description:"Could not fetch updates.", variant:"destructive"});});
+      }, (err) => { console.error(`Error fetching updates for project ${projectId}:`, err); toast({title:"Error", description:`Could not fetch updates for ${selectedProject.name}.`, variant:"destructive"});});
       
+      // Set Uploaded Files from project data (already part of selectedProject object)
+      setProjectUploadedFiles(selectedProject.uploadedFiles || []);
+
       return () => { unsubTasks(); unsubUpdates(); };
+    } else {
+      setProjectTasks([]);
+      setProjectUpdates([]);
+      setProjectUploadedFiles([]);
     }
-  }, [selectedProject, toast]);
+  }, [selectedProject]);
 
   const updateProjectTimestamp = async (projectId: string) => {
     const projectRef = doc(db, "projectsPPM", projectId);
@@ -253,11 +264,11 @@ export default function ProjectInfoPage() {
         status: projectToEdit.status,
         startDate: projectToEdit.startDate.toDate(),
         endDate: projectToEdit.endDate ? projectToEdit.endDate.toDate() : null,
-        budget: projectToEdit.budget?.toString() || "", // Convert number to string for input
+        budget: projectToEdit.budget?.toString() ?? "0",
         managerId: projectToEdit.managerId || "",
       });
     } else {
-      projectForm.reset({ name: "", description: "", status: "Planning", startDate: new Date(), endDate: null, budget: "", managerId: "" });
+      projectForm.reset({ name: "", description: "", status: "Planning", startDate: new Date(), endDate: null, budget: "0", managerId: "" });
     }
     setIsAddProjectDialogOpen(true);
   };
@@ -267,11 +278,16 @@ export default function ProjectInfoPage() {
     const managerName = selectedManager ? selectedManager.name : "N/A";
     const now = Timestamp.now();
 
+    const budgetToSave = values.budget ?? 0; // Default to 0 if undefined after Zod transform
+
     const projectDataToSave = {
-      ...values,
+      name: values.name,
+      description: values.description,
+      status: values.status,
       startDate: Timestamp.fromDate(values.startDate),
       endDate: values.endDate ? Timestamp.fromDate(values.endDate) : null,
-      budget: values.budget, // Already a number due to transform
+      budget: budgetToSave,
+      managerId: values.managerId,
       managerName: managerName,
       lastUpdatedAt: now,
     };
@@ -279,12 +295,17 @@ export default function ProjectInfoPage() {
     try {
       if (editingProject) {
         const projectRef = doc(db, "projectsPPM", editingProject.id);
-        // Exclude createdAt from update data if it's an edit
-        const { createdAt, ...updateData } = projectDataToSave; 
-        await updateDoc(projectRef, updateData);
+        await updateDoc(projectRef, projectDataToSave);
         toast({ title: "Project Updated", description: `"${values.name}" has been updated.` });
         if(selectedProject?.id === editingProject.id) {
-             setSelectedProject(prev => prev ? {...prev, ...updateData, startDate: updateData.startDate!, endDate: updateData.endDate, lastUpdatedAt: updateData.lastUpdatedAt! } as ProjectData : null);
+             // To refresh selectedProject with new data, including potentially updated budget
+             const updatedProjectData = {
+                ...selectedProject, 
+                ...projectDataToSave, 
+                startDate: projectDataToSave.startDate, // ensure Timestamp type
+                endDate: projectDataToSave.endDate,     // ensure Timestamp or null
+             } as ProjectData;
+             setSelectedProject(updatedProjectData);
         }
       } else {
         await addDoc(collection(db, "projectsPPM"), { ...projectDataToSave, createdAt: now, uploadedFiles: [] });
@@ -292,7 +313,7 @@ export default function ProjectInfoPage() {
       }
       setIsAddProjectDialogOpen(false);
       setEditingProject(null);
-      projectForm.reset();
+      projectForm.reset({ name: "", description: "", status: "Planning", startDate: new Date(), endDate: null, budget: "0", managerId: "" });
     } catch (error) {
       console.error("Error saving project: ", error);
       toast({ title: "Error", description: "Could not save project.", variant: "destructive" });
@@ -312,10 +333,10 @@ export default function ProjectInfoPage() {
       const updatesSnapshot = await getDocs(updatesCol);
       updatesSnapshot.forEach(docSnap => batch.delete(docSnap.ref));
       
-      const projectDocData = projects.find(p => p.id === projectId);
+      const projectDocData = projects.find(p => p.id === projectId); // Get current project data to access uploadedFiles
       if (projectDocData?.uploadedFiles) {
         for (const file of projectDocData.uploadedFiles) {
-          if (file.storagePath) { // Ensure storagePath exists
+          if (file.storagePath) { 
             const fileToDeleteRef = storageRef(storage, file.storagePath);
             await deleteObject(fileToDeleteRef).catch(e => console.warn("Error deleting file from storage:", file.storagePath, e));
           }
@@ -335,29 +356,39 @@ export default function ProjectInfoPage() {
 
   // Task Management
   const onTaskSubmit = async (values: TaskFormValues) => {
-    if (!selectedProject) return;
+    if (!selectedProject?.id) {
+        toast({ title: "Error", description: "No project selected to add task to.", variant: "destructive" });
+        return;
+    }
+    const projectId = selectedProject.id;
     const now = Timestamp.now();
-    const taskData = { ...values, createdAt: now, lastUpdatedAt: now };
+    const taskData = { 
+        ...values, 
+        projectId: projectId, // Explicitly store projectId
+        createdAt: now, 
+        lastUpdatedAt: now 
+    };
     try {
-      await addDoc(collection(db, "projectsPPM", selectedProject.id, "tasks"), taskData);
-      toast({ title: "Task Added", description: `Task "${values.title}" added.` });
+      await addDoc(collection(db, "projectsPPM", projectId, "tasks"), taskData);
+      toast({ title: "Task Added", description: `Task "${values.title}" added to ${selectedProject.name}.` });
       setIsAddTaskDialogOpen(false);
       taskForm.reset();
-      await updateProjectTimestamp(selectedProject.id);
+      await updateProjectTimestamp(projectId);
     } catch (error) {
       console.error("Error adding task:", error);
-      toast({ title: "Error Adding Task", variant: "destructive" });
+      toast({ title: "Error Adding Task", description: `Could not add task. ${error instanceof Error ? error.message : ''}`, variant: "destructive" });
     }
   };
 
   // File Upload Management
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!selectedProject || !event.target.files || event.target.files.length === 0) return;
+    if (!selectedProject?.id || !event.target.files || event.target.files.length === 0) return;
+    const projectId = selectedProject.id;
     const file = event.target.files[0];
     setIsUploading(true);
     setUploadProgress(0);
 
-    const filePath = `project_documents/${selectedProject.id}/${Date.now()}_${file.name}`;
+    const filePath = `project_documents/${projectId}/${Date.now()}_${file.name}`;
     const fileUploadRef = storageRef(storage, filePath);
     const uploadTask = uploadBytesResumable(fileUploadRef, file);
 
@@ -378,53 +409,81 @@ export default function ProjectInfoPage() {
           storagePath: filePath,
           uploadedAt: Timestamp.now(),
         };
-        const projectRef = doc(db, "projectsPPM", selectedProject.id);
-        await updateDoc(projectRef, { uploadedFiles: arrayUnion(newFile) });
-        // No need to setProjectUploadedFiles here, rely on selectedProject refresh or snapshot listener if needed
-        toast({ title: "File Uploaded", description: `"${file.name}" uploaded successfully.` });
-        setIsUploading(false);
-        setUploadProgress(0);
-        if (selectedProject) await updateProjectTimestamp(selectedProject.id); // Update timestamp
+        const projectRef = doc(db, "projectsPPM", projectId);
+        try {
+            await updateDoc(projectRef, { uploadedFiles: arrayUnion(newFile) });
+            // Update local state for immediate UI feedback
+            setSelectedProject(prev => prev ? ({ ...prev, uploadedFiles: [...(prev.uploadedFiles || []), newFile] }) : null);
+            setProjectUploadedFiles(prev => [...prev, newFile]);
+
+            toast({ title: "File Uploaded", description: `"${file.name}" uploaded successfully.` });
+            await updateProjectTimestamp(projectId); 
+        } catch (updateError) {
+            console.error("Error updating project with new file metadata:", updateError);
+            toast({ title: "File Save Error", description: "File uploaded, but failed to save metadata.", variant: "destructive" });
+             // Attempt to delete the orphaned file from storage
+            try {
+                await deleteObject(fileUploadRef);
+                console.log("Orphaned file deleted from storage:", filePath);
+            } catch (orphanDeleteError) {
+                console.error("Failed to delete orphaned file from storage:", orphanDeleteError);
+            }
+        } finally {
+            setIsUploading(false);
+            setUploadProgress(0);
+        }
       }
     );
   };
 
   const handleDeleteFile = async (fileToDelete: UploadedFile) => {
-    if (!selectedProject || !confirm(`Are you sure you want to delete the file "${fileToDelete.name}"?`)) return;
+    if (!selectedProject?.id || !confirm(`Are you sure you want to delete the file "${fileToDelete.name}"?`)) return;
+    const projectId = selectedProject.id;
     try {
-      const fileStorageRef = storageRef(storage, fileToDelete.storagePath);
-      await deleteObject(fileStorageRef);
+      const fileStorageRefToDelete = storageRef(storage, fileToDelete.storagePath);
+      await deleteObject(fileStorageRefToDelete);
 
-      const projectRef = doc(db, "projectsPPM", selectedProject.id);
+      const projectRef = doc(db, "projectsPPM", projectId);
       await updateDoc(projectRef, { uploadedFiles: arrayRemove(fileToDelete) });
-      // No need to setProjectUploadedFiles here, rely on selectedProject refresh or snapshot listener if needed
+      
+      // Update local state for immediate UI feedback
+      const updatedFiles = (selectedProject.uploadedFiles || []).filter(f => f.storagePath !== fileToDelete.storagePath);
+      setSelectedProject(prev => prev ? ({ ...prev, uploadedFiles: updatedFiles }) : null);
+      setProjectUploadedFiles(updatedFiles);
+
       toast({ title: "File Deleted", description: `"${fileToDelete.name}" deleted.` });
-      if (selectedProject) await updateProjectTimestamp(selectedProject.id); // Update timestamp
+      await updateProjectTimestamp(projectId);
     } catch (error) {
       console.error("Error deleting file:", error);
-      toast({ title: "Error Deleting File", variant: "destructive" });
+      toast({ title: "Error Deleting File", description: `Could not delete file. ${error instanceof Error ? error.message : ''}`, variant: "destructive" });
     }
   };
 
   // Update Note Management
   const onUpdateNoteSubmit = async (values: UpdateNoteFormValues) => {
-    if (!selectedProject || !currentUser) return;
+    if (!selectedProject?.id || !currentUser) {
+        toast({ title: "Error", description: "No project selected or user not logged in.", variant: "destructive" });
+        return;
+    }
+    const projectId = selectedProject.id;
     const now = Timestamp.now();
-    const updateData = {
+    const updateData: Omit<UpdateNoteData, 'id'> = { // Omit id as it's auto-generated
+      projectId: projectId, // Explicitly store projectId
       note: values.note,
       date: Timestamp.fromDate(values.date),
-      authorName: currentUsername || "System",
+      authorId: currentUser.uid,
+      authorName: currentUsername || "System User",
       createdAt: now,
     };
     try {
-      await addDoc(collection(db, "projectsPPM", selectedProject.id, "updates"), updateData);
-      toast({ title: "Update Note Added" });
+      await addDoc(collection(db, "projectsPPM", projectId, "updates"), updateData);
+      toast({ title: "Update Note Added", description: `Update added to ${selectedProject.name}.` });
       setIsAddUpdateDialogOpen(false);
       updateNoteForm.reset({ note: "", date: new Date() });
-      if (selectedProject) await updateProjectTimestamp(selectedProject.id);
+      await updateProjectTimestamp(projectId);
     } catch (error) {
       console.error("Error adding update note:", error);
-      toast({ title: "Error Adding Update", variant: "destructive" });
+      toast({ title: "Error Adding Update", description: `Could not add update. ${error instanceof Error ? error.message : ''}`, variant: "destructive" });
     }
   };
   
@@ -443,6 +502,7 @@ export default function ProjectInfoPage() {
       </CardHeader>
       <CardContent>
         <p className="text-sm text-muted-foreground line-clamp-2">{project.description}</p>
+        <p className="text-xs text-muted-foreground mt-1">Budget: ${project.budget?.toLocaleString() ?? '0'}</p>
       </CardContent>
       <CardFooter className="flex justify-between">
         <Button variant="outline" onClick={() => setSelectedProject(project)}>View Details</Button>
@@ -470,7 +530,7 @@ export default function ProjectInfoPage() {
         </div>
         
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4"> {/* Adjusted for 4 tabs */}
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4"> {/* Adjusted for 4 tabs */}
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="documents">Documents</TabsTrigger>
@@ -487,10 +547,10 @@ export default function ProjectInfoPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                   <Card> <CardHeader><CardTitle className="text-base">Start Date</CardTitle></CardHeader> <CardContent><p>{selectedProject.startDate ? format(selectedProject.startDate.toDate(), "PPP") : "N/A"}</p></CardContent> </Card>
                   <Card> <CardHeader><CardTitle className="text-base">End Date</CardTitle></CardHeader> <CardContent><p>{selectedProject.endDate ? format(selectedProject.endDate.toDate(), "PPP") : "N/A"}</p></CardContent> </Card>
-                  <Card> <CardHeader><CardTitle className="text-base">Budget</CardTitle></CardHeader> <CardContent><p>{selectedProject.budget ? `$${selectedProject.budget.toLocaleString()}` : "N/A"}</p></CardContent> </Card>
+                  <Card> <CardHeader><CardTitle className="text-base">Budget</CardTitle></CardHeader> <CardContent><p>{selectedProject.budget ? `$${selectedProject.budget.toLocaleString()}` : "$0"}</p></CardContent> </Card>
                   <Card> <CardHeader><CardTitle className="text-base">Manager</CardTitle></CardHeader> <CardContent className="flex items-center gap-2"> <Avatar className="h-8 w-8"> <AvatarImage src={`https://placehold.co/40x40.png?text=${selectedProject.managerName ? selectedProject.managerName.substring(0,1).toUpperCase() : 'P'}`} alt={selectedProject.managerName || "Manager"} data-ai-hint="person avatar"/> <AvatarFallback>{selectedProject.managerName ? selectedProject.managerName.substring(0,1).toUpperCase() : "P"}</AvatarFallback> </Avatar> <p className="text-sm font-semibold">{selectedProject.managerName || "N/A"}</p> </CardContent> </Card>
                 </div>
-                {selectedProject.budget && selectedProject.spent !== undefined && (
+                {selectedProject.budget && typeof selectedProject.spent === 'number' && selectedProject.budget > 0 && (
                   <Card className="mb-4"> <CardHeader><CardTitle className="text-base">Budget Utilization</CardTitle></CardHeader> <CardContent> <Progress value={budgetProgress} className="h-2.5" /> <p className="text-sm text-muted-foreground mt-1"> ${(selectedProject.spent || 0).toLocaleString()} spent of ${selectedProject.budget.toLocaleString()} ({budgetProgress.toFixed(1)}%) </p> </CardContent> </Card>
                 )}
                 <h4 className="font-semibold text-lg">Description</h4>
@@ -535,11 +595,11 @@ export default function ProjectInfoPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div>
-                        <Label htmlFor="file-upload" className="flex items-center justify-center w-full h-32 px-4 transition bg-background border-2 border-gray-300 border-dashed rounded-md appearance-none cursor-pointer hover:border-gray-400 focus:outline-none">
+                        <Label htmlFor="file-upload" className={cn("flex items-center justify-center w-full h-32 px-4 transition bg-background border-2 border-gray-300 border-dashed rounded-md appearance-none focus:outline-none", isUploading ? "cursor-not-allowed opacity-70" : "cursor-pointer hover:border-gray-400")}>
                             <span className="flex items-center space-x-2">
                                 <UploadCloud className="w-6 h-6 text-gray-600" />
                                 <span className="font-medium text-gray-600">
-                                    Drop files to Attach, or <span className="text-blue-600 underline">browse</span>
+                                    {isUploading ? "Uploading..." : <span>Drop files to Attach, or <span className="text-blue-600 underline">browse</span></span>}
                                 </span>
                             </span>
                             <Input id="file-upload" type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading}/>
@@ -548,8 +608,8 @@ export default function ProjectInfoPage() {
                     </div>
                     {projectUploadedFiles.length > 0 ? (
                         <div className="space-y-2">
-                            {projectUploadedFiles.map((file, index) => (
-                                <div key={index} className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50 gap-2">
+                            {projectUploadedFiles.map((file) => ( // Removed index as key, use file.storagePath or combine with name
+                                <div key={file.storagePath || file.name} className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50 gap-2">
                                     <div className="flex items-center gap-3 overflow-hidden">
                                         {file.type.startsWith("image/") ? <Image src={file.url} alt={file.name} width={40} height={40} className="rounded object-cover" data-ai-hint="file image"/> : <FileText className="h-8 w-8 text-muted-foreground flex-shrink-0"/>}
                                         <div className="overflow-hidden">
@@ -615,7 +675,7 @@ export default function ProjectInfoPage() {
         <Card><CardContent className="pt-6 text-center text-muted-foreground"> <Briefcase className="mx-auto h-12 w-12 text-gray-400 mb-3" /> <p className="text-lg font-medium">No projects found.</p> <p>Get started by adding your first project!</p> </CardContent></Card>
       )}
 
-      <Dialog open={isAddProjectDialogOpen} onOpenChange={(isOpen) => { setIsAddProjectDialogOpen(isOpen); if (!isOpen) { projectForm.reset(); setEditingProject(null); } }}>
+      <Dialog open={isAddProjectDialogOpen} onOpenChange={(isOpen) => { setIsAddProjectDialogOpen(isOpen); if (!isOpen) { projectForm.reset({ name: "", description: "", status: "Planning", startDate: new Date(), endDate: null, budget: "0", managerId: "" }); setEditingProject(null); } }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader> <DialogTitle>{editingProject ? "Edit Project" : "Add New Project"}</DialogTitle> <DialogDescription> {editingProject ? "Update the details of this project." : "Fill in the details for the new project."} </DialogDescription> </DialogHeader>
           <form onSubmit={projectForm.handleSubmit(onProjectSubmit)} className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
@@ -625,8 +685,8 @@ export default function ProjectInfoPage() {
             <div className="grid grid-cols-4 items-center gap-4"> <Label htmlFor="managerId" className="text-right">Manager</Label> <Controller name="managerId" control={projectForm.control} render={({ field }) => ( <Select onValueChange={field.onChange} value={field.value}> <SelectTrigger className="col-span-3" id="managerId"><SelectValue placeholder="Select manager" /></SelectTrigger> <SelectContent> {mockUsers.map(user => (<SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>))} </SelectContent> </Select> )} /> {projectForm.formState.errors.managerId && <p className="col-span-4 text-right text-xs text-destructive">{projectForm.formState.errors.managerId.message}</p>} </div>
             <div className="grid grid-cols-4 items-center gap-4"> <Label htmlFor="startDate" className="text-right">Start Date</Label> <Controller name="startDate" control={projectForm.control} render={({ field }) => ( <Popover><PopoverTrigger asChild><Button variant="outline" className={cn("col-span-3 justify-start text-left font-normal", !field.value && "text-muted-foreground")}> <CalendarIcon className="mr-2 h-4 w-4" /> {field.value ? format(field.value, "PPP") : <span>Pick start date</span>} </Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover> )} /> {projectForm.formState.errors.startDate && <p className="col-span-4 text-right text-xs text-destructive">{projectForm.formState.errors.startDate.message}</p>} </div>
             <div className="grid grid-cols-4 items-center gap-4"> <Label htmlFor="endDate" className="text-right">End Date</Label> <Controller name="endDate" control={projectForm.control} render={({ field }) => ( <Popover><PopoverTrigger asChild><Button variant="outline" className={cn("col-span-3 justify-start text-left font-normal", !field.value && "text-muted-foreground")}> <CalendarIcon className="mr-2 h-4 w-4" /> {field.value ? format(field.value, "PPP") : <span className="text-muted-foreground">Pick end date (optional)</span>} </Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value ?? undefined} onSelect={field.onChange} /></PopoverContent></Popover> )} /> {projectForm.formState.errors.endDate && <p className="col-span-4 text-right text-xs text-destructive">{projectForm.formState.errors.endDate.message}</p>} </div>
-            <div className="grid grid-cols-4 items-center gap-4"> <Label htmlFor="budget" className="text-right">Budget ($)</Label> <Controller name="budget" control={projectForm.control} render={({ field }) => <Input id="budget" type="text" {...field} value={field.value ?? ""} onChange={e => { const value = e.target.value.replace(/[^0-9.]/g, ''); field.onChange(value === '' ? undefined : value);}} className="col-span-3" placeholder="e.g., 50000 (optional)"/>} /> {projectForm.formState.errors.budget && <p className="col-span-4 text-right text-xs text-destructive">{projectForm.formState.errors.budget.message}</p>} </div>
-            <DialogFooter> <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose> <Button type="submit" disabled={projectForm.formState.isSubmitting}> {projectForm.formState.isSubmitting ? (editingProject ? "Saving..." : "Adding...") : (editingProject ? "Save Changes" : "Add Project")} </Button> </DialogFooter>
+            <div className="grid grid-cols-4 items-center gap-4"> <Label htmlFor="budget" className="text-right">Budget ($)</Label> <Controller name="budget" control={projectForm.control} render={({ field }) => <Input id="budget" type="text" {...field} value={field.value === undefined ? "" : String(field.value)} onChange={e => { const value = e.target.value.replace(/[^0-9.]/g, ''); field.onChange(value === '' ? undefined : value);}} className="col-span-3" placeholder="e.g., 50000 (optional)"/>} /> {projectForm.formState.errors.budget && <p className="col-span-4 text-right text-xs text-destructive">{projectForm.formState.errors.budget.message}</p>} </div>
+            <DialogFooter> <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose> <Button type="submit" disabled={projectForm.formState.isSubmitting || isUploading}> {projectForm.formState.isSubmitting ? (editingProject ? "Saving..." : "Adding...") : (editingProject ? "Save Changes" : "Add Project")} </Button> </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
