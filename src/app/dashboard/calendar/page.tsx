@@ -5,7 +5,7 @@ import { useState, useEffect, type FormEvent, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -148,17 +148,17 @@ export default function CalendarEventsPage() {
   }, [events]);
 
   const eventTypeDotColors: Record<CalendarEvent["type"], string> = {
-    Deadline: "bg-destructive",
-    Meeting: "bg-primary",
-    Milestone: "bg-green-500",
-    Reminder: "bg-yellow-400",
+    Deadline: "bg-destructive", // Red
+    Meeting: "bg-blue-500", // Blue (distinct from primary)
+    Milestone: "bg-green-500", // Green
+    Reminder: "bg-orange-400", // Orange (distinct from primary yellow)
   };
 
   const eventTypeBorderColors: Record<CalendarEvent["type"], string> = {
     Deadline: "hsl(var(--destructive))",
-    Meeting: "hsl(var(--primary))",
-    Milestone: "hsl(var(--chart-2))", 
-    Reminder: "hsl(var(--chart-4))", 
+    Meeting: "hsl(var(--blue-500, 217 91% 60%))", // Using a specific blue HSL if needed
+    Milestone: "hsl(var(--green-500, 145 63% 49%))", 
+    Reminder: "hsl(var(--orange-400, 36 93% 59%))", 
   };
 
   const getBadgeClassNames = (type: CalendarEvent["type"]): string => {
@@ -166,11 +166,11 @@ export default function CalendarEventsPage() {
       case "Deadline":
         return "bg-destructive text-destructive-foreground hover:bg-destructive/90";
       case "Meeting":
-        return "bg-primary text-primary-foreground hover:bg-primary/90";
+        return "bg-blue-500 text-white hover:bg-blue-600";
       case "Milestone":
         return "bg-green-500 text-white hover:bg-green-600";
       case "Reminder":
-        return "bg-yellow-400 text-black hover:bg-yellow-500";
+        return "bg-orange-400 text-black hover:bg-orange-500";
       default:
         return "bg-secondary text-secondary-foreground hover:bg-secondary/80";
     }
@@ -237,7 +237,7 @@ export default function CalendarEventsPage() {
   useEffect(() => {
     if (!isAddEditDialogOpen) {
         resetForm();
-    } else if (!editingEvent && selectedDate) { // Only set date if adding new and selectedDate is available
+    } else if (!editingEvent && selectedDate) { 
         setEventDate(startOfDay(selectedDate));
     }
   }, [isAddEditDialogOpen, selectedDate, editingEvent]);
@@ -277,7 +277,6 @@ export default function CalendarEventsPage() {
           <p className="text-xs text-muted-foreground mt-2 flex items-center pt-1.5 border-t border-border/50">
             <Briefcase className="h-3.5 w-3.5 mr-1.5 text-primary" />
             Project: {MOCK_PROJECTS.find(p => p.id === event.projectId)?.name || event.projectId}
-            {/* Consider Link to /dashboard/project?id={event.projectId} in future */}
           </p>
         )}
       </CardContent>
@@ -374,28 +373,64 @@ export default function CalendarEventsPage() {
 
       <Card className="shadow-lg">
         <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6">
-          <div className="md:col-span-2">
+          <div className="md:col-span-2 p-4 bg-primary/80 rounded-2xl shadow-xl border-2 border-primary-foreground/30">
            <Calendar
               mode="single"
               selected={selectedDate}
               onSelect={(date) => date && setSelectedDate(startOfDay(date))}
               month={currentMonth}
               onMonthChange={setCurrentMonth}
-              className="rounded-md border p-0 w-full shadow-inner bg-background"
+              className="p-0 w-full bg-transparent text-primary-foreground"
               classNames={{
-                day_today: "bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-bold",
-                day_selected: "bg-accent text-accent-foreground hover:bg-accent/90 focus:bg-accent focus:text-accent-foreground rounded-md",
+                months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+                month: "space-y-6 text-primary-foreground",
+                caption: "flex justify-center pt-1 relative items-center mb-4",
+                caption_label: "text-2xl font-bold text-primary-foreground tracking-tight",
+                nav: "space-x-2 flex items-center",
+                nav_button: cn(
+                  buttonVariants({ variant: "outline" }),
+                  "h-10 w-10 bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground rounded-full p-0"
+                ),
+                nav_button_previous: "absolute left-1",
+                nav_button_next: "absolute right-1",
+                table: "w-full border-collapse space-y-1",
+                head_row: "flex justify-around",
+                head_cell: "text-primary-foreground/80 rounded-md w-14 font-semibold text-sm",
+                row: "flex w-full mt-2 justify-around",
+                cell: "h-14 w-14 text-center text-base p-0 relative focus-within:relative focus-within:z-20 transition-all duration-150 ease-out rounded-xl",
+                day: cn(
+                  buttonVariants({ variant: "ghost" }),
+                  "h-14 w-14 p-0 font-medium aria-selected:opacity-100 rounded-xl hover:bg-primary-foreground/10 text-primary-foreground"
+                ),
+                day_selected: "bg-accent text-accent-foreground hover:bg-accent focus:bg-accent rounded-xl shadow-lg transform scale-105 ring-2 ring-offset-background ring-offset-1 ring-accent-foreground/50",
+                day_today: "bg-background/30 text-foreground hover:bg-background/40 rounded-xl font-bold shadow-lg ring-2 ring-offset-background ring-offset-1 ring-foreground/50",
+                day_outside: "day-outside text-primary-foreground/50 opacity-50 aria-selected:bg-primary-foreground/20 aria-selected:text-primary-foreground/70",
+                day_disabled: "text-primary-foreground/40 opacity-50",
+                day_range_middle: "aria-selected:bg-primary-foreground/10 aria-selected:text-primary-foreground/90",
+                day_hidden: "invisible",
               }}
               components={{
                 DayContent: ({ date, displayMonth }) => {
                   const dayEvents = events.filter(event => isSameDay(event.date, date));
                   const isCurrentMonth = date.getMonth() === displayMonth.getMonth();
+                  const isOutsideDay = date.getMonth() !== displayMonth.getMonth();
                   return (
-                    <div className="relative h-full w-full flex flex-col items-center justify-center p-1.5">
-                      {format(date, "d")}
+                    <div className={cn("relative h-full w-full flex flex-col items-center justify-center p-1 rounded-xl", isOutsideDay ? "text-primary-foreground/50" : "text-primary-foreground")}>
+                      <span className="text-lg">{format(date, "d")}</span>
                       {isCurrentMonth && dayEvents.length > 0 && (
-                        <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex space-x-1">
-                          {dayEvents.slice(0,3).map(event => (<span key={`${event.id}-dot`} className={`h-2 w-2 rounded-full ${eventTypeDotColors[event.type]}`} />))}
+                        <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex space-x-1.5">
+                          {dayEvents.slice(0, 3).map(event => (
+                            <span 
+                              key={`${event.id}-dot`} 
+                              className={`h-2.5 w-2.5 rounded-full ${eventTypeDotColors[event.type]} shadow-sm border border-white/50`}
+                              title={event.title}
+                            />
+                          ))}
+                          {dayEvents.length > 3 && (
+                            <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/70 flex items-center justify-center text-background text-[0.6rem] font-bold shadow-sm border border-white/50" title={`${dayEvents.length - 3} more events`}>
+                              +{dayEvents.length-3}
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
@@ -408,7 +443,7 @@ export default function CalendarEventsPage() {
             <h3 className="text-xl font-semibold mb-4 pb-2 border-b">
               Events for: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
             </h3>
-            <ScrollArea className="max-h-[calc(100vh-450px)] pr-2">
+            <ScrollArea className="max-h-[calc(100vh-350px)] pr-2"> {/* Adjusted height for potentially taller calendar */}
               {eventsForSelectedDate.length > 0 ? (
                 <ul className="space-y-4">
                   {eventsForSelectedDate.map((event) => (<li key={event.id}><EventCard event={event} showActions={true} /></li>))}
@@ -452,5 +487,4 @@ export default function CalendarEventsPage() {
     </div>
   );
 }
-
     
