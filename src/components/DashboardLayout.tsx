@@ -218,7 +218,7 @@ function Header() {
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/80 backdrop-blur-sm px-4 sm:px-6">
-      {/* Left section: Sidebar Trigger (mobile) + Logo/Title */}
+      {/* Left section: Sidebar Trigger (mobile) + Title */}
       <div className="flex items-center gap-2">
         {isMobile && (
           <SidebarTrigger asChild>
@@ -227,10 +227,8 @@ function Header() {
             </Button>
           </SidebarTrigger>
         )}
-        <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <div className="bg-accent rounded-full h-7 w-7 flex items-center justify-center">
-            <Building className="h-4 w-4 text-white" />
-          </div>
+        <Link href="/dashboard" className="flex items-center hover:opacity-80 transition-opacity">
+          {/* Logo removed from here */}
           <span className="text-lg font-semibold text-sidebar-foreground font-headline">Para Petinggi Member</span>
         </Link>
       </div>
@@ -380,3 +378,4 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
+
