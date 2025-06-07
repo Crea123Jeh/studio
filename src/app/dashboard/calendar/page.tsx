@@ -39,6 +39,38 @@ const MOCK_PROJECTS = [
   { id: "proj_gamma_exploration", name: "Project Gamma Exploration" },
 ];
 
+const calendarStyleProps = {
+  className: "bg-muted p-4 rounded-xl shadow-lg w-full",
+  classNames: {
+    months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+    month: "space-y-4 text-card-foreground",
+    caption: "flex justify-center pt-1 relative items-center mb-4",
+    caption_label: "text-lg font-semibold text-card-foreground",
+    nav: "space-x-1 flex items-center",
+    nav_button: cn(
+      buttonVariants({ variant: "outline" }),
+      "h-9 w-9 bg-accent/20 hover:bg-accent/30 text-accent-foreground rounded-full p-0"
+    ),
+    nav_button_previous: "absolute left-2",
+    nav_button_next: "absolute right-2",
+    table: "w-full border-collapse space-y-1",
+    head_row: "flex justify-around",
+    head_cell: "text-muted-foreground rounded-md w-10 font-medium text-xs uppercase",
+    row: "flex w-full mt-2 justify-around",
+    cell: "h-10 w-10 text-center text-sm p-0 relative focus-within:relative focus-within:z-20 rounded-md overflow-hidden",
+    day: cn(
+      buttonVariants({ variant: "ghost" }),
+      "h-10 w-10 p-0 font-normal aria-selected:opacity-100 rounded-md text-card-foreground hover:bg-accent/10",
+    ),
+    day_selected: "bg-background text-primary hover:bg-background/90 focus:bg-background rounded-md shadow-sm ring-1 ring-primary/30",
+    day_today: "bg-accent/20 text-accent-foreground hover:bg-accent/30 rounded-md font-medium",
+    day_outside: "day-outside text-muted-foreground/50 opacity-50",
+    day_disabled: "text-muted-foreground opacity-50",
+    day_range_middle: "aria-selected:bg-accent/10 aria-selected:text-accent-foreground/90",
+    day_hidden: "invisible",
+  }
+};
+
 export default function CalendarEventsPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -157,7 +189,7 @@ export default function CalendarEventsPage() {
   const eventTypeBorderColors: Record<CalendarEvent["type"], string> = {
     Deadline: "hsl(var(--destructive))",
     Meeting: "hsl(var(--primary))", 
-    Milestone: "hsl(var(--green-600))", // Using a direct color for now
+    Milestone: "hsl(var(--green-600))", 
     Reminder: "hsl(var(--accent))", 
   };
 
@@ -385,62 +417,33 @@ export default function CalendarEventsPage() {
 
       <Card className="shadow-lg">
         <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6">
-          <div className="md:col-span-2 p-4 bg-primary/20 rounded-2xl shadow-xl border-2 border-primary/30 min-w-0">
+          <div className="md:col-span-2 min-w-0">
            <Calendar
               mode="single"
               selected={selectedDate}
               onSelect={(date) => date && setSelectedDate(startOfDay(date))}
               month={currentMonth}
               onMonthChange={setCurrentMonth}
-              className="p-0 w-full bg-transparent text-primary-foreground"
-              classNames={{
-                months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-                month: "space-y-6 text-primary-foreground",
-                caption: "flex justify-center pt-1 relative items-center mb-4",
-                caption_label: "text-2xl font-bold text-primary-foreground tracking-tight",
-                nav: "space-x-2 flex items-center",
-                nav_button: cn(
-                  buttonVariants({ variant: "outline" }),
-                  "h-10 w-10 bg-primary/30 hover:bg-primary/50 text-primary-foreground rounded-full p-0 transition-transform hover:scale-110 active:scale-95"
-                ),
-                nav_button_previous: "absolute left-1",
-                nav_button_next: "absolute right-1",
-                table: "w-full border-collapse space-y-1",
-                head_row: "flex justify-around",
-                head_cell: "text-primary-foreground/80 rounded-md w-14 font-semibold text-sm",
-                row: "flex w-full mt-2 justify-around",
-                cell: "h-14 w-14 text-center text-base p-0 relative focus-within:relative focus-within:z-20 rounded-xl overflow-hidden",
-                day: cn(
-                  buttonVariants({ variant: "ghost" }),
-                  "h-14 w-14 p-0 font-medium aria-selected:opacity-100 rounded-xl text-primary-foreground",
-                  "transition-all duration-150 ease-out hover:bg-primary-foreground/20 hover:scale-110 hover:shadow-lg hover:z-10 relative"
-                ),
-                day_selected: "bg-accent text-accent-foreground hover:bg-accent hover:brightness-110 focus:bg-accent rounded-xl shadow-lg transform scale-105 ring-2 ring-offset-background ring-offset-1 ring-accent-foreground/50",
-                day_today: "bg-background/80 text-foreground hover:bg-background/90 hover:brightness-110 rounded-xl font-bold shadow-lg ring-2 ring-offset-background ring-offset-1 ring-foreground/50",
-                day_outside: "day-outside text-primary-foreground/50 opacity-50 aria-selected:bg-primary-foreground/20 aria-selected:text-primary-foreground/70 hover:text-primary-foreground/70",
-                day_disabled: "text-primary-foreground/40 opacity-50",
-                day_range_middle: "aria-selected:bg-primary-foreground/10 aria-selected:text-primary-foreground/90",
-                day_hidden: "invisible",
-              }}
+              className={calendarStyleProps.className}
+              classNames={calendarStyleProps.classNames}
               components={{
                 DayContent: ({ date, displayMonth }) => {
                   const dayEvents = events.filter(event => isSameDay(event.date, date));
                   const isCurrentMonth = date.getMonth() === displayMonth.getMonth();
-                  const isOutsideDay = date.getMonth() !== displayMonth.getMonth();
                   return (
-                    <div className={cn("relative h-full w-full flex flex-col items-center justify-center p-1 rounded-xl", isOutsideDay ? "text-primary-foreground/50" : "text-primary-foreground")}>
-                      <span className="text-lg">{format(date, "d")}</span>
+                    <div className={cn("relative h-full w-full flex flex-col items-center justify-center")}>
+                      <span className="text-sm">{format(date, "d")}</span>
                       {isCurrentMonth && dayEvents.length > 0 && (
-                        <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex space-x-1.5">
+                        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex space-x-0.5">
                           {dayEvents.slice(0, 3).map(event => (
                             <span 
                               key={`${event.id}-dot`} 
-                              className={`h-2.5 w-2.5 rounded-full ${eventTypeDotColors[event.type]} shadow-sm border border-white/50 transition-transform hover:scale-125`}
+                              className={`h-1.5 w-1.5 rounded-full ${eventTypeDotColors[event.type]} shadow-sm border border-background/30`}
                               title={event.title}
                             />
                           ))}
                           {dayEvents.length > 3 && (
-                            <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground/70 flex items-center justify-center text-background text-[0.6rem] font-bold shadow-sm border border-white/50" title={`${dayEvents.length - 3} more events`}>
+                            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50 flex items-center justify-center text-background text-[0.5rem] font-bold shadow-sm border border-background/30" title={`${dayEvents.length - 3} more events`}>
                               +{dayEvents.length-3}
                             </span>
                           )}
@@ -500,4 +503,3 @@ export default function CalendarEventsPage() {
     </div>
   );
 }
-    

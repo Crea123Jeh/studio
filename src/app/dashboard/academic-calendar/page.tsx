@@ -5,7 +5,7 @@ import { useState, useEffect, type FormEvent, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +29,38 @@ interface AcademicEvent {
 }
 
 const eventCategories: AcademicEvent["category"][] = ["Holiday", "Exam", "School Event", "Term Break", "Reminder", "Other"];
+
+const calendarStyleProps = {
+  className: "bg-muted p-4 rounded-xl shadow-lg w-full",
+  classNames: {
+    months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+    month: "space-y-4 text-card-foreground",
+    caption: "flex justify-center pt-1 relative items-center mb-4",
+    caption_label: "text-lg font-semibold text-card-foreground",
+    nav: "space-x-1 flex items-center",
+    nav_button: cn(
+      buttonVariants({ variant: "outline" }),
+      "h-9 w-9 bg-accent/20 hover:bg-accent/30 text-accent-foreground rounded-full p-0"
+    ),
+    nav_button_previous: "absolute left-2",
+    nav_button_next: "absolute right-2",
+    table: "w-full border-collapse space-y-1",
+    head_row: "flex justify-around",
+    head_cell: "text-muted-foreground rounded-md w-10 font-medium text-xs uppercase",
+    row: "flex w-full mt-2 justify-around",
+    cell: "h-10 w-10 text-center text-sm p-0 relative focus-within:relative focus-within:z-20 rounded-md overflow-hidden",
+    day: cn(
+      buttonVariants({ variant: "ghost" }),
+      "h-10 w-10 p-0 font-normal aria-selected:opacity-100 rounded-md text-card-foreground hover:bg-accent/10",
+    ),
+    day_selected: "bg-background text-primary hover:bg-background/90 focus:bg-background rounded-md shadow-sm ring-1 ring-primary/30",
+    day_today: "bg-accent/20 text-accent-foreground hover:bg-accent/30 rounded-md font-medium",
+    day_outside: "day-outside text-muted-foreground/50 opacity-50",
+    day_disabled: "text-muted-foreground opacity-50",
+    day_range_middle: "aria-selected:bg-accent/10 aria-selected:text-accent-foreground/90",
+    day_hidden: "invisible",
+  }
+};
 
 export default function AcademicCalendarPage() {
   const [events, setEvents] = useState<AcademicEvent[]>([]);
@@ -135,16 +167,16 @@ export default function AcademicCalendarPage() {
     "Exam": "bg-destructive",
     "School Event": "bg-primary",
     "Term Break": "bg-accent",
-    "Reminder": "bg-purple-500", // Consider a theme color if purple clashes
+    "Reminder": "bg-purple-500", 
     "Other": "bg-muted-foreground",
   };
 
    const eventCategoryBorderColors: Record<AcademicEvent["category"], string> = {
-    "Holiday": "hsl(var(--green-500))", // Approx. green
+    "Holiday": "hsl(var(--green-500))", 
     "Exam": "hsl(var(--destructive))",
     "School Event": "hsl(var(--primary))",
     "Term Break": "hsl(var(--accent))",
-    "Reminder": "hsl(var(--purple-500))", // Approx. purple
+    "Reminder": "hsl(var(--purple-500))", 
     "Other": "hsl(var(--muted-foreground))",
   };
 
@@ -154,7 +186,7 @@ export default function AcademicCalendarPage() {
       case "Exam": return "bg-destructive text-destructive-foreground hover:bg-destructive/90";
       case "School Event": return "bg-primary text-primary-foreground hover:bg-primary/90";
       case "Term Break": return "bg-accent text-accent-foreground hover:bg-accent/90";
-      case "Reminder": return "bg-purple-500 text-white hover:bg-purple-600"; // Keep or change if clashes
+      case "Reminder": return "bg-purple-500 text-white hover:bg-purple-600"; 
       default: return "bg-muted text-muted-foreground hover:bg-muted/80";
     }
   };
@@ -323,21 +355,18 @@ export default function AcademicCalendarPage() {
               onSelect={(date) => date && setSelectedDate(startOfDay(date))}
               month={currentMonth}
               onMonthChange={setCurrentMonth}
-              className="rounded-md border p-0 w-full shadow-inner bg-card"
-              classNames={{
-                day_today: "bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-bold",
-                day_selected: "bg-accent text-accent-foreground hover:bg-accent/90 focus:bg-accent focus:text-accent-foreground rounded-md",
-              }}
+              className={calendarStyleProps.className}
+              classNames={calendarStyleProps.classNames}
               components={{
                 DayContent: ({ date, displayMonth }) => {
                   const dayEvents = events.filter(event => isSameDay(event.date, date));
                   const isCurrentMonth = date.getMonth() === displayMonth.getMonth();
                   return (
-                    <div className="relative h-full w-full flex flex-col items-center justify-center p-1.5">
-                      {format(date, "d")}
+                    <div className="relative h-full w-full flex flex-col items-center justify-center">
+                      <span className="text-sm">{format(date, "d")}</span>
                       {isCurrentMonth && dayEvents.length > 0 && (
-                        <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex space-x-1">
-                          {dayEvents.slice(0,3).map(event => (<span key={`${event.id}-dot`} className={`h-2 w-2 rounded-full ${eventCategoryDotColors[event.category]}`} />))}
+                        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex space-x-0.5">
+                          {dayEvents.slice(0,3).map(event => (<span key={`${event.id}-dot`} className={`h-1.5 w-1.5 rounded-full ${eventCategoryDotColors[event.category]}`} />))}
                         </div>
                       )}
                     </div>

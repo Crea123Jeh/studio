@@ -4,7 +4,7 @@
 import { useState, useEffect, type FormEvent, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +25,38 @@ interface ActivityLogEntry {
   details: string;
 }
 
+const calendarStyleProps = {
+  className: "bg-muted p-4 rounded-xl shadow-lg w-full",
+  classNames: {
+    months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+    month: "space-y-4 text-card-foreground",
+    caption: "flex justify-center pt-1 relative items-center mb-4",
+    caption_label: "text-lg font-semibold text-card-foreground",
+    nav: "space-x-1 flex items-center",
+    nav_button: cn(
+      buttonVariants({ variant: "outline" }),
+      "h-9 w-9 bg-accent/20 hover:bg-accent/30 text-accent-foreground rounded-full p-0"
+    ),
+    nav_button_previous: "absolute left-2",
+    nav_button_next: "absolute right-2",
+    table: "w-full border-collapse space-y-1",
+    head_row: "flex justify-around",
+    head_cell: "text-muted-foreground rounded-md w-10 font-medium text-xs uppercase",
+    row: "flex w-full mt-2 justify-around",
+    cell: "h-10 w-10 text-center text-sm p-0 relative focus-within:relative focus-within:z-20 rounded-md overflow-hidden",
+    day: cn(
+      buttonVariants({ variant: "ghost" }),
+      "h-10 w-10 p-0 font-normal aria-selected:opacity-100 rounded-md text-card-foreground hover:bg-accent/10",
+    ),
+    day_selected: "bg-background text-primary hover:bg-background/90 focus:bg-background rounded-md shadow-sm ring-1 ring-primary/30",
+    day_today: "bg-accent/20 text-accent-foreground hover:bg-accent/30 rounded-md font-medium",
+    day_outside: "day-outside text-muted-foreground/50 opacity-50",
+    day_disabled: "text-muted-foreground opacity-50",
+    day_range_middle: "aria-selected:bg-accent/10 aria-selected:text-accent-foreground/90",
+    day_hidden: "invisible",
+  }
+};
+
 export default function PreviousActivityPage() {
   const [activityLogs, setActivityLogs] = useState<ActivityLogEntry[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -40,9 +72,8 @@ export default function PreviousActivityPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Fetch all logs initially, or could be optimized to fetch by month shown in calendar
     const logsCollection = collection(db, "activityLogEntries");
-    const q = query(logsCollection, orderBy("date", "desc")); // Show newest first for general listing if any
+    const q = query(logsCollection, orderBy("date", "desc")); 
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedLogs = snapshot.docs.map(docSnap => {
@@ -113,7 +144,7 @@ export default function PreviousActivityPage() {
     if (!selectedDate) return [];
     return activityLogs
         .filter(log => isSameDay(log.date, selectedDate))
-        .sort((a,b) => b.date.getTime() - a.date.getTime()); // Or sort by an internal timestamp if logs have time
+        .sort((a,b) => b.date.getTime() - a.date.getTime()); 
   }, [activityLogs, selectedDate]);
   
   const handleSaveLog = async (e: FormEvent) => {
@@ -130,7 +161,7 @@ export default function PreviousActivityPage() {
     const logData = {
       title: logTitle,
       details: logDetails,
-      date: Timestamp.fromDate(startOfDay(logDate)), // Store as start of day
+      date: Timestamp.fromDate(startOfDay(logDate)), 
     };
 
     try {
@@ -199,10 +230,10 @@ export default function PreviousActivityPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center">
-            <History className="h-6 w-6 text-primary" />
+          <div className="bg-accent rounded-full h-8 w-8 flex items-center justify-center">
+            <History className="h-4 w-4 text-white" />
           </div>
-          <h1 className="text-3xl font-bold font-headline tracking-tight">Previous Activity Log</h1>
+          <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">Previous Activity Log</h1>
         </div>
         <Dialog open={isAddEditDialogOpen} onOpenChange={setIsAddEditDialogOpen}>
           <DialogTrigger asChild>
@@ -252,28 +283,25 @@ export default function PreviousActivityPage() {
 
       <Card className="shadow-lg">
         <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6">
-          <div className="md:col-span-2">
+          <div className="md:col-span-2 min-w-0">
            <Calendar
               mode="single"
               selected={selectedDate}
               onSelect={(date) => date && setSelectedDate(startOfDay(date))}
               month={currentMonth}
               onMonthChange={setCurrentMonth}
-              className="rounded-md border p-0 w-full shadow-inner bg-background"
-              classNames={{
-                day_today: "bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-bold",
-                day_selected: "bg-accent text-accent-foreground hover:bg-accent/90 focus:bg-accent focus:text-accent-foreground rounded-md",
-              }}
+              className={calendarStyleProps.className}
+              classNames={calendarStyleProps.classNames}
               components={{
                 DayContent: ({ date, displayMonth }) => {
                   const dayHasLog = activityLogs.some(log => isSameDay(log.date, date));
                   const isCurrentMonth = date.getMonth() === displayMonth.getMonth();
                   return (
-                    <div className="relative h-full w-full flex flex-col items-center justify-center p-1.5">
-                      {format(date, "d")}
+                    <div className="relative h-full w-full flex flex-col items-center justify-center">
+                       <span className="text-sm">{format(date, "d")}</span>
                       {isCurrentMonth && dayHasLog && (
-                        <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex space-x-1">
-                          <span className="h-2 w-2 rounded-full bg-muted-foreground" />
+                        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex space-x-0.5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
                         </div>
                       )}
                     </div>
@@ -283,7 +311,7 @@ export default function PreviousActivityPage() {
             />
           </div>
           <div className="md:col-span-1">
-            <h3 className="text-xl font-semibold mb-4 pb-2 border-b flex items-center gap-2">
+            <h3 className="text-xl font-semibold mb-4 pb-2 border-b flex items-center gap-2 text-foreground">
                 <MessageSquare className="h-5 w-5 text-primary"/>
                 Activities for: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
             </h3>
@@ -303,8 +331,6 @@ export default function PreviousActivityPage() {
           </div>
         </CardContent>
       </Card>
-       {/* Optionally, a section for all logs (if needed) - for now, focusing on selected date */}
     </div>
   );
 }
-

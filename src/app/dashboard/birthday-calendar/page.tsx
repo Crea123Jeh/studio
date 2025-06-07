@@ -5,7 +5,7 @@ import { useState, useEffect, type FormEvent, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,11 +21,11 @@ import { format, isSameDay, startOfDay, getYear, getMonth, getDate, differenceIn
 import { Cake, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered, Trash2, PartyPopper, User, Users, Edit3, Settings2, Timer, Search } from "lucide-react";
 
 interface BirthdayEvent {
-  id: string; // Firestore document ID
-  anchorDate: Date; // The specific birth date (day, month, year) used as an anchor.
-  name: string; // Person's name
+  id: string; 
+  anchorDate: Date; 
+  name: string; 
   type: "Teacher" | "Student";
-  grade?: string; // e.g., "K", "1", "12", "College" - only for students
+  grade?: string; 
 }
 
 const studentGradeOptions = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "College"];
@@ -38,6 +38,38 @@ interface TimeLeft {
   isToday?: boolean;
   hasPassed?: boolean;
 }
+
+const calendarStyleProps = {
+  className: "bg-muted p-4 rounded-xl shadow-lg w-full",
+  classNames: {
+    months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+    month: "space-y-4 text-card-foreground",
+    caption: "flex justify-center pt-1 relative items-center mb-4",
+    caption_label: "text-lg font-semibold text-card-foreground",
+    nav: "space-x-1 flex items-center",
+    nav_button: cn(
+      buttonVariants({ variant: "outline" }),
+      "h-9 w-9 bg-accent/20 hover:bg-accent/30 text-accent-foreground rounded-full p-0"
+    ),
+    nav_button_previous: "absolute left-2",
+    nav_button_next: "absolute right-2",
+    table: "w-full border-collapse space-y-1",
+    head_row: "flex justify-around",
+    head_cell: "text-muted-foreground rounded-md w-10 font-medium text-xs uppercase",
+    row: "flex w-full mt-2 justify-around",
+    cell: "h-10 w-10 text-center text-sm p-0 relative focus-within:relative focus-within:z-20 rounded-md overflow-hidden",
+    day: cn(
+      buttonVariants({ variant: "ghost" }),
+      "h-10 w-10 p-0 font-normal aria-selected:opacity-100 rounded-md text-card-foreground hover:bg-accent/10",
+    ),
+    day_selected: "bg-background text-primary hover:bg-background/90 focus:bg-background rounded-md shadow-sm ring-1 ring-primary/30",
+    day_today: "bg-accent/20 text-accent-foreground hover:bg-accent/30 rounded-md font-medium",
+    day_outside: "day-outside text-muted-foreground/50 opacity-50",
+    day_disabled: "text-muted-foreground opacity-50",
+    day_range_middle: "aria-selected:bg-accent/10 aria-selected:text-accent-foreground/90",
+    day_hidden: "invisible",
+  }
+};
 
 const calculateTimeLeft = (targetDate: Date): TimeLeft | null => {
   const now = new Date();
@@ -304,8 +336,8 @@ export default function BirthdayCalendarPage() {
   }, [birthdays]);
 
 
-  const birthdayDotColor = "bg-pink-500"; // Specific color for birthdays
-  const birthdayBorderColor = "hsl(var(--pink-500, 330 84% 57%))"; // Approx. pink
+  const birthdayDotColor = "bg-pink-500"; 
+  const birthdayBorderColor = "hsl(var(--pink-500, 330 84% 57%))"; 
   const birthdayBadgeClassName = "bg-pink-500 text-white hover:bg-pink-600";
   
   const handleSaveBirthday = async (e: FormEvent) => {
@@ -587,11 +619,8 @@ export default function BirthdayCalendarPage() {
               onSelect={(date) => date && setSelectedDate(startOfDay(date))}
               month={currentMonth}
               onMonthChange={setCurrentMonth}
-              className="rounded-md border p-0 w-full shadow-inner bg-card" 
-              classNames={{
-                day_today: "bg-primary text-primary-foreground hover:bg-primary/90 rounded-md font-bold",
-                day_selected: "bg-accent text-accent-foreground hover:bg-accent/90 focus:bg-accent focus:text-accent-foreground rounded-md",
-              }}
+              className={calendarStyleProps.className}
+              classNames={calendarStyleProps.classNames}
               components={{
                 DayContent: ({ date, displayMonth }) => {
                   const dayHasBirthday = birthdays.some(bday => 
@@ -601,11 +630,11 @@ export default function BirthdayCalendarPage() {
                   const isCurrentMonth = date.getMonth() === displayMonth.getMonth();
 
                   return (
-                    <div className="relative h-full w-full flex flex-col items-center justify-center p-1.5">
-                      {format(date, "d")}
+                    <div className="relative h-full w-full flex flex-col items-center justify-center">
+                       <span className="text-sm">{format(date, "d")}</span>
                       {isCurrentMonth && dayHasBirthday && (
-                        <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex space-x-1">
-                          <span className={`h-2 w-2 rounded-full ${birthdayDotColor}`} />
+                        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex space-x-0.5">
+                          <span className={`h-1.5 w-1.5 rounded-full ${birthdayDotColor}`} />
                         </div>
                       )}
                     </div>
