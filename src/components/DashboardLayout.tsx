@@ -2,7 +2,7 @@
 "use client";
 
 import type { ReactNode } from 'react';
-import { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -26,6 +26,10 @@ import {
   RadioTower, 
   Bot,
   Bell, 
+  ListChecks,
+  AlertCircle,
+  CheckCircle2,
+  Circle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,8 +54,12 @@ import {
   useSidebar,
   SidebarSeparator,
 } from '@/components/ui/sidebar';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from './ui/skeleton';
+import { formatDistanceToNow } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface NavItem {
   href: string;
@@ -79,6 +87,25 @@ const bottomNavItems: NavItem[] = [
   { href: '/dashboard/profile', label: 'Profile', icon: UserCircle },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
+
+interface NotificationItem {
+  id: string;
+  type: 'project' | 'task' | 'alert' | 'message' | 'generic';
+  message: string;
+  link?: string;
+  timestamp: Date;
+  read: boolean;
+  icon: React.ElementType;
+}
+
+const initialMockNotifications: NotificationItem[] = [
+  { id: '1', type: 'project', message: 'New project "Phoenix Initiative" has been assigned to you.', link: '/dashboard/project', timestamp: new Date(Date.now() - 1000 * 60 * 5), read: false, icon: Briefcase },
+  { id: '2', type: 'task', message: 'Task "Setup CI/CD Pipeline" is due tomorrow.', link: '/dashboard/project', timestamp: new Date(Date.now() - 1000 * 60 * 30), read: false, icon: ListChecks },
+  { id: '3', type: 'alert', message: 'Project "Gamma" budget nearing 90% utilization.', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), read: true, icon: AlertCircle },
+  { id: '4', type: 'message', message: 'Alice mentioned you in #project-alpha channel.', link: '/dashboard/chat', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5), read: false, icon: MessageSquare },
+  { id: '5', type: 'generic', message: 'System maintenance scheduled for Sunday 2 AM.', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24), read: true, icon: Settings },
+];
+
 
 function AppSidebar() {
   const pathname = usePathname();
@@ -159,9 +186,25 @@ function AppSidebar() {
 }
 
 function Header() {
-  const { user, username, signOut, loading } = useAuth(); 
+  const { user, username, signOut, loading: authLoading } = useAuth(); 
   const router = useRouter();
   const { isMobile, toggleSidebar } = useSidebar();
+  const [notifications, setNotifications] = useState<NotificationItem[]>(initialMockNotifications);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const handleMarkAsRead = (id: string, link?: string) => {
+    setNotifications(prev =>
+      prev.map(n => (n.id === id ? { ...n, read: true } : n))
+    );
+    if (link) {
+      router.push(link);
+    }
+  };
+
+  const handleMarkAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 sm:px-6">
@@ -173,20 +216,75 @@ function Header() {
         </SidebarTrigger>
       )}
       <div className="ml-auto flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
-          <Bell className="h-5 w-5" />
-          <span className="absolute top-1 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-xs font-bold text-destructive-foreground">
-            2
-          </span>
-          <span className="sr-only">Notifications</span>
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <Badge variant="destructive" className="absolute top-0.5 right-0.5 h-4 w-4 min-w-fit p-0.5 text-xs flex items-center justify-center rounded-full">
+                  {unreadCount}
+                </Badge>
+              )}
+              <span className="sr-only">Notifications</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-80 sm:w-96">
+            <DropdownMenuLabel className="flex justify-between items-center">
+              <span>Notifications</span>
+              {unreadCount > 0 && <Badge variant="secondary">{unreadCount} Unread</Badge>}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <ScrollArea className="max-h-80">
+              {notifications.length === 0 ? (
+                <DropdownMenuItem disabled className="text-center text-muted-foreground py-4">
+                  No new notifications
+                </DropdownMenuItem>
+              ) : (
+                notifications.map((notification) => {
+                  const Icon = notification.icon;
+                  return (
+                    <DropdownMenuItem
+                      key={notification.id}
+                      className={cn(
+                        "flex items-start gap-3 p-3 cursor-pointer hover:bg-muted/80",
+                        !notification.read && "bg-primary/10"
+                      )}
+                      onClick={() => handleMarkAsRead(notification.id, notification.link)}
+                    >
+                      {!notification.read && <Circle className="h-2 w-2 mt-1.5 fill-primary text-primary flex-shrink-0" />}
+                      {notification.read && <div className="w-2 h-2 mt-1.5 flex-shrink-0" /> /* Placeholder for alignment */}
+                      
+                      <Icon className={cn("h-5 w-5 mt-0.5 text-muted-foreground flex-shrink-0", !notification.read && "text-primary")} />
+                      <div className="flex-grow">
+                        <p className={cn("text-sm leading-snug text-foreground", !notification.read && "font-semibold")}>
+                          {notification.message}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {formatDistanceToNow(notification.timestamp, { addSuffix: true })}
+                        </p>
+                      </div>
+                    </DropdownMenuItem>
+                  );
+                })
+              )}
+            </ScrollArea>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleMarkAllAsRead} disabled={unreadCount === 0} className="cursor-pointer">
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              Mark all as read
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push('/dashboard/notifications')} className="cursor-pointer"> {/* Placeholder link */}
+              View all notifications
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-        {loading ? (
+        {authLoading ? (
           <Skeleton className="h-8 w-24 rounded-md" />
         ) : user ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 flex items-center gap-2 rounded-full"> {/* Removed mt-3 */}
+              <Button variant="ghost" className="relative h-8 flex items-center gap-2 rounded-full">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={`https://placehold.co/40x40.png?text=${username ? username.charAt(0).toUpperCase() : 'U'}`} alt={username || 'User'} data-ai-hint="user avatar" />
                   <AvatarFallback>{username ? username.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
@@ -205,16 +303,16 @@ function Header() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push('/dashboard/profile')}>
+              <DropdownMenuItem onClick={() => router.push('/dashboard/profile')} className="cursor-pointer">
                 <UserCircle className="mr-2 h-4 w-4" />
                 <span>Profile</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push('/dashboard/settings')}>
+              <DropdownMenuItem onClick={() => router.push('/dashboard/settings')} className="cursor-pointer">
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Settings</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={signOut}> 
+              <DropdownMenuItem onClick={signOut} className="cursor-pointer"> 
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>
               </DropdownMenuItem>
@@ -261,3 +359,4 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
+
