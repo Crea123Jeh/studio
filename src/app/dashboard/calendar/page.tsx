@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, deleteDoc, updateDoc } from "firebase/firestore";
 import { format, isSameDay, startOfDay } from "date-fns";
-import { CalendarDays, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered, Trash2, Briefcase, Edit3 } from "lucide-react";
+import { CalendarDays, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered, Trash2, Briefcase, Edit3, Timer, Users, Award, Bell } from "lucide-react";
 
 interface CalendarEvent {
   id: string;
@@ -148,15 +148,15 @@ export default function CalendarEventsPage() {
   }, [events]);
 
   const eventTypeDotColors: Record<CalendarEvent["type"], string> = {
-    Deadline: "bg-destructive", // Red
-    Meeting: "bg-blue-500", // Blue (distinct from primary)
-    Milestone: "bg-green-500", // Green
-    Reminder: "bg-orange-400", // Orange (distinct from primary yellow)
+    Deadline: "bg-destructive", 
+    Meeting: "bg-blue-500", 
+    Milestone: "bg-green-500", 
+    Reminder: "bg-orange-400", 
   };
 
   const eventTypeBorderColors: Record<CalendarEvent["type"], string> = {
     Deadline: "hsl(var(--destructive))",
-    Meeting: "hsl(var(--blue-500, 217 91% 60%))", // Using a specific blue HSL if needed
+    Meeting: "hsl(var(--blue-500, 217 91% 60%))", 
     Milestone: "hsl(var(--green-500, 145 63% 49%))", 
     Reminder: "hsl(var(--orange-400, 36 93% 59%))", 
   };
@@ -243,16 +243,28 @@ export default function CalendarEventsPage() {
   }, [isAddEditDialogOpen, selectedDate, editingEvent]);
 
 
-  const EventCard = ({ event, showActions = false }: { event: CalendarEvent, showActions?: boolean }) => (
+  const EventCard = ({ event, showActions = false }: { event: CalendarEvent, showActions?: boolean }) => {
+    const typeIcons: Record<CalendarEvent["type"], React.ElementType> = {
+      Deadline: Timer,
+      Meeting: Users,
+      Milestone: Award,
+      Reminder: Bell,
+    };
+    const IconComponent = typeIcons[event.type];
+
+    return (
     <Card 
-      className="hover:shadow-xl transition-shadow duration-200 ease-in-out border-l-4"
+      className="hover:shadow-xl hover:ring-2 hover:ring-primary/50 transition-all duration-200 ease-in-out border-l-4"
       style={{ borderLeftColor: eventTypeBorderColors[event.type] }}
     >
       <CardHeader className="p-4 pb-2">
         <div className="flex justify-between items-start gap-2">
-           <CardTitle className="text-md leading-tight">{event.title}</CardTitle>
-           <div className="flex items-center gap-2">
-            <Badge className={cn("text-xs whitespace-nowrap shrink-0", getBadgeClassNames(event.type))}>
+           <div className="flex items-center gap-2 min-w-0">
+            {IconComponent && <IconComponent className="h-5 w-5 text-primary shrink-0" />}
+            <CardTitle className="text-md leading-tight truncate">{event.title}</CardTitle>
+           </div>
+           <div className="flex items-center gap-2 shrink-0">
+            <Badge className={cn("text-xs whitespace-nowrap", getBadgeClassNames(event.type))}>
               {event.type}
             </Badge>
             {showActions && (
@@ -281,7 +293,7 @@ export default function CalendarEventsPage() {
         )}
       </CardContent>
     </Card>
-  );
+  )};
 
   return (
     <div className="space-y-6">
@@ -294,7 +306,7 @@ export default function CalendarEventsPage() {
         </div>
         <Dialog open={isAddEditDialogOpen} onOpenChange={setIsAddEditDialogOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline" onClick={openAddDialog}>
+            <Button variant="outline" onClick={openAddDialog} className="hover:scale-105 hover:shadow-md active:scale-95 transition-transform duration-150">
               <PlusCircle className="mr-2 h-4 w-4" />
               {editingEvent ? "Edit Event" : "Add Event"}
             </Button>
@@ -389,7 +401,7 @@ export default function CalendarEventsPage() {
                 nav: "space-x-2 flex items-center",
                 nav_button: cn(
                   buttonVariants({ variant: "outline" }),
-                  "h-10 w-10 bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground rounded-full p-0"
+                  "h-10 w-10 bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground rounded-full p-0 transition-transform hover:scale-110 active:scale-95"
                 ),
                 nav_button_previous: "absolute left-1",
                 nav_button_next: "absolute right-1",
@@ -397,14 +409,15 @@ export default function CalendarEventsPage() {
                 head_row: "flex justify-around",
                 head_cell: "text-primary-foreground/80 rounded-md w-14 font-semibold text-sm",
                 row: "flex w-full mt-2 justify-around",
-                cell: "h-14 w-14 text-center text-base p-0 relative focus-within:relative focus-within:z-20 transition-all duration-150 ease-out rounded-xl",
+                cell: "h-14 w-14 text-center text-base p-0 relative focus-within:relative focus-within:z-20 rounded-xl overflow-hidden",
                 day: cn(
                   buttonVariants({ variant: "ghost" }),
-                  "h-14 w-14 p-0 font-medium aria-selected:opacity-100 rounded-xl hover:bg-primary-foreground/10 text-primary-foreground"
+                  "h-14 w-14 p-0 font-medium aria-selected:opacity-100 rounded-xl text-primary-foreground",
+                  "transition-all duration-150 ease-out hover:bg-primary-foreground/20 hover:scale-110 hover:shadow-lg hover:z-10 relative"
                 ),
-                day_selected: "bg-accent text-accent-foreground hover:bg-accent focus:bg-accent rounded-xl shadow-lg transform scale-105 ring-2 ring-offset-background ring-offset-1 ring-accent-foreground/50",
-                day_today: "bg-background/30 text-foreground hover:bg-background/40 rounded-xl font-bold shadow-lg ring-2 ring-offset-background ring-offset-1 ring-foreground/50",
-                day_outside: "day-outside text-primary-foreground/50 opacity-50 aria-selected:bg-primary-foreground/20 aria-selected:text-primary-foreground/70",
+                day_selected: "bg-accent text-accent-foreground hover:bg-accent hover:brightness-110 focus:bg-accent rounded-xl shadow-lg transform scale-105 ring-2 ring-offset-background ring-offset-1 ring-accent-foreground/50",
+                day_today: "bg-background/30 text-foreground hover:bg-background/40 hover:brightness-110 rounded-xl font-bold shadow-lg ring-2 ring-offset-background ring-offset-1 ring-foreground/50",
+                day_outside: "day-outside text-primary-foreground/50 opacity-50 aria-selected:bg-primary-foreground/20 aria-selected:text-primary-foreground/70 hover:text-primary-foreground/70",
                 day_disabled: "text-primary-foreground/40 opacity-50",
                 day_range_middle: "aria-selected:bg-primary-foreground/10 aria-selected:text-primary-foreground/90",
                 day_hidden: "invisible",
@@ -422,7 +435,7 @@ export default function CalendarEventsPage() {
                           {dayEvents.slice(0, 3).map(event => (
                             <span 
                               key={`${event.id}-dot`} 
-                              className={`h-2.5 w-2.5 rounded-full ${eventTypeDotColors[event.type]} shadow-sm border border-white/50`}
+                              className={`h-2.5 w-2.5 rounded-full ${eventTypeDotColors[event.type]} shadow-sm border border-white/50 transition-transform hover:scale-125`}
                               title={event.title}
                             />
                           ))}
@@ -443,14 +456,14 @@ export default function CalendarEventsPage() {
             <h3 className="text-xl font-semibold mb-4 pb-2 border-b">
               Events for: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
             </h3>
-            <ScrollArea className="max-h-[calc(100vh-350px)] pr-2"> {/* Adjusted height for potentially taller calendar */}
+            <ScrollArea className="max-h-[48vh] pr-2"> 
               {eventsForSelectedDate.length > 0 ? (
                 <ul className="space-y-4">
                   {eventsForSelectedDate.map((event) => (<li key={event.id}><EventCard event={event} showActions={true} /></li>))}
                 </ul>
               ) : (
                 <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50">
-                  <Info className="h-12 w-12 text-primary/70 mb-3"/>
+                  <Info className="h-12 w-12 text-primary/70 mb-3 animate-pulse"/>
                   <p className="text-muted-foreground font-medium text-lg">{selectedDate ? "No Events Scheduled" : "Select a Date"}</p>
                   <p className="text-sm text-muted-foreground mt-1">{selectedDate ? "There are no events for this day." : "Click on a day in the calendar."}</p>
                 </div>
