@@ -55,7 +55,7 @@ import {
   useSidebar,
   SidebarSeparator,
 } from '@/components/ui/sidebar';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
@@ -87,7 +87,8 @@ const mainNavItems: NavItem[] = [
 ];
 
 const bottomNavItems: NavItem[] = [
-  { href: '/dashboard/profile', label: 'Profile & Settings', icon: UserCircle },
+  { href: '/dashboard/profile', label: 'Profile', icon: UserCircle },
+  { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
 
 interface NotificationItem {
@@ -129,7 +130,7 @@ function AppSidebar() {
 
   return (
     <>
-      <SidebarHeader className="px-3 py-3 flex items-center"> {/* Removed border-b border-sidebar-border */}
+      <SidebarHeader className="px-3 py-3 flex items-center">
         <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
            <div className="bg-accent rounded-full h-7 w-7 flex items-center justify-center">
              <Building className="h-4 w-4 text-white" />
@@ -138,7 +139,7 @@ function AppSidebar() {
         </Link>
       </SidebarHeader>
       <SidebarContent className="flex flex-col">
-        <ScrollArea className="flex-grow pt-2"> {/* Added pt-2 for slight spacing from header */}
+        <ScrollArea className="flex-grow pt-2">
           <SidebarMenu>
             {mainNavItems.map((item) => (
               <SidebarMenuItem key={item.href}>
@@ -319,7 +320,11 @@ function Header() {
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => router.push('/dashboard/profile')} className="cursor-pointer">
                 <UserCircle className="mr-2 h-4 w-4" />
-                <span>Profile & Settings</span>
+                <span>Profile</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/dashboard/settings')} className="cursor-pointer">
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Settings</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={signOut} className="cursor-pointer">
@@ -369,4 +374,3 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
-
