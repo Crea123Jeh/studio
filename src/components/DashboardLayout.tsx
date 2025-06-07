@@ -15,7 +15,7 @@ import {
   Settings,
   ChevronDown,
   PanelLeft,
-  LayoutGrid, // Changed from Building
+  Laptop, // Changed from LayoutGrid
   Info,
   Cake, 
   BookOpen, 
@@ -101,9 +101,7 @@ function AppSidebar() {
     <>
       <SidebarHeader className="p-4 flex items-center gap-2 border-b border-sidebar-border">
         <Link href="/dashboard" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-           <div className="bg-black p-1.5 rounded-md">
-            <LayoutGrid className="h-7 w-7 text-primary" /> {/* Changed from Building */}
-          </div>
+           <Laptop className="h-7 w-7 text-primary" />
           <h1 className="text-xl font-semibold text-sidebar-foreground font-headline">PPM Management</h1>
         </Link>
       </SidebarHeader>
