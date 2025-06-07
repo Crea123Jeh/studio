@@ -53,6 +53,8 @@ import {
   SidebarTrigger,
   useSidebar,
   SidebarSeparator,
+  SheetHeader,
+  SheetTitle
 } from '@/components/ui/sidebar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
@@ -134,24 +136,26 @@ function AppSidebar() {
         </Link>
       </SidebarHeader>
       <SidebarContent className="flex flex-col">
-        <SidebarMenu>
-          {mainNavItems.map((item) => (
-            <SidebarMenuItem key={item.href}>
-              <Link href={item.href} legacyBehavior passHref>
-                <SidebarMenuButton
-                  isActive={pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))}
-                  tooltip={item.label}
-                  asChild
-                >
-                  <a>
-                    <item.icon />
-                    <span>{item.label}</span>
-                  </a>
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
+        <ScrollArea className="flex-grow">
+          <SidebarMenu>
+            {mainNavItems.map((item) => (
+              <SidebarMenuItem key={item.href}>
+                <Link href={item.href} legacyBehavior passHref>
+                  <SidebarMenuButton
+                    isActive={pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))}
+                    tooltip={item.label}
+                    asChild
+                  >
+                    <a>
+                      <item.icon />
+                      <span>{item.label}</span>
+                    </a>
+                  </SidebarMenuButton>
+                </Link>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </ScrollArea>
         
         <div className="mt-auto flex flex-col pt-2">
           <SidebarSeparator className="my-2"/>
@@ -207,15 +211,25 @@ function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/80 backdrop-blur-sm px-4 sm:px-6">
-      {isMobile && (
-        <SidebarTrigger asChild>
-          <Button variant="ghost" size="icon">
-            <PanelLeft />
-          </Button>
-        </SidebarTrigger>
-      )}
-      <div className="ml-auto flex items-center gap-2">
+    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/80 backdrop-blur-sm px-4 sm:px-6">
+      {/* Left section: Sidebar Trigger (mobile) + Logo/Title */}
+      <div className="flex items-center gap-2">
+        {isMobile && (
+          <SidebarTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <PanelLeft />
+            </Button>
+          </SidebarTrigger>
+        )}
+        {/* Always visible logo in the top bar */}
+        <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          <Laptop className="h-6 w-6 text-accent" />
+          <span className="text-lg font-semibold text-sidebar-foreground font-headline">PPM Management</span>
+        </Link>
+      </div>
+
+      {/* Right section: Notifications + Profile */}
+      <div className="flex items-center gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
@@ -348,6 +362,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <SidebarProvider defaultOpen>
       <Sidebar variant="sidebar" collapsible="icon" className="border-r border-sidebar-border">
+         {/* The SheetHeader and SheetTitle below are for Radix UI accessibility for the mobile sheet (sidebar) */}
+        <SheetHeader className="sr-only">
+          <SheetTitle>Main Navigation</SheetTitle>
+        </SheetHeader>
         <AppSidebar />
       </Sidebar>
       <div className="flex flex-col flex-1 md:ml-[var(--sidebar-width-icon)] group-data-[state=expanded]:md:ml-[var(--sidebar-width)] transition-[margin-left] duration-200 ease-linear">
