@@ -55,7 +55,6 @@ import {
   useSidebar,
   SidebarSeparator,
 } from '@/components/ui/sidebar';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
@@ -87,7 +86,6 @@ const mainNavItems: NavItem[] = [
 ];
 
 const bottomNavItems: NavItem[] = [
-  { href: '/dashboard/profile', label: 'Profile', icon: UserCircle },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
 
@@ -145,10 +143,10 @@ function AppSidebar() {
               <SidebarMenuItem key={item.href}>
                 <Link href={item.href} legacyBehavior passHref>
                   <SidebarMenuButton
+                    className="pl-5"
                     isActive={pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))}
                     tooltip={item.label}
                     asChild
-                    className="pl-5"
                   >
                     <a>
                       <item.icon />
@@ -168,10 +166,10 @@ function AppSidebar() {
               <SidebarMenuItem key={item.href}>
                 <Link href={item.href} legacyBehavior passHref>
                   <SidebarMenuButton
+                    className="pl-5"
                     isActive={pathname === item.href}
                     tooltip={item.label}
                     asChild
-                    className="pl-5"
                   >
                     <a>
                       <item.icon />
@@ -374,3 +372,4 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
+
