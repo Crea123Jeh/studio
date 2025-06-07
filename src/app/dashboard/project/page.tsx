@@ -77,6 +77,10 @@ export default function ProjectInfoPage() {
  useEffect(() => {
     setIsLoading(true);
     const projectsCollection = collection(db, "projectsPPM");
+    // POTENTIAL ISSUE AREA: If `createdAt` field has inconsistent data types (not all Timestamps)
+    // in the Firestore `projectsPPM` collection, the `orderBy` clause can lead to
+    // "INTERNAL ASSERTION FAILED" errors from the Firestore SDK.
+    // Ensure all `createdAt` fields are valid Firestore Timestamps in your database.
     const q = query(projectsCollection, orderBy("createdAt", "desc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -84,30 +88,42 @@ export default function ProjectInfoPage() {
         try {
             const data = docSnap.data();
             
+            // Ensure data types are consistent. Provide defaults for resilience.
+            const name = typeof data.name === 'string' ? data.name : "Untitled Project";
+            const description = typeof data.description === 'string' ? data.description : "No description provided.";
+            const status = projectStatusOptions.includes(data.status) ? data.status : "Planning";
+            const startDate = data.startDate instanceof Timestamp ? data.startDate : Timestamp.fromDate(new Date(1970, 0, 1));
+            const endDate = data.endDate instanceof Timestamp ? data.endDate : null; // Simplified
+            const budget = typeof data.budget === 'number' ? data.budget : undefined;
+            const managerName = typeof data.managerName === 'string' ? data.managerName : "N/A";
+            const managerAvatar = typeof data.managerAvatar === 'string' ? data.managerAvatar : undefined;
+            const spent = typeof data.spent === 'number' ? data.spent : undefined;
+            const createdAt = data.createdAt instanceof Timestamp ? data.createdAt : Timestamp.fromDate(new Date(1970, 0, 1));
+
             const mappedData: ProjectData = {
                 id: docSnap.id,
-                name: typeof data.name === 'string' ? data.name : "Untitled Project", 
-                description: typeof data.description === 'string' ? data.description : "No description provided.", 
-                status: projectStatusOptions.includes(data.status) ? data.status : "Planning",
-                startDate: data.startDate instanceof Timestamp ? data.startDate : Timestamp.fromDate(new Date(1970, 0, 1)),
-                endDate: data.endDate instanceof Timestamp ? data.endDate : null,
-                budget: typeof data.budget === 'number' ? data.budget : undefined,
-                managerName: typeof data.managerName === 'string' ? data.managerName : "N/A", 
-                managerAvatar: typeof data.managerAvatar === 'string' ? data.managerAvatar : undefined, 
-                spent: typeof data.spent === 'number' ? data.spent : undefined,
-                createdAt: data.createdAt instanceof Timestamp ? data.createdAt : Timestamp.fromDate(new Date(1970, 0, 1)), 
+                name, 
+                description, 
+                status,
+                startDate,
+                endDate,
+                budget,
+                managerName, 
+                managerAvatar, 
+                spent,
+                createdAt, 
             };
             return mappedData;
-        } catch (e) {
-            console.error(`Error processing document ${docSnap.id}:`, e);
+        } catch (e: any) {
+            console.error(`Error processing document ${docSnap.id}:`, e.message, e.stack, docSnap.data());
             toast({
                 title: "Data Processing Error",
-                description: `Could not process project data for ${docSnap.id}. It may be corrupted.`,
+                description: `Could not process project data for ID: ${docSnap.id}. It may be corrupted. Please check console for details.`,
                 variant: "destructive"
             });
             return null; 
         }
-      }).filter(project => project !== null) as ProjectData[]; // Filter out any nulls from errors
+      }).filter(project => project !== null) as ProjectData[];
       
       setProjects(fetchedProjects);
       setIsLoading(false);
