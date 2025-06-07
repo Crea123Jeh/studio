@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import type { ReactNode } from 'react';
@@ -30,7 +31,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Circle,
-  Laptop // Added for logo
+  Laptop
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -129,8 +130,8 @@ function AppSidebar() {
 
   return (
     <>
-      <SidebarHeader className="p-4 flex items-center gap-2 border-b border-sidebar-border">
-        <Link href="/dashboard" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+      <SidebarHeader className="px-3 py-3 flex items-center border-b border-sidebar-border">
+        <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
            <div className="bg-accent rounded-full h-7 w-7 flex items-center justify-center">
              <Building className="h-4 w-4 text-white" />
            </div>
@@ -378,3 +379,4 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
+
