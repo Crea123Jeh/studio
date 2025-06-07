@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -52,7 +53,7 @@ const projectFormSchema = z.object({
   startDate: z.date({ required_error: "Start date is required." }),
   endDate: z.date().optional().nullable(),
   budget: z.string().optional().transform(val => {
-    if (val === null || val === undefined || val.trim() === "") return undefined;
+    if (val === null || val === undefined || val.trim() === "") return undefined; // Allow empty string to become undefined
     const num = parseFloat(String(val).replace(/,/g, ''));
     return isNaN(num) ? undefined : num;
   }),
@@ -82,7 +83,7 @@ interface ProjectData {
   status: typeof projectStatusOptions[number];
   startDate: Timestamp;
   endDate: Timestamp | null;
-  budget: number; // Now always a number, defaults to 0
+  budget: number; 
   managerId?: string;
   managerName?: string;
   spent?: number; 
@@ -136,12 +137,11 @@ export default function ProjectInfoPage() {
   const [projectUpdates, setProjectUpdates] = useState<UpdateNoteData[]>([]);
   const [isAddUpdateDialogOpen, setIsAddUpdateDialogOpen] = useState(false);
 
+  const [showDeleteInfoAlert, setShowDeleteInfoAlert] = useState(false);
+
+
   const { toast } = useToast();
   const { user: currentUser, username: currentUsername } = useAuth();
-
-  useEffect(() => {
-    console.log("selectedProject changed:", selectedProject);
-  }, [selectedProject]);
 
   const projectForm = useForm<ProjectFormValues>({
     resolver: zodResolver(projectFormSchema),
@@ -174,7 +174,7 @@ export default function ProjectInfoPage() {
             const status = projectStatusOptions.includes(data.status) ? data.status : "Planning";
             
             const startDate = data.startDate instanceof Timestamp ? data.startDate : Timestamp.fromDate(new Date(1970,0,1));
-            const endDate = data.endDate instanceof Timestamp ? data.endDate : (data.endDate === null ? null : undefined); // Can be undefined if missing, becomes null
+            const endDate = data.endDate instanceof Timestamp ? data.endDate : null; // Ensure null if not a Timestamp
             
             const budget = typeof data.budget === 'number' ? data.budget : 0; 
             const managerId = typeof data.managerId === 'string' ? data.managerId : undefined;
@@ -196,7 +196,7 @@ export default function ProjectInfoPage() {
 
             const mappedData: ProjectData = {
                 id: docSnap.id, name, description, status, startDate, 
-                endDate: endDate === undefined ? null : endDate, // Ensure endDate is Timestamp | null
+                endDate: endDate, 
                 budget, managerId, managerName, spent, createdAt, lastUpdatedAt, uploadedFiles
             };
             return mappedData;
@@ -219,7 +219,7 @@ export default function ProjectInfoPage() {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, []); // toast removed from dependencies
+  }, []); 
 
   // Fetch Subcollections when selectedProject changes
   useEffect(() => {
@@ -306,12 +306,12 @@ export default function ProjectInfoPage() {
                 startDate: projectDataToSave.startDate, 
                 endDate: projectDataToSave.endDate,     
                 budget: budgetToSave, 
-             } as ProjectData; // Ensure all required fields are present for ProjectData
+             } as ProjectData; 
              setSelectedProject(updatedProjectData);
         }
       } else {
         projectDataToSave.createdAt = now;
-        projectDataToSave.uploadedFiles = []; // Initialize with empty array
+        projectDataToSave.uploadedFiles = []; 
         await addDoc(collection(db, "projectsPPM"), projectDataToSave);
         toast({ title: "Project Added", description: `"${values.name}" has been added.` });
       }
@@ -324,41 +324,10 @@ export default function ProjectInfoPage() {
     }
   };
   
-  const handleDeleteProject = async (projectId: string, projectName: string) => {
-    if (!confirm(`Are you sure you want to delete project "${projectName}" and all its tasks, documents, and updates? This action cannot be undone.`)) return;
-    try {
-      const batch = writeBatch(db);
-      
-      const tasksCol = collection(db, "projectsPPM", projectId, "tasks");
-      const tasksSnapshot = await getDocs(tasksCol);
-      tasksSnapshot.forEach(docSnap => batch.delete(docSnap.ref));
-
-      const updatesCol = collection(db, "projectsPPM", projectId, "updates");
-      const updatesSnapshot = await getDocs(updatesCol);
-      updatesSnapshot.forEach(docSnap => batch.delete(docSnap.ref));
-      
-      const projectDocRef = doc(db, "projectsPPM", projectId);
-      const projectDataForDeletion = projects.find(p => p.id === projectId) || selectedProject;
-
-      if (projectDataForDeletion?.uploadedFiles) {
-        for (const file of projectDataForDeletion.uploadedFiles) {
-          if (file.storagePath) { 
-            const fileToDeleteRef = storageRef(storage, file.storagePath);
-            await deleteObject(fileToDeleteRef).catch(e => console.warn("Error deleting file from storage during project deletion:", file.storagePath, e));
-          }
-        }
-      }
-
-      batch.delete(projectDocRef);
-      await batch.commit();
-
-      toast({title: "Project Deleted", description: `"${projectName}" has been deleted.`});
-      if (selectedProject?.id === projectId) setSelectedProject(null);
-    } catch (error) {
-      console.error("Error deleting project:", error);
-      toast({title: "Error", description: "Could not delete project.", variant: "destructive"});
-    }
+  const handleDeleteProjectRequest = () => { // Renamed function
+    setShowDeleteInfoAlert(true);
   };
+
 
   const onTaskSubmit = async (values: TaskFormValues) => {
     if (!selectedProject?.id) {
@@ -415,16 +384,14 @@ export default function ProjectInfoPage() {
         };
         const projectRef = doc(db, "projectsPPM", projectId);
         try {
-            await updateDoc(projectRef, { uploadedFiles: arrayUnion(newFile) });
+            await updateDoc(projectRef, { uploadedFiles: arrayUnion(newFile), lastUpdatedAt: Timestamp.now() });
             setSelectedProject(prev => {
                 if (!prev) return null;
                 const updatedFiles = [...(prev.uploadedFiles || []), newFile];
                 return { ...prev, uploadedFiles: updatedFiles, lastUpdatedAt: Timestamp.now() };
             });
-            setProjectUploadedFiles(prev => [...prev, newFile]);
+            setProjectUploadedFiles(prev => [...prev, newFile]); // Also update direct state for files list
             toast({ title: "File Uploaded", description: `"${file.name}" uploaded successfully.` });
-            // No need to call updateProjectTimestamp here as setSelectedProject above updates lastUpdatedAt locally
-            // and the Firestore updateDoc for uploadedFiles arrayUnion should trigger onSnapshot for main project list if needed.
         } catch (updateError) {
             console.error("Error updating project with new file metadata:", updateError);
             toast({ title: "File Save Error", description: "File uploaded, but failed to save metadata.", variant: "destructive" });
@@ -437,7 +404,7 @@ export default function ProjectInfoPage() {
         } finally {
             setIsUploading(false);
             setUploadProgress(0);
-            if (event.target) event.target.value = ""; // Reset file input
+            if (event.target) event.target.value = ""; 
         }
       }
     );
@@ -452,17 +419,16 @@ export default function ProjectInfoPage() {
 
       const projectRef = doc(db, "projectsPPM", projectId);
       
-      // Construct the exact object to remove based on all its fields to ensure Firestore's arrayRemove works correctly for objects
       const fileObjectToRemove = {
         name: fileToDelete.name,
         url: fileToDelete.url,
         type: fileToDelete.type,
         size: fileToDelete.size,
         storagePath: fileToDelete.storagePath,
-        uploadedAt: fileToDelete.uploadedAt, // Make sure this is the exact Timestamp instance or a new one with same value
+        uploadedAt: fileToDelete.uploadedAt, 
       };
 
-      await updateDoc(projectRef, { uploadedFiles: arrayRemove(fileObjectToRemove) });
+      await updateDoc(projectRef, { uploadedFiles: arrayRemove(fileObjectToRemove), lastUpdatedAt: Timestamp.now() });
       
       setSelectedProject(prev => {
           if (!prev) return null;
@@ -526,7 +492,7 @@ export default function ProjectInfoPage() {
         <Button variant="outline" onClick={() => setSelectedProject(project)}>View Details</Button>
         <div className="flex gap-1">
             <Button variant="ghost" size="icon" onClick={() => handleOpenAddProjectDialog(project)} className="h-8 w-8"> <Edit3 className="h-4 w-4" /> </Button>
-            <Button variant="ghost" size="icon" onClick={() => handleDeleteProject(project.id, project.name)} className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"> <Trash2 className="h-4 w-4" /> </Button>
+            <Button variant="ghost" size="icon" onClick={() => handleDeleteProjectRequest()} className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"> <Trash2 className="h-4 w-4" /> </Button>
         </div>
       </CardFooter>
     </Card>
@@ -534,9 +500,23 @@ export default function ProjectInfoPage() {
 
   if (isLoading) return <div className="flex justify-center items-center h-64"><p>Loading projects...</p></div>;
 
-  if (selectedProject) {
-    const budgetProgress = selectedProject.budget && selectedProject.spent ? (selectedProject.spent / selectedProject.budget) * 100 : 0;
-    return (
+  return ( 
+    <div className="space-y-6">
+      {!selectedProject ? (
+        <>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3"> <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center"> <Briefcase className="h-8 w-8 text-primary" /> </div> <h1 className="text-3xl font-bold font-headline tracking-tight">Projects Portfolio</h1> </div>
+            <Button onClick={() => handleOpenAddProjectDialog()}> <PlusCircle className="mr-2 h-4 w-4" /> Add New Project </Button>
+          </div>
+          {projects.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {projects.map(project => (<ProjectCard key={project.id} project={project} />))}
+            </div>
+          ) : (
+            <Card><CardContent className="pt-6 text-center text-muted-foreground"> <Briefcase className="mx-auto h-12 w-12 text-gray-400 mb-3" /> <p className="text-lg font-medium">No projects found.</p> <p>Get started by adding your first project!</p> </CardContent></Card>
+          )}
+        </>
+      ) : (
       <div className="space-y-6">
         <Button variant="outline" onClick={() => setSelectedProject(null)} className="mb-4"> <ArrowLeft className="mr-2 h-4 w-4" /> Back to Project List </Button>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -569,7 +549,7 @@ export default function ProjectInfoPage() {
                   <Card> <CardHeader><CardTitle className="text-base">Manager</CardTitle></CardHeader> <CardContent className="flex items-center gap-2"> <Avatar className="h-8 w-8"> <AvatarImage src={`https://placehold.co/40x40.png?text=${selectedProject.managerName ? selectedProject.managerName.substring(0,1).toUpperCase() : 'P'}`} alt={selectedProject.managerName || "Manager"} data-ai-hint="person avatar"/> <AvatarFallback>{selectedProject.managerName ? selectedProject.managerName.substring(0,1).toUpperCase() : "P"}</AvatarFallback> </Avatar> <p className="text-sm font-semibold">{selectedProject.managerName || "N/A"}</p> </CardContent> </Card>
                 </div>
                 {selectedProject.budget > 0 && typeof selectedProject.spent === 'number' && (
-                  <Card className="mb-4"> <CardHeader><CardTitle className="text-base">Budget Utilization</CardTitle></CardHeader> <CardContent> <Progress value={budgetProgress} className="h-2.5" /> <p className="text-sm text-muted-foreground mt-1"> ${(selectedProject.spent || 0).toLocaleString()} spent of ${selectedProject.budget.toLocaleString()} ({budgetProgress.toFixed(1)}%) </p> </CardContent> </Card>
+                  <Card className="mb-4"> <CardHeader><CardTitle className="text-base">Budget Utilization</CardTitle></CardHeader> <CardContent> <Progress value={(selectedProject.spent / selectedProject.budget) * 100} className="h-2.5" /> <p className="text-sm text-muted-foreground mt-1"> ${(selectedProject.spent || 0).toLocaleString()} spent of ${selectedProject.budget.toLocaleString()} ({((selectedProject.spent / selectedProject.budget) * 100).toFixed(1)}%) </p> </CardContent> </Card>
                 )}
                 <h4 className="font-semibold text-lg">Description</h4>
                 <p className="text-muted-foreground whitespace-pre-wrap">{selectedProject.description}</p>
@@ -589,7 +569,7 @@ export default function ProjectInfoPage() {
                         toast({ title: "Error", description: "Cannot add task: No project selected.", variant: "destructive" });
                         return;
                     }
-                    taskForm.reset(); 
+                    taskForm.reset({ title: "", description: "", status: "To Do" }); 
                     setIsAddTaskDialogOpen(true); 
                 }}><PlusCircle className="mr-2 h-4 w-4"/>Add Task</Button>
               </CardHeader>
@@ -642,7 +622,7 @@ export default function ProjectInfoPage() {
                                             <p className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB | Uploaded: {formatDistanceToNow(file.uploadedAt.toDate(), { addSuffix: true })}</p>
                                         </div>
                                     </div>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive-foreground" onClick={() => handleDeleteFile(file)} disabled={isUploading}><Trash2 className="h-4 w-4" /></Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => handleDeleteFile(file)} disabled={isUploading}><Trash2 className="h-4 w-4" /></Button>
                                 </div>
                             ))}
                         </div>
@@ -683,29 +663,39 @@ export default function ProjectInfoPage() {
                 </CardContent>
             </Card>
           </TabsContent>
-
         </Tabs>
+
+         {/* Dialogs for Add Task and Add Update - moved inside selectedProject conditional block */}
+        <Dialog open={isAddTaskDialogOpen} onOpenChange={setIsAddTaskDialogOpen}>
+          <DialogContent key={`task-dialog-${selectedProject.id}`}> {/* Keying for re-mount on project change */}
+              <DialogHeader><DialogTitle>Add New Task</DialogTitle><DialogDescription>Fill in the details for the new task for {selectedProject?.name || "the current project"}.</DialogDescription></DialogHeader>
+              <form onSubmit={taskForm.handleSubmit(onTaskSubmit)} className="space-y-4 py-4">
+                  <div><Label htmlFor="task-title">Title</Label><Controller name="title" control={taskForm.control} render={({ field }) => <Input id="task-title" {...field} placeholder="Task Title"/>} />{taskForm.formState.errors.title && <p className="text-xs text-destructive">{taskForm.formState.errors.title.message}</p>}</div>
+                  <div><Label htmlFor="task-description">Description (Optional)</Label><Controller name="description" control={taskForm.control} render={({ field }) => <Textarea id="task-description" {...field} placeholder="Describe the task..."/>} /></div>
+                  <div><Label htmlFor="task-status">Status</Label><Controller name="status" control={taskForm.control} render={({ field }) => (<Select onValueChange={field.onChange} value={field.value}><SelectTrigger id="task-status"><SelectValue /></SelectTrigger><SelectContent>{taskStatusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select>)} /></div>
+                  <DialogFooter><DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose><Button type="submit" disabled={taskForm.formState.isSubmitting}>{taskForm.formState.isSubmitting ? "Adding..." : "Add Task"}</Button></DialogFooter>
+              </form>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isAddUpdateDialogOpen} onOpenChange={setIsAddUpdateDialogOpen}>
+          <DialogContent key={`update-dialog-${selectedProject.id}`}> {/* Keying for re-mount on project change */}
+              <DialogHeader><DialogTitle>Add Project Update</DialogTitle><DialogDescription>Log an update for {selectedProject?.name || "the current project"}.</DialogDescription></DialogHeader>
+              <form onSubmit={updateNoteForm.handleSubmit(onUpdateNoteSubmit)} className="space-y-4 py-4">
+                  <div><Label htmlFor="update-note">Update Note</Label><Controller name="note" control={updateNoteForm.control} render={({ field }) => <Textarea id="update-note" {...field} rows={4} placeholder="Describe the update..."/>} />{updateNoteForm.formState.errors.note && <p className="text-xs text-destructive">{updateNoteForm.formState.errors.note.message}</p>}</div>
+                  <div><Label htmlFor="update-date">Effective Date</Label><Controller name="date" control={updateNoteForm.control} render={({ field }) => (<Popover><PopoverTrigger asChild><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover>)} />{updateNoteForm.formState.errors.date && <p className="text-xs text-destructive">{updateNoteForm.formState.errors.date.message}</p>}</div>
+                  <DialogFooter><DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose><Button type="submit" disabled={updateNoteForm.formState.isSubmitting}>{updateNoteForm.formState.isSubmitting ? "Adding..." : "Add Update"}</Button></DialogFooter>
+              </form>
+          </DialogContent>
+        </Dialog>
+
          <div className="mt-6 flex justify-end gap-2">
             <Button variant="outline" onClick={() => handleOpenAddProjectDialog(selectedProject)}> <Edit3 className="mr-2 h-4 w-4" /> Edit Project </Button>
-            <Button variant="destructive" onClick={() => handleDeleteProject(selectedProject.id, selectedProject.name)}> <Trash2 className="mr-2 h-4 w-4" /> Delete Project </Button>
+            <Button variant="destructive" onClick={() => handleDeleteProjectRequest()}> <Trash2 className="mr-2 h-4 w-4" /> Delete Project </Button>
         </div>
       </div>
-    );
-  }
-
-  return ( 
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3"> <div className="p-1.5 bg-black rounded-md inline-flex items-center justify-center"> <Briefcase className="h-8 w-8 text-primary" /> </div> <h1 className="text-3xl font-bold font-headline tracking-tight">Projects Portfolio</h1> </div>
-        <Button onClick={() => handleOpenAddProjectDialog()}> <PlusCircle className="mr-2 h-4 w-4" /> Add New Project </Button>
-      </div>
-      {projects.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map(project => (<ProjectCard key={project.id} project={project} />))}
-        </div>
-      ) : (
-        <Card><CardContent className="pt-6 text-center text-muted-foreground"> <Briefcase className="mx-auto h-12 w-12 text-gray-400 mb-3" /> <p className="text-lg font-medium">No projects found.</p> <p>Get started by adding your first project!</p> </CardContent></Card>
       )}
+
 
       <Dialog open={isAddProjectDialogOpen} onOpenChange={(isOpen) => { setIsAddProjectDialogOpen(isOpen); if (!isOpen) { projectForm.reset({ name: "", description: "", status: "Planning", startDate: new Date(), endDate: null, budget: "0", managerId: "" }); setEditingProject(null); } }}>
         <DialogContent className="sm:max-w-lg">
@@ -723,28 +713,20 @@ export default function ProjectInfoPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isAddTaskDialogOpen} onOpenChange={setIsAddTaskDialogOpen}>
-        <DialogContent key={selectedProject?.id || 'no-project-task-dialog'}>
-            <DialogHeader><DialogTitle>Add New Task</DialogTitle><DialogDescription>Fill in the details for the new task for {selectedProject?.name || "the current project"}.</DialogDescription></DialogHeader>
-            <form onSubmit={taskForm.handleSubmit(onTaskSubmit)} className="space-y-4 py-4">
-                <div><Label htmlFor="task-title">Title</Label><Controller name="title" control={taskForm.control} render={({ field }) => <Input id="task-title" {...field} placeholder="Task Title"/>} />{taskForm.formState.errors.title && <p className="text-xs text-destructive">{taskForm.formState.errors.title.message}</p>}</div>
-                <div><Label htmlFor="task-description">Description (Optional)</Label><Controller name="description" control={taskForm.control} render={({ field }) => <Textarea id="task-description" {...field} placeholder="Describe the task..."/>} /></div>
-                <div><Label htmlFor="task-status">Status</Label><Controller name="status" control={taskForm.control} render={({ field }) => (<Select onValueChange={field.onChange} value={field.value}><SelectTrigger id="task-status"><SelectValue /></SelectTrigger><SelectContent>{taskStatusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select>)} /></div>
-                <DialogFooter><DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose><Button type="submit" disabled={taskForm.formState.isSubmitting}>{taskForm.formState.isSubmitting ? "Adding..." : "Add Task"}</Button></DialogFooter>
-            </form>
-        </DialogContent>
-      </Dialog>
+      <AlertDialog open={showDeleteInfoAlert} onOpenChange={setShowDeleteInfoAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Project Deletion Information</AlertDialogTitle>
+            <AlertDialogDescription>
+              Contact Developer To Delete Projects. Projects are designed for long-term archival and cannot be deleted directly through this interface.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowDeleteInfoAlert(false)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-      <Dialog open={isAddUpdateDialogOpen} onOpenChange={setIsAddUpdateDialogOpen}>
-        <DialogContent key={selectedProject?.id || 'no-project-update-dialog'}>
-            <DialogHeader><DialogTitle>Add Project Update</DialogTitle><DialogDescription>Log an update for {selectedProject?.name || "the current project"}.</DialogDescription></DialogHeader>
-            <form onSubmit={updateNoteForm.handleSubmit(onUpdateNoteSubmit)} className="space-y-4 py-4">
-                <div><Label htmlFor="update-note">Update Note</Label><Controller name="note" control={updateNoteForm.control} render={({ field }) => <Textarea id="update-note" {...field} rows={4} placeholder="Describe the update..."/>} />{updateNoteForm.formState.errors.note && <p className="text-xs text-destructive">{updateNoteForm.formState.errors.note.message}</p>}</div>
-                <div><Label htmlFor="update-date">Effective Date</Label><Controller name="date" control={updateNoteForm.control} render={({ field }) => (<Popover><PopoverTrigger asChild><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover>)} />{updateNoteForm.formState.errors.date && <p className="text-xs text-destructive">{updateNoteForm.formState.errors.date.message}</p>}</div>
-                <DialogFooter><DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose><Button type="submit" disabled={updateNoteForm.formState.isSubmitting}>{updateNoteForm.formState.isSubmitting ? "Adding..." : "Add Update"}</Button></DialogFooter>
-            </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
