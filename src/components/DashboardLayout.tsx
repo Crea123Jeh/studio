@@ -54,7 +54,7 @@ import {
   useSidebar,
   SidebarSeparator,
 } from '@/components/ui/sidebar';
-import { SheetHeader, SheetTitle } from '@/components/ui/sheet'; // Corrected import
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
@@ -131,7 +131,7 @@ function AppSidebar() {
       <SidebarHeader className="p-4 flex items-center gap-2 border-b border-sidebar-border">
         <Link href="/dashboard" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
            <Laptop className="h-7 w-7 text-accent" />
-          <h1 className="text-xl font-semibold text-sidebar-foreground font-headline">PPM Management</h1>
+          <h1 className="text-lg font-semibold text-sidebar-foreground font-headline">PPM Management</h1>
         </Link>
       </SidebarHeader>
       <SidebarContent className="flex flex-col">
@@ -235,7 +235,7 @@ function Header() {
               <Bell className="h-5 w-5" />
               {unreadCount > 0 && (
                 <Badge variant="destructive" className="absolute top-0.5 right-0.5 h-4 w-4 min-w-fit p-0.5 text-xs flex items-center justify-center rounded-full">
-                  {unreadCount}
+                  {unreadCount > 9 ? '9+' : unreadCount}
                 </Badge>
               )}
               <span className="sr-only">Notifications</span>
@@ -372,4 +372,3 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
-
