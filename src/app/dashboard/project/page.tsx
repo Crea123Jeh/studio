@@ -120,7 +120,7 @@ const mockUsers = [
   { id: "user_diana_004", name: "Diana Prince" },
 ];
 
-type SortableProjectKeys = 'name' | 'status' | 'managerName' | 'startDate' | 'budget' | 'lastUpdatedAt';
+type SortableProjectKeys = 'name' | 'status' | 'startDate' | 'lastUpdatedAt';
 
 
 export default function ProjectInfoPage() {
@@ -179,7 +179,7 @@ export default function ProjectInfoPage() {
             const status = projectStatusOptions.includes(data.status) ? data.status : "Planning";
             
             const startDate = data.startDate instanceof Timestamp ? data.startDate : Timestamp.fromDate(new Date(1970,0,1));
-            const endDate = data.endDate instanceof Timestamp ? data.endDate : null;
+            const endDate = data.endDate instanceof Timestamp ? data.endDate : (data.endDate === null ? null : undefined); // Handle null explicitly
             
             const budget = typeof data.budget === 'number' ? data.budget : 0; 
             const managerId = typeof data.managerId === 'string' ? data.managerId : undefined;
@@ -201,7 +201,7 @@ export default function ProjectInfoPage() {
 
             const mappedData: ProjectData = {
                 id: docSnap.id, name, description, status, startDate, 
-                endDate: endDate, 
+                endDate: endDate === undefined ? null : endDate, // Ensure endDate is null if undefined 
                 budget: budget, managerId, managerName, spent, createdAt, lastUpdatedAt, uploadedFiles
             };
             return mappedData;
@@ -252,7 +252,7 @@ export default function ProjectInfoPage() {
       setProjectUpdates([]);
       setProjectUploadedFiles([]);
     }
-  }, [selectedProject]); // Removed toast from dependencies
+  }, [selectedProject]);
 
   const updateProjectTimestamp = async (projectId: string) => {
     const projectRef = doc(db, "projectsPPM", projectId);
@@ -496,8 +496,6 @@ export default function ProjectInfoPage() {
 
         if (sortConfig.key === 'startDate' || sortConfig.key === 'lastUpdatedAt') {
           comparison = (aValue as Timestamp).toDate().getTime() - (bValue as Timestamp).toDate().getTime();
-        } else if (sortConfig.key === 'budget') {
-            comparison = (aValue as number) - (bValue as number);
         } else if (typeof aValue === 'string' && typeof bValue === 'string') {
           comparison = (aValue as string).localeCompare(bValue as string);
         }
@@ -538,14 +536,8 @@ export default function ProjectInfoPage() {
                                 <TableHead onClick={() => requestSort('status')} className="cursor-pointer hover:bg-muted/50">
                                     Status {getSortIcon('status')}
                                 </TableHead>
-                                <TableHead onClick={() => requestSort('managerName')} className="cursor-pointer hover:bg-muted/50">
-                                    Manager {getSortIcon('managerName')}
-                                </TableHead>
                                 <TableHead onClick={() => requestSort('startDate')} className="cursor-pointer hover:bg-muted/50">
                                     Start Date {getSortIcon('startDate')}
-                                </TableHead>
-                                <TableHead onClick={() => requestSort('budget')} className="cursor-pointer hover:bg-muted/50 text-right">
-                                    Budget {getSortIcon('budget')}
                                 </TableHead>
                                 <TableHead onClick={() => requestSort('lastUpdatedAt')} className="cursor-pointer hover:bg-muted/50">
                                     Last Updated {getSortIcon('lastUpdatedAt')}
@@ -560,9 +552,7 @@ export default function ProjectInfoPage() {
                                     <TableCell>
                                         <Badge variant={project.status === "Completed" ? "default" : "secondary"} className={cn( project.status === "Completed" && "bg-green-500 text-white", project.status === "In Progress" && "bg-blue-500 text-white", project.status === "On Hold" && "bg-yellow-500 text-black", project.status === "Cancelled" && "bg-red-500 text-white", project.status === "Planning" && "bg-gray-400 text-white" )}> {project.status} </Badge>
                                     </TableCell>
-                                    <TableCell>{project.managerName || "N/A"}</TableCell>
                                     <TableCell>{project.startDate ? format(project.startDate.toDate(), "PP") : "N/A"}</TableCell>
-                                    <TableCell className="text-right">${project.budget?.toLocaleString() ?? '0'}</TableCell>
                                     <TableCell>{formatDistanceToNow(project.lastUpdatedAt.toDate(), { addSuffix: true })}</TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex justify-end gap-1">
@@ -735,7 +725,7 @@ export default function ProjectInfoPage() {
             <Button variant="destructive" onClick={handleDeleteProjectRequest}> <Trash2 className="mr-2 h-4 w-4" /> Delete Project </Button>
         </div>
 
-        {/* Dialogs need to be within the detail view conditional render if they depend on selectedProject */}
+        {/* Dialogs for Add Task and Add Update - moved inside detail view */}
         <Dialog open={isAddTaskDialogOpen} onOpenChange={setIsAddTaskDialogOpen}>
           <DialogContent key={`${selectedProject.id}-task-dialog`}>
               <DialogHeader><DialogTitle>Add New Task</DialogTitle><DialogDescription>Fill in the details for the new task for {selectedProject?.name || "the current project"}.</DialogDescription></DialogHeader>
