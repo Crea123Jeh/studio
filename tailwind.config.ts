@@ -11,8 +11,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['"Plus Jakarta Sans"', 'sans-serif'],
-        headline: ['"Plus Jakarta Sans"', 'sans-serif'],
+        body: ['"Baloo 2"', 'sans-serif'],
+        headline: ['"Baloo 2"', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {
