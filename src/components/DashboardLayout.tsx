@@ -19,8 +19,12 @@ import {
   Info,
   Cake, 
   BookOpen, 
-  School, // Added for Academic Calendar
-  History, // Added for Previous Activity
+  School,
+  History,
+  Package, // Added for Total Assets
+  FileSpreadsheet, // Added for Sheet 5B7S
+  RadioTower, // Added for PPM Radio
+  Bot, // Added for Bot's List
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -63,6 +67,10 @@ const navItems: NavItem[] = [
   { href: '/dashboard/chat', label: 'Team Chat', icon: MessageSquare },
   { href: '/dashboard/information', label: 'Information', icon: Info },
   { href: '/dashboard/knowledge', label: 'Knowledge Hub', icon: BookOpen }, 
+  { href: '/dashboard/total-assets', label: 'Total Assets', icon: Package },
+  { href: '/dashboard/sheet-5b7s', label: 'Sheet 5B7S', icon: FileSpreadsheet },
+  { href: '/dashboard/ppm-radio', label: 'PPM Radio', icon: RadioTower },
+  { href: '/dashboard/bots-list', label: 'Bot\'s List', icon: Bot },
   { href: '/dashboard/profile', label: 'Profile Settings', icon: UserCircle },
 ];
 
