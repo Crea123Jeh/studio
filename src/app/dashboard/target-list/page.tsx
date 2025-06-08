@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,6 +41,7 @@ export default function TargetListPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TargetListEntry | null>(null);
+  const [isDeleteInfoAlertOpen, setIsDeleteInfoAlertOpen] = useState(false);
 
   // Form state
   const [targetName, setTargetName] = useState("");
@@ -131,6 +133,7 @@ export default function TargetListPage() {
     }
   };
 
+  // This function remains for potential future use or direct calls if needed, but UI won't call it directly.
   const handleDeleteEntry = async (entryId: string) => {
     if (!window.confirm("Are you sure you want to delete this target entry? This action cannot be undone.")) {
       return;
@@ -201,7 +204,7 @@ export default function TargetListPage() {
                     <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-primary hover:bg-primary/10" title="Edit Target" onClick={() => handleOpenFormDialog(entry)}>
                       <Edit3 className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive hover:bg-destructive/10" title="Delete Target" onClick={() => handleDeleteEntry(entry.id)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive hover:bg-destructive/10" title="Delete Target (Restricted)" onClick={() => setIsDeleteInfoAlertOpen(true)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </TableCell>
@@ -260,6 +263,21 @@ export default function TargetListPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isDeleteInfoAlertOpen} onOpenChange={setIsDeleteInfoAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deletion Restricted</AlertDialogTitle>
+            <AlertDialogDescription>
+              To delete target entries, please contact a developer. These records are designed for archival and cannot be modified or erased through this interface.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setIsDeleteInfoAlertOpen(false)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
