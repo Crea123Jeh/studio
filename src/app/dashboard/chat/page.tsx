@@ -83,10 +83,29 @@ export default function TeamChatPage() {
             createdAt: serverTimestamp(),
             iconName: "MessageSquare"
         };
-        push(ref(rtdb, `chatChannelsList/${generalChannelRef.key}`), generalChannelData)
-        .then(() => {
-            // This part will be caught by the onValue listener, re-fetching channels
-        }).catch(err => console.error("Failed to create default general channel", err));
+        // Use set instead of push for a specific key if generalChannelRef.key is the intended ID
+        // push(ref(rtdb, `chatChannelsList/${generalChannelRef.key}`), generalChannelData) // This creates a sub-push
+        // Correct way for a known key, but here generalChannelRef.key is ALREADY the key.
+        // So we should just set the data at generalChannelRef directly
+        // However, the onValue listener will handle the initial creation if done properly.
+        // For simplicity, let's ensure it's created IF it doesn't exist.
+        // The `onValue` will re-trigger and populate `allChannels`.
+        
+        // If `channelsData` was null or empty initially, create the "General" channel
+        if (!channelsData || Object.keys(channelsData).length === 0) {
+            const generalKey = "general_default_channel"; // Use a predictable key or a pushed key
+            const generalChannelRefNew = ref(rtdb, `chatChannelsList/${generalKey}`);
+            get(generalChannelRefNew).then((snap) => {
+                if (!snap.exists()) {
+                    push(ref(rtdb, `chatChannelsList/${generalKey}`),{
+                        name: "General",
+                        createdBy: "system",
+                        createdAt: serverTimestamp(),
+                        iconName: "MessageSquare" // if you intend to use this
+                    }).catch(err => console.error("Failed to create default general channel", err));
+                }
+            });
+        }
 
       } else {
         setAllChannels(fetchedChannels);
@@ -174,8 +193,12 @@ export default function TeamChatPage() {
   
   const handleCreateChannel = async (e: FormEvent) => {
     e.preventDefault();
-    if (newChannelName.trim() === "" || !currentUser) {
-      toast({ title: "Error", description: "Channel name cannot be empty and you must be logged in.", variant: "destructive" });
+    if (!currentUser) {
+      toast({ title: "Authentication Error", description: "You must be logged in to create a channel.", variant: "destructive" });
+      return;
+    }
+    if (newChannelName.trim() === "") {
+      toast({ title: "Validation Error", description: "Channel name cannot be empty or consist only of spaces.", variant: "destructive" });
       return;
     }
 
@@ -183,16 +206,16 @@ export default function TeamChatPage() {
       const channelsRef = ref(rtdb, 'chatChannelsList');
       const newChannelRef = push(channelsRef); // Generate a unique key for the new channel
       await push(ref(rtdb, `chatChannelsList/${newChannelRef.key}`), {
-        name: newChannelName,
+        name: newChannelName.trim(), // Save trimmed name
         createdBy: currentUser.uid,
         createdAt: serverTimestamp(),
         iconName: "MessageSquare" // default icon
       });
 
-      toast({ title: "Channel Created", description: `Channel "${newChannelName}" created successfully.` });
+      toast({ title: "Channel Created", description: `Channel "${newChannelName.trim()}" created successfully.` });
       setIsCreateChannelDialogOpen(false);
       setNewChannelName("");
-      setActiveChannelId(newChannelRef.key); // Optionally, set the new channel as active
+      setActiveChannelId(newChannelRef.key); 
     } catch (error) {
       console.error("Error creating channel: ", error);
       toast({ title: "Creation Error", description: "Could not create channel.", variant: "destructive" });
