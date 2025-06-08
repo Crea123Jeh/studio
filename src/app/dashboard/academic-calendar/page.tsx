@@ -13,12 +13,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, deleteDoc, updateDoc } from "firebase/firestore";
-import { format, isSameDay, startOfDay } from "date-fns";
-import { School, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered, Trash2, Edit3 } from "lucide-react";
+import { format, isSameDay, startOfDay, isBefore } from "date-fns";
+import { School, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListChecks, Trash2, Edit3, ArrowUpDown, ArrowUp, ArrowDown, CalendarClock, BookMarked } from "lucide-react";
 
 interface AcademicEvent {
   id: string; 
@@ -27,6 +28,8 @@ interface AcademicEvent {
   description: string;
   category: "Holiday" | "Exam" | "School Event" | "Term Break" | "Reminder" | "Other";
 }
+
+type SortableAcademicEventKeys = 'title' | 'date' | 'category';
 
 const eventCategories: AcademicEvent["category"][] = ["Holiday", "Exam", "School Event", "Term Break", "Reminder", "Other"];
 
@@ -74,6 +77,10 @@ export default function AcademicCalendarPage() {
   const [eventDescription, setEventDescription] = useState("");
   const [eventDate, setEventDate] = useState<Date | undefined>(new Date());
   const [eventCategory, setEventCategory] = useState<AcademicEvent["category"]>("School Event");
+
+  const [upcomingSortConfig, setUpcomingSortConfig] = useState<{ key: SortableAcademicEventKeys; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'ascending' });
+  const [pastSortConfig, setPastSortConfig] = useState<{ key: SortableAcademicEventKeys; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'descending' });
+
 
   const { toast } = useToast();
 
@@ -154,13 +161,54 @@ export default function AcademicCalendarPage() {
     if (!selectedDate) return [];
     return events.filter(event => isSameDay(event.date, selectedDate));
   }, [events, selectedDate]);
-  
-  const allUpcomingEvents = useMemo(() => {
+
+  const todaysAcademicEvents = useMemo(() => {
     const today = startOfDay(new Date());
-    return events
-      .filter(event => event.date >= today)
-      .sort((a, b) => a.date.getTime() - b.date.getTime());
+    return events.filter(event => isSameDay(event.date, today));
   }, [events]);
+
+  const sortEvents = (items: AcademicEvent[], config: { key: SortableAcademicEventKeys; direction: 'ascending' | 'descending' }) => {
+    return [...items].sort((a, b) => {
+      let comparison = 0;
+      if (config.key === 'date') {
+        comparison = a.date.getTime() - b.date.getTime();
+      } else if (config.key === 'title' || config.key === 'category') {
+        comparison = a[config.key].localeCompare(b[config.key]);
+      }
+      return config.direction === 'ascending' ? comparison : -comparison;
+    });
+  };
+  
+  const upcomingAcademicEventsTableData = useMemo(() => {
+    const today = startOfDay(new Date());
+    const upcoming = events.filter(event => !isBefore(event.date, today));
+    return sortEvents(upcoming, upcomingSortConfig);
+  }, [events, upcomingSortConfig]);
+
+  const pastAcademicEventsTableData = useMemo(() => {
+    const today = startOfDay(new Date());
+    const past = events.filter(event => isBefore(event.date, today));
+    return sortEvents(past, pastSortConfig);
+  }, [events, pastSortConfig]);
+
+  const requestSort = (key: SortableAcademicEventKeys, tableType: 'upcoming' | 'past') => {
+    const currentConfig = tableType === 'upcoming' ? upcomingSortConfig : pastSortConfig;
+    const setConfig = tableType === 'upcoming' ? setUpcomingSortConfig : setPastSortConfig;
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (currentConfig.key === key && currentConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setConfig({ key, direction });
+  };
+
+  const getSortIcon = (key: SortableAcademicEventKeys, tableType: 'upcoming' | 'past') => {
+    const currentConfig = tableType === 'upcoming' ? upcomingSortConfig : pastSortConfig;
+    if (currentConfig.key !== key) {
+      return <ArrowUpDown className="ml-1 h-3 w-3 opacity-40" />;
+    }
+    return currentConfig.direction === 'ascending' ? <ArrowUp className="ml-1 h-3 w-3" /> : <ArrowDown className="ml-1 h-3 w-3" />;
+  };
+
 
   const eventCategoryDotColors: Record<AcademicEvent["category"], string> = {
     "Holiday": "bg-green-500",
@@ -373,23 +421,42 @@ export default function AcademicCalendarPage() {
               }}
             />
           </div>
-          <div className="md:col-span-1">
-            <h3 className="text-xl font-semibold mb-4 pb-2 border-b text-foreground">
-              Events for: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
-            </h3>
-            <ScrollArea className="max-h-[calc(100vh-450px)] pr-2">
-              {eventsForSelectedDate.length > 0 ? (
-                <ul className="space-y-4">
-                  {eventsForSelectedDate.map((event) => (<li key={event.id}><EventCard event={event} showActions={true} /></li>))}
-                </ul>
-              ) : (
-                <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50">
-                  <Info className="h-12 w-12 text-primary/70 mb-3"/>
-                  <p className="text-muted-foreground font-medium text-lg">{selectedDate ? "No Events Scheduled" : "Select a Date"}</p>
-                  <p className="text-sm text-muted-foreground mt-1">{selectedDate ? "There are no academic events for this day." : "Click on a day in the calendar."}</p>
-                </div>
-              )}
-            </ScrollArea>
+          <div className="md:col-span-1 space-y-4">
+             <div>
+                <h3 className="text-xl font-semibold mb-3 pb-2 border-b text-foreground">
+                    Events for: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
+                </h3>
+                <ScrollArea className="pr-2"> {/* Removed max-h here */}
+                  {eventsForSelectedDate.length > 0 ? (
+                    <ul className="space-y-4">
+                      {eventsForSelectedDate.map((event) => (<li key={event.id}><EventCard event={event} showActions={true} /></li>))}
+                    </ul>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50">
+                      <Info className="h-12 w-12 text-primary/70 mb-3"/>
+                      <p className="text-muted-foreground font-medium text-lg">{selectedDate ? "No Events Scheduled" : "Select a Date"}</p>
+                      <p className="text-sm text-muted-foreground mt-1">{selectedDate ? "There are no academic events for this day." : "Click on a day in the calendar."}</p>
+                    </div>
+                  )}
+                </ScrollArea>
+             </div>
+             <div>
+                <h3 className="text-xl font-semibold mb-3 pb-2 border-b text-foreground">
+                    Today&apos;s Events ({format(new Date(), "PPP")})
+                </h3>
+                <ScrollArea className="pr-2 max-h-60"> {/* Added max-h for today's events if it gets long */}
+                  {todaysAcademicEvents.length > 0 ? (
+                    <ul className="space-y-4">
+                      {todaysAcademicEvents.map((event) => (<li key={`${event.id}-today`}><EventCard event={event} showActions={true} /></li>))}
+                    </ul>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50">
+                      <Info className="h-10 w-10 text-primary/70 mb-2"/>
+                      <p className="text-muted-foreground font-medium text-md">No Events Today</p>
+                    </div>
+                  )}
+                </ScrollArea>
+             </div>
           </div>
         </CardContent>
       </Card>
@@ -397,17 +464,37 @@ export default function AcademicCalendarPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl text-foreground">
-            <ListOrdered className="h-6 w-6 text-primary" />
-            All Upcoming Academic Events
+            <CalendarClock className="h-6 w-6 text-primary" />
+            Upcoming Academic Events
           </CardTitle>
-          <CardDescription>A list of all scheduled academic events, sorted by date.</CardDescription>
+          <CardDescription>Scheduled academic events from today onwards.</CardDescription>
         </CardHeader>
         <CardContent>
-          {allUpcomingEvents.length > 0 ? (
+          {upcomingAcademicEventsTableData.length > 0 ? (
             <ScrollArea className="max-h-[400px] pr-2">
-              <ul className="space-y-4">
-                {allUpcomingEvents.map((event) => (<li key={`${event.id}-upcoming`}><EventCard event={event} showActions={true} /></li>))}
-              </ul>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead onClick={() => requestSort('title', 'upcoming')} className="cursor-pointer hover:bg-muted/50"><div className="flex items-center">Title {getSortIcon('title', 'upcoming')}</div></TableHead>
+                    <TableHead onClick={() => requestSort('date', 'upcoming')} className="cursor-pointer hover:bg-muted/50"><div className="flex items-center">Date {getSortIcon('date', 'upcoming')}</div></TableHead>
+                    <TableHead onClick={() => requestSort('category', 'upcoming')} className="cursor-pointer hover:bg-muted/50"><div className="flex items-center">Category {getSortIcon('category', 'upcoming')}</div></TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {upcomingAcademicEventsTableData.map((event) => (
+                    <TableRow key={`${event.id}-upcoming-row`}>
+                      <TableCell className="font-medium text-foreground">{event.title}</TableCell>
+                      <TableCell>{format(event.date, "PP")}</TableCell>
+                      <TableCell><Badge className={cn(getBadgeClassNames(event.category))}>{event.category}</Badge></TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => openEditDialog(event)} title="Edit Event"><Edit3 className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteEvent(event.id)} title="Delete Event"><Trash2 className="h-4 w-4" /></Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </ScrollArea>
           ) : (
             <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50 min-h-[150px]">
@@ -418,8 +505,51 @@ export default function AcademicCalendarPage() {
           )}
         </CardContent>
       </Card>
+
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-xl text-foreground">
+            <BookMarked className="h-6 w-6 text-primary" />
+            Past Academic Events
+          </CardTitle>
+          <CardDescription>A log of academic events that have already occurred.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {pastAcademicEventsTableData.length > 0 ? (
+            <ScrollArea className="max-h-[400px] pr-2">
+               <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead onClick={() => requestSort('title', 'past')} className="cursor-pointer hover:bg-muted/50"><div className="flex items-center">Title {getSortIcon('title', 'past')}</div></TableHead>
+                    <TableHead onClick={() => requestSort('date', 'past')} className="cursor-pointer hover:bg-muted/50"><div className="flex items-center">Date {getSortIcon('date', 'past')}</div></TableHead>
+                    <TableHead onClick={() => requestSort('category', 'past')} className="cursor-pointer hover:bg-muted/50"><div className="flex items-center">Category {getSortIcon('category', 'past')}</div></TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pastAcademicEventsTableData.map((event) => (
+                    <TableRow key={`${event.id}-past-row`}>
+                      <TableCell className="font-medium text-foreground">{event.title}</TableCell>
+                      <TableCell>{format(event.date, "PP")}</TableCell>
+                      <TableCell><Badge className={cn(getBadgeClassNames(event.category))}>{event.category}</Badge></TableCell>
+                       <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => openEditDialog(event)} title="Edit Event"><Edit3 className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteEvent(event.id)} title="Delete Event"><Trash2 className="h-4 w-4" /></Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          ) : (
+            <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50 min-h-[150px]">
+              <School className="h-12 w-12 text-primary/70 mb-3"/>
+              <p className="text-muted-foreground font-medium text-lg">No Past Academic Events</p>
+              <p className="text-sm text-muted-foreground mt-1">There are no academic events logged from the past.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
-
-    
