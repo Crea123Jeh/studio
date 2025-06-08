@@ -683,7 +683,7 @@ export default function BirthdayCalendarPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="max-h-[400px] pr-2">
+          <ScrollArea className="pr-2">
             {(todaysBirthdaysList.teachers.length > 0 || todaysBirthdaysList.students.length > 0) ? (
               <>
                 {todaysBirthdaysList.teachers.length > 0 && (
@@ -753,7 +753,7 @@ export default function BirthdayCalendarPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="max-h-[300px] pr-2">
+          <ScrollArea className="pr-2">
             {filteredUpcomingBirthdays.teachers.length > 0 && (
               <div className="mb-8">
                 <h4 className="text-xl font-semibold mb-3 pb-2 border-b flex items-center text-foreground">

@@ -457,7 +457,7 @@ export default function CalendarEventsPage() {
             <h3 className="text-xl font-semibold mb-4 pb-2 border-b text-foreground">
               Events for: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
             </h3>
-            <ScrollArea className="max-h-[48vh] pr-2"> 
+            <ScrollArea className="pr-2"> 
               {eventsForSelectedDate.length > 0 ? (
                 <ul className="space-y-4">
                   {eventsForSelectedDate.map((event) => (<li key={event.id}><EventCard event={event} showActions={true} /></li>))}
@@ -484,7 +484,7 @@ export default function CalendarEventsPage() {
         </CardHeader>
         <CardContent>
           {allUpcomingEvents.length > 0 ? (
-            <ScrollArea className="max-h-[400px] pr-2">
+            <ScrollArea className="pr-2">
               <ul className="space-y-4">
                 {allUpcomingEvents.map((event) => (<li key={`${event.id}-upcoming`}><EventCard event={event} showActions={true} /></li>))}
               </ul>
