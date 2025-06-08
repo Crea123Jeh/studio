@@ -34,7 +34,6 @@ interface CalendarEvent {
   isProjectEvent?: boolean;
   projectId?: string | null;
   createdAt?: Timestamp;
-  loggedToActivity?: boolean;
 }
 
 interface ProjectOption {
@@ -94,7 +93,7 @@ export default function CalendarEventsPage() {
   const [eventEndTime, setEventEndTime] = useState("10:00");
   const [eventType, setEventType] = useState<CalendarEvent["type"]>("Meeting");
   const [isProjectEvent, setIsProjectEvent] = useState(false);
-  const [linkedProjectId, setLinkedProjectId] = useState<string | undefined>(undefined);
+  const [linkedProjectId, setLinkedProjectId] = useState<string | null>(null);
 
   const [allProjects, setAllProjects] = useState<ProjectOption[]>([]);
   const [projectComboboxOpen, setProjectComboboxOpen] = useState(false);
@@ -103,8 +102,16 @@ export default function CalendarEventsPage() {
 
   const { toast } = useToast();
 
-  const logEventToPreviousActivity = async (event: CalendarEvent) => {
-    if (!event.id || event.loggedToActivity) return;
+  const logEventToPreviousActivityAndArchive = async (event: CalendarEvent) => {
+    if (!event.id) {
+        console.error("Cannot log and archive event: event.id is missing.", event);
+        toast({
+            title: "Processing Error",
+            description: `Could not process past event "${event.title}" due to missing ID.`,
+            variant: "destructive",
+        });
+        return;
+    }
 
     let activityTitle = "";
     let activityDetails = `Event: ${event.title}\nType: ${event.type}\nScheduled: ${format(event.startDateTime.toDate(), "PPpp")}`;
@@ -119,16 +126,15 @@ export default function CalendarEventsPage() {
       case "Deadline":
         activityTitle = `Deadline Passed: ${event.title}`;
         break;
-      default:
-        // For Milestones and Reminders, we might not automatically log them as "past" in the same way,
-        // or the user might manually log related activities. For now, only log Meetings and Deadlines.
+      default: // Should not happen due to caller filtering
+        console.warn(`Attempted to log event of unhandled type for archiving: ${event.type}`);
         return;
     }
 
     const activityLogEntry = {
       title: activityTitle,
       details: activityDetails,
-      date: Timestamp.now(), // Logged at the time of detection
+      date: Timestamp.now(), 
       source: "PPM Calendar Event",
       sourceEventId: event.id,
       originalEventTime: event.startDateTime,
@@ -136,17 +142,23 @@ export default function CalendarEventsPage() {
 
     try {
       const batch = writeBatch(db);
+      
       const activityLogRef = doc(collection(db, "activityLogEntries"));
       batch.set(activityLogRef, activityLogEntry);
 
       const calendarEventRef = doc(db, "calendarEvents", event.id);
-      batch.update(calendarEventRef, { loggedToActivity: true });
+      batch.delete(calendarEventRef);
 
       await batch.commit();
-      console.log(`Event "${event.title}" logged to previous activity.`);
+      console.log(`Event "${event.title}" (ID: ${event.id}) logged to previous activity and deleted from calendar.`);
+      // No toast for successful archival to keep UI clean, event will disappear.
     } catch (error) {
-      console.error("Error logging event to previous activity:", error);
-      // Do not toast here to avoid spamming user if many events are processed
+      console.error(`Error logging and deleting event "${event.title}" (ID: ${event.id}):`, error);
+      toast({
+        title: "Archiving Error",
+        description: `Could not archive past event "${event.title}". It may be processed again later.`,
+        variant: "destructive",
+      });
     }
   };
 
@@ -156,9 +168,12 @@ export default function CalendarEventsPage() {
     const q = query(eventsCollection, orderBy("startDateTime", "asc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      const now = new Date();
+      const eventsToArchive: CalendarEvent[] = [];
+
       const fetchedEvents = snapshot.docs.map(docSnap => {
         const data = docSnap.data();
-        const event = {
+        const event: CalendarEvent = { // Explicitly type here
           id: docSnap.id,
           title: data.title,
           description: data.description,
@@ -168,16 +183,26 @@ export default function CalendarEventsPage() {
           isProjectEvent: data.isProjectEvent || false,
           projectId: data.projectId,
           createdAt: data.createdAt ? (data.createdAt as Timestamp) : undefined,
-          loggedToActivity: data.loggedToActivity || false,
-        } as CalendarEvent;
+        };
 
-        // Auto-log past events
-        if (event.endDateTime && event.endDateTime.toDate() < new Date() && !event.loggedToActivity && (event.type === "Meeting" || event.type === "Deadline")) {
-          logEventToPreviousActivity(event);
-          // Optimistically update the local state for loggedToActivity if needed, or rely on next snapshot
+        // Auto-log and archive past meetings/deadlines
+        if (
+            event.endDateTime &&
+            event.endDateTime.toDate() < now &&
+            (event.type === "Meeting" || event.type === "Deadline")
+        ) {
+          eventsToArchive.push(event);
         }
         return event;
       });
+
+      // Process events for archival outside the map
+      for (const eventToLog of eventsToArchive) {
+        logEventToPreviousActivityAndArchive(eventToLog);
+      }
+      
+      // The local state will be updated. Firestore will eventually send a new snapshot
+      // reflecting the deletions, which will cause a re-render.
       setEvents(fetchedEvents);
     }, (error) => {
       console.error("Error fetching calendar events: ", error);
@@ -222,7 +247,7 @@ export default function CalendarEventsPage() {
     setEventEndTime(format(setHours(defaultDate, defaultDate.getHours() + 1), "HH:mm"));
     setEventType("Meeting");
     setIsProjectEvent(false);
-    setLinkedProjectId(undefined);
+    setLinkedProjectId(null);
     setEditingEvent(null);
   };
 
@@ -244,12 +269,11 @@ export default function CalendarEventsPage() {
     if (event.endDateTime) {
       setEventEndTime(format(event.endDateTime.toDate(), "HH:mm"));
     } else {
-      // Default end time if none exists (e.g. 1 hour after start)
       setEventEndTime(format(setHours(event.startDateTime.toDate(), event.startDateTime.toDate().getHours() + 1), "HH:mm"));
     }
     setEventType(event.type);
     setIsProjectEvent(event.isProjectEvent || false);
-    setLinkedProjectId(event.projectId || undefined);
+    setLinkedProjectId(event.projectId || null);
     setIsAddEditDialogOpen(true);
   };
 
@@ -296,9 +320,9 @@ export default function CalendarEventsPage() {
   };
   
   const sortedAllUpcomingEvents = useMemo(() => {
-    const today = new Date(); // Use full date-time for comparison
+    const today = new Date(); 
     let filteredEvents = events
-        .filter(event => event.startDateTime.toDate() >= startOfDay(today)) // Keep showing events from today onwards
+        .filter(event => event.startDateTime.toDate() >= startOfDay(today)) 
         .map(event => ({
             ...event,
             createdAtDate: event.createdAt ? event.createdAt.toDate() : new Date(0) 
@@ -375,7 +399,7 @@ export default function CalendarEventsPage() {
   
   const handleSaveEvent = async (e: FormEvent) => {
     e.preventDefault();
-    if (!eventTitle || !eventDate || !eventStartTime) { // End time can be optional
+    if (!eventTitle || !eventDate || !eventStartTime) { 
       toast({
         title: "Missing Information",
         description: "Please provide title, date, and start time.",
@@ -399,14 +423,14 @@ export default function CalendarEventsPage() {
     if (eventEndTime) {
       const [endHours, endMinutes] = eventEndTime.split(':').map(Number);
       let tempEndDateTime = setMinutes(setHours(eventDate, endHours), endMinutes);
-      if (tempEndDateTime <= finalStartDateTime) { // If end time is before or same as start, make it 1 hour after start
+      if (tempEndDateTime <= finalStartDateTime) { 
           tempEndDateTime = setHours(finalStartDateTime, finalStartDateTime.getHours() + 1);
       }
       finalEndDateTime = Timestamp.fromDate(tempEndDateTime);
     }
 
 
-    const eventData: Omit<CalendarEvent, 'id' | 'createdAt' | 'loggedToActivity'> & { createdAt?: Timestamp, loggedToActivity?: boolean } = {
+    const eventData: Omit<CalendarEvent, 'id' | 'createdAt'> & { createdAt?: Timestamp } = {
       title: eventTitle,
       description: eventDescription,
       type: eventType,
@@ -429,7 +453,6 @@ export default function CalendarEventsPage() {
         });
       } else {
         eventData.createdAt = Timestamp.now();
-        eventData.loggedToActivity = false;
         await addDoc(collection(db, "calendarEvents"), eventData);
         toast({
           title: "Event Added",
@@ -468,15 +491,11 @@ export default function CalendarEventsPage() {
       Reminder: Bell,
     };
     const IconComponent = typeIcons[event.type];
-    const now = new Date();
-    const isPast = event.endDateTime ? event.endDateTime.toDate() < now : event.startDateTime.toDate() < now;
-
 
     return (
     <Card 
       className={cn(
-        "hover:shadow-xl hover:ring-2 hover:ring-primary/50 transition-all duration-200 ease-in-out border-l-4",
-        isPast && event.loggedToActivity && "opacity-60 bg-muted/30"
+        "hover:shadow-xl hover:ring-2 hover:ring-primary/50 transition-all duration-200 ease-in-out border-l-4"
         )}
       style={{ borderLeftColor: eventTypeBorderColors[event.type] }}
     >
@@ -522,9 +541,6 @@ export default function CalendarEventsPage() {
             </span>
           </p>
         )}
-        {isPast && event.loggedToActivity && (
-            <p className="text-xs italic text-green-600 mt-2 pt-1.5 border-t border-border/50">Logged to Previous Activity</p>
-        )}
       </CardContent>
     </Card>
   )};
@@ -543,7 +559,7 @@ export default function CalendarEventsPage() {
               {editingEvent ? "Edit Event" : "Add Event"}
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-lg"> {/* Increased width slightly */}
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>{editingEvent ? "Edit Event" : "Add New Event"}</DialogTitle>
               <DialogDescription>
@@ -631,7 +647,7 @@ export default function CalendarEventsPage() {
                                 value={project.name}
                                 onSelect={(currentValue) => {
                                   const selectedProj = allProjects.find(p => p.name.toLowerCase() === currentValue.toLowerCase());
-                                  setLinkedProjectId(selectedProj ? selectedProj.id : undefined);
+                                  setLinkedProjectId(selectedProj ? selectedProj.id : null);
                                   setProjectComboboxOpen(false);
                                 }}
                               >
@@ -704,13 +720,12 @@ export default function CalendarEventsPage() {
             <h3 className="text-xl font-semibold mb-4 pb-2 border-b text-foreground">
               Events for: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
             </h3>
-            {/* Removed ScrollArea and max-h-* here */}
             {eventsForSelectedDate.length > 0 ? (
               <ul className="space-y-4">
                 {eventsForSelectedDate.map((event) => (<li key={event.id}><EventCard event={event} showActions={true} /></li>))}
               </ul>
             ) : (
-              <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50 min-h-[150px]"> {/* Added min-height for empty state */}
+              <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50 min-h-[150px]">
                 <Info className="h-12 w-12 text-primary/70 mb-3 animate-pulse"/>
                 <p className="text-muted-foreground font-medium text-lg">{selectedDate ? "No Events Scheduled" : "Select a Date"}</p>
                 <p className="text-sm text-muted-foreground mt-1">{selectedDate ? "There are no events for this day." : "Click on a day in the calendar."}</p>
@@ -728,7 +743,7 @@ export default function CalendarEventsPage() {
           </CardTitle>
           <CardDescription>A list of all scheduled events, sortable by column.</CardDescription>
         </CardHeader>
-        <CardContent> {/* Removed ScrollArea and max-h-* here */}
+        <CardContent>
           {sortedAllUpcomingEvents.length > 0 ? (
             <Table>
               <TableHeader>
@@ -795,4 +810,3 @@ export default function CalendarEventsPage() {
     </div>
   );
 }
-
