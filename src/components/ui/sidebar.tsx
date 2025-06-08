@@ -521,20 +521,19 @@ const SidebarMenuItem = React.forwardRef<
 SidebarMenuItem.displayName = "SidebarMenuItem"
 
 const sidebarMenuButtonVariants = cva(
-  // Base classes for layout, interaction, and general SVG styling (size, shrink)
   "peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
   {
     variants: {
       visualState: {
-        active: "bg-sidebar-accent font-medium text-sidebar-accent-foreground [&>svg]:text-destructive-foreground", // White icon for active
-        inactive: "[&>svg]:text-primary", // Yellow icon for inactive
+        active: "bg-sidebar-accent font-medium text-sidebar-accent-foreground [&>svg]:text-destructive-foreground mx-1",
+        inactive: "[&>svg]:text-primary",
       },
-      variant: { // Style variant of the button (e.g., default, outline)
-        default: "", // Base hover styles are in the main string
+      variant: { 
+        default: "", 
         outline:
           "bg-background shadow-[0_0_0_1px_hsl(var(--sidebar-border))] hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))]",
       },
-      size: { // Size variant of the button
+      size: { 
         default: "h-8 text-sm",
         sm: "h-7 text-xs",
         lg: "h-12 text-sm group-data-[collapsible=icon]:!p-0",
@@ -554,13 +553,13 @@ const SidebarMenuButton = React.forwardRef<
     asChild?: boolean
     isActive?: boolean
     tooltip?: string | React.ComponentProps<typeof TooltipContent>
-  } & VariantProps<typeof sidebarMenuButtonVariants> // Ensure visualState is not part of exposed props here, it's derived from isActive
+  } & VariantProps<typeof sidebarMenuButtonVariants>
 >(
   (
     {
       asChild = false,
-      isActive = false, // This prop will determine the 'visualState'
-      variant, // Keep variant and size as props
+      isActive = false, 
+      variant, 
       size,
       tooltip,
       className,
@@ -575,8 +574,8 @@ const SidebarMenuButton = React.forwardRef<
       <Comp
         ref={ref}
         data-sidebar="menu-button"
-        data-size={size} // Keep data-size if needed by other CSS logic
-        data-active={isActive} // Keep data-active for general CSS or accessibility
+        data-size={size} 
+        data-active={isActive} 
         className={cn(sidebarMenuButtonVariants({ variant, size, visualState: isActive ? "active" : "inactive" }), className)}
         {...props}
       />
