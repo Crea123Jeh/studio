@@ -81,7 +81,6 @@ interface ProjectData {
   spent?: number; 
   createdAt: Timestamp;
   lastUpdatedAt: Timestamp;
-  // uploadedFiles field can remain for legacy data but won't be actively used
   uploadedFiles?: Array<{ name: string; url: string; storagePath: string; size: number; type: string; uploadedAt: Timestamp }>;
 }
 
@@ -303,7 +302,7 @@ export default function ProjectInfoPage() {
         }
       } else {
         projectDataToSave.createdAt = now;
-        projectDataToSave.uploadedFiles = []; // Initialize for new projects, though UI is removed
+        projectDataToSave.uploadedFiles = []; 
         await addDoc(collection(db, "projectsPPM"), projectDataToSave);
         toast({ title: "Project Added", description: `"${values.name}" has been added.` });
       }
@@ -328,18 +327,29 @@ export default function ProjectInfoPage() {
 
     setShowArchiveConfirmDialog(false); 
 
-    const projectToArchive = { ...selectedProject, status: "Completed" as const, lastUpdatedAt: Timestamp.now() }; 
-    // Note: sub-collections (tasks, updates) are not explicitly moved here. 
-    // They would become orphaned or require a more complex archival process (e.g., Cloud Function).
-    // For this implementation, we focus on moving the main project document.
+    const projectDataForArchive = {
+      id: selectedProject.id,
+      name: selectedProject.name,
+      description: selectedProject.description,
+      status: "Completed" as const,
+      startDate: selectedProject.startDate,
+      endDate: selectedProject.endDate,
+      budget: selectedProject.budget,
+      managerId: selectedProject.managerId === undefined ? null : selectedProject.managerId,
+      managerName: selectedProject.managerName === undefined ? null : selectedProject.managerName,
+      spent: selectedProject.spent === undefined ? null : selectedProject.spent,
+      createdAt: selectedProject.createdAt,
+      lastUpdatedAt: Timestamp.now(),
+      uploadedFiles: selectedProject.uploadedFiles === undefined ? [] : selectedProject.uploadedFiles,
+    };
 
     try {
       const batch = writeBatch(db);
-      const archivedProjectRef = doc(collection(db, "archivedProjectsPPM")); // Create a new doc in archive
-      batch.set(archivedProjectRef, projectToArchive); // Set its data
+      const archivedProjectRef = doc(collection(db, "archivedProjectsPPM"));
+      batch.set(archivedProjectRef, projectDataForArchive); 
       
       const originalProjectRef = doc(db, "projectsPPM", selectedProject.id);
-      batch.delete(originalProjectRef); // Delete from active projects
+      batch.delete(originalProjectRef); 
 
       await batch.commit();
 
@@ -535,7 +545,7 @@ export default function ProjectInfoPage() {
         </div>
         
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-3"> {/* Adjusted for 3 tabs */}
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="updates">Updates</TabsTrigger>
