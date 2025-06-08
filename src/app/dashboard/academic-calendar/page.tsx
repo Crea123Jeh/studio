@@ -388,8 +388,8 @@ export default function AcademicCalendarPage() {
       </div>
 
       <Card className="shadow-lg">
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6">
-          <div className="md:col-span-2 min-w-0">
+        <CardContent className="grid grid-cols-1 gap-6 pt-6"> {/* Changed from md:grid-cols-3 */}
+          <div className="min-w-0"> {/* Removed md:col-span-2 */}
            <Calendar
               mode="single"
               selected={selectedDate}
@@ -416,7 +416,7 @@ export default function AcademicCalendarPage() {
               }}
             />
           </div>
-          <div className="md:col-span-1 space-y-4">
+          <div className="space-y-4"> {/* Removed md:col-span-1 */}
              <div>
                 <h3 className="text-xl font-semibold mb-3 pb-2 border-b text-foreground">
                     Events for: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
