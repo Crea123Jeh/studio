@@ -221,8 +221,8 @@ export default function DashboardPage() {
                 {href: "/dashboard/settings", label: "App Settings"},
               ]
             ).map(link => (
-                 <Button key={link.href} variant="outline" size="sm" className="justify-start text-left hover:bg-accent/80" asChild>
-                    <Link href={link.href}> <ArrowRight className="mr-2 h-3.5 w-3.5 text-muted-foreground"/> {link.label}</Link>
+                 <Button key={link.href} variant="outline" size="sm" className="justify-start text-left hover:bg-accent/80 whitespace-normal h-auto py-2 px-3" asChild>
+                    <Link href={link.href}> <ArrowRight className="mr-2 h-3.5 w-3.5 text-muted-foreground shrink-0"/> {link.label}</Link>
                 </Button>
             ))}
           </CardContent>
