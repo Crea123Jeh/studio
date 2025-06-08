@@ -89,7 +89,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <Card className="shadow-lg bg-gradient-to-br from-card to-secondary border-border">
+      <Card className="shadow-lg bg-gradient-to-br from-secondary to-card border-border">
         <CardContent className="p-6 flex flex-col items-start gap-4">
           <div>
             <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">
