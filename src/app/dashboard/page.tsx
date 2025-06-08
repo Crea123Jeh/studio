@@ -98,11 +98,18 @@ export default function DashboardPage() {
             <p className="text-muted-foreground mt-1">Keine Daten Sind Immer Sicher</p>
           </div>
           <div className="flex flex-wrap gap-2 mt-2">
-            <Button onClick={() => router.push('/dashboard/project')}>
+            <Button 
+              onClick={() => router.push('/dashboard/project')}
+              className="hover:scale-105 hover:shadow-md active:scale-95 transition-transform duration-150"
+            >
               <Briefcase className="mr-2 h-4 w-4" />
               View Projects
             </Button>
-            <Button variant="outline" onClick={() => router.push('/dashboard/target-list')}>
+            <Button 
+              variant="outline" 
+              onClick={() => router.push('/dashboard/target-list')}
+              className="hover:scale-105 hover:shadow-md active:scale-95 transition-transform duration-150"
+            >
               <Crosshair className="mr-2 h-4 w-4" />
               View Target List
             </Button>
