@@ -42,7 +42,7 @@ const ScrollBar = React.forwardRef<
     {...props}
   >
     <ScrollAreaPrimitive.ScrollAreaThumb className={cn(
-      "relative flex-1 rounded-full bg-accent", // Changed bg-border to bg-accent
+      "relative flex-1 rounded-full bg-muted", // Changed from bg-accent to bg-muted
       "shadcn-scroll-thumb" 
     )} />
   </ScrollAreaPrimitive.ScrollAreaScrollbar>
