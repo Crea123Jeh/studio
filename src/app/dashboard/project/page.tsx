@@ -591,9 +591,9 @@ export default function ProjectInfoPage() {
                     <CardContent className="text-sm space-y-1">
                       {task.description && <p className="text-muted-foreground whitespace-pre-wrap">{task.description}</p>}
                        <p className="text-xs text-primary font-medium">
-                        Due: {format(task.dueDate.toDate(), "PPPp")}
+                        Due: {task.dueDate ? format(task.dueDate.toDate(), "PPPp") : "N/A"}
                       </p>
-                      <p className="text-xs text-muted-foreground">Created: {formatDistanceToNow(task.createdAt.toDate(), { addSuffix: true })} | Updated: {formatDistanceToNow(task.lastUpdatedAt.toDate(), { addSuffix: true })}</p>
+                      <p className="text-xs text-muted-foreground">Created: {task.createdAt ? formatDistanceToNow(task.createdAt.toDate(), { addSuffix: true }) : "N/A"} | Updated: {task.lastUpdatedAt ? formatDistanceToNow(task.lastUpdatedAt.toDate(), { addSuffix: true }) : "N/A"}</p>
                     </CardContent>
                   </Card>
                 )) : <p className="text-muted-foreground text-center py-4">No tasks added yet.</p>}
@@ -623,7 +623,7 @@ export default function ProjectInfoPage() {
                       <CardContent className="pt-4">
                         <p className="text-sm text-foreground whitespace-pre-wrap">{update.note}</p>
                         <p className="text-xs text-muted-foreground mt-2">
-                          Effective: <span className="text-primary font-medium">{format(update.date.toDate(), "PPPp")}</span> | Logged by {update.authorName || "System"} {formatDistanceToNow(update.createdAt.toDate(), { addSuffix: true })}
+                          Effective: {update.date ? format(update.date.toDate(), "PPPp") : "N/A"} | Logged by {update.authorName || "System"} {update.createdAt ? formatDistanceToNow(update.createdAt.toDate(), { addSuffix: true }): "N/A"}
                         </p>
                       </CardContent>
                     </Card>
