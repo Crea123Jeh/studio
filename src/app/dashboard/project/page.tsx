@@ -22,10 +22,10 @@ import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase"; 
 import {
   collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, updateDoc, deleteDoc,
-  writeBatch,
+  writeBatch, getDocs,
 } from "firebase/firestore";
 import { format, formatDistanceToNow, setHours, setMinutes, parse } from "date-fns";
-import { Briefcase, ListChecks, FileText, MessageCircle, PlusCircle, ArrowLeft, Edit3, Trash2, CalendarIcon, ArrowUpDown, ArrowUp, ArrowDown, Archive as ArchiveIcon, Clock } from "lucide-react";
+import { Briefcase, ListChecks, FileText, MessageCircle, PlusCircle, ArrowLeft, Edit3, Trash2, CalendarIcon, ArrowUpDown, ArrowUp, ArrowDown, Archive as ArchiveIcon, Clock, Loader2 } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -75,13 +75,13 @@ interface ProjectData {
   status: typeof projectStatusOptions[number];
   startDate: Timestamp;
   endDate: Timestamp | null;
-  budget: number; 
+  budget?: number; // Made optional as per Zod transform
   managerId?: string;
   managerName?: string;
   spent?: number; 
   createdAt: Timestamp;
   lastUpdatedAt: Timestamp;
-  uploadedFiles?: Array<{ name: string; url: string; storagePath: string; size: number; type: string; uploadedAt: Timestamp }>;
+  // uploadedFiles was removed, so no longer part of this interface for active projects
 }
 
 interface TaskData {
@@ -126,6 +126,7 @@ export default function ProjectInfoPage() {
   const [projects, setProjects] = useState<ProjectData[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isArchiving, setIsArchiving] = useState(false);
   const [isAddProjectDialogOpen, setIsAddProjectDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<ProjectData | null>(null);
   
@@ -177,20 +178,18 @@ export default function ProjectInfoPage() {
             const startDate = data.startDate instanceof Timestamp ? data.startDate : Timestamp.fromDate(new Date(1970,0,1));
             const endDate = data.endDate instanceof Timestamp ? data.endDate : (data.endDate === null ? null : undefined);
             
-            const budget = typeof data.budget === 'number' ? data.budget : 0; 
+            const budget = typeof data.budget === 'number' ? data.budget : undefined; 
             const managerId = typeof data.managerId === 'string' ? data.managerId : undefined;
             const managerName = typeof data.managerName ==='string' ? data.managerName : "N/A";
             const spent = typeof data.spent === 'number' ? data.spent : undefined;
             
             const createdAt = data.createdAt instanceof Timestamp ? data.createdAt : Timestamp.fromDate(new Date(1970,0,1));
             const lastUpdatedAt = data.lastUpdatedAt instanceof Timestamp ? data.lastUpdatedAt : createdAt;
-            const uploadedFiles = Array.isArray(data.uploadedFiles) ? data.uploadedFiles.filter((f: any) => f && f.name && f.url && f.storagePath) : [];
-
             
             const mappedData: ProjectData = {
                 id: docSnap.id, name, description, status, startDate, 
                 endDate: endDate === undefined ? null : endDate, 
-                budget: budget, managerId, managerName, spent, createdAt, lastUpdatedAt, uploadedFiles
+                budget: budget, managerId, managerName, spent, createdAt, lastUpdatedAt
             };
             return mappedData;
         } catch (e: any) {
@@ -271,9 +270,9 @@ export default function ProjectInfoPage() {
     const managerName = selectedManager ? selectedManager.name : "N/A";
     const now = Timestamp.now();
 
-    const budgetToSave = values.budget ?? 0; 
+    const budgetToSave = values.budget ?? undefined; 
 
-    const projectDataToSave: Omit<ProjectData, 'id' | 'createdAt' | 'spent' | 'uploadedFiles'> & { createdAt?: Timestamp, uploadedFiles?: ProjectData['uploadedFiles'] } = {
+    const projectDataToSave: Omit<ProjectData, 'id' | 'createdAt' | 'spent'> & { createdAt?: Timestamp } = {
       name: values.name,
       description: values.description,
       status: values.status,
@@ -302,7 +301,6 @@ export default function ProjectInfoPage() {
         }
       } else {
         projectDataToSave.createdAt = now;
-        projectDataToSave.uploadedFiles = []; 
         await addDoc(collection(db, "projectsPPM"), projectDataToSave);
         toast({ title: "Project Added", description: `"${values.name}" has been added.` });
       }
@@ -319,45 +317,66 @@ export default function ProjectInfoPage() {
     setShowDeleteInfoAlert(true);
   };
 
-  const handleArchiveProject = async () => {
+ const handleArchiveProject = async () => {
     if (!selectedProject) {
       toast({ title: "Error", description: "No project selected to archive.", variant: "destructive" });
       return;
     }
 
-    setShowArchiveConfirmDialog(false); 
+    setShowArchiveConfirmDialog(false);
+    setIsArchiving(true);
 
-    const projectDataForArchive = {
-      id: selectedProject.id,
-      name: selectedProject.name,
-      description: selectedProject.description,
-      status: "Completed" as const,
-      startDate: selectedProject.startDate,
-      endDate: selectedProject.endDate,
-      budget: selectedProject.budget,
-      managerId: selectedProject.managerId === undefined ? null : selectedProject.managerId,
-      managerName: selectedProject.managerName === undefined ? null : selectedProject.managerName,
-      spent: selectedProject.spent === undefined ? null : selectedProject.spent,
-      createdAt: selectedProject.createdAt,
-      lastUpdatedAt: Timestamp.now(),
-      uploadedFiles: selectedProject.uploadedFiles === undefined ? [] : selectedProject.uploadedFiles,
-    };
+    const projectToArchiveDocRef = doc(db, "archivedProjectsPPM", selectedProject.id);
+    const originalProjectDocRef = doc(db, "projectsPPM", selectedProject.id);
+
+    const tasksCollectionRef = collection(db, "projectsPPM", selectedProject.id, "tasks");
+    const updatesCollectionRef = collection(db, "projectsPPM", selectedProject.id, "updates");
 
     try {
       const batch = writeBatch(db);
-      const archivedProjectRef = doc(collection(db, "archivedProjectsPPM"));
-      batch.set(archivedProjectRef, projectDataForArchive); 
-      
-      const originalProjectRef = doc(db, "projectsPPM", selectedProject.id);
-      batch.delete(originalProjectRef); 
+
+      const archivedProjectPayload = {
+        name: selectedProject.name,
+        description: selectedProject.description,
+        status: selectedProject.status, // Preserve original status
+        startDate: selectedProject.startDate,
+        endDate: selectedProject.endDate ?? null,
+        budget: selectedProject.budget ?? 0,
+        managerId: selectedProject.managerId ?? null,
+        managerName: selectedProject.managerName ?? null,
+        spent: selectedProject.spent ?? null,
+        createdAt: selectedProject.createdAt, // Original creation date
+        lastUpdatedAt: selectedProject.lastUpdatedAt, // Original last update date
+        archivedAt: Timestamp.now(), // New field for when it was archived
+        // uploadedFiles: selectedProject.uploadedFiles ?? [], // Assuming uploadedFiles might exist on ProjectData or selectedProject
+      };
+      batch.set(projectToArchiveDocRef, archivedProjectPayload);
+
+      const tasksSnapshot = await getDocs(tasksCollectionRef);
+      tasksSnapshot.forEach(taskDoc => {
+        const taskData = taskDoc.data();
+        const archivedTaskRef = doc(db, "archivedProjectsPPM", selectedProject.id, "tasks", taskDoc.id);
+        batch.set(archivedTaskRef, taskData);
+      });
+
+      const updatesSnapshot = await getDocs(updatesCollectionRef);
+      updatesSnapshot.forEach(updateDocSnapshot => {
+        const updateData = updateDocSnapshot.data();
+        const archivedUpdateRef = doc(db, "archivedProjectsPPM", selectedProject.id, "updates", updateDocSnapshot.id);
+        batch.set(archivedUpdateRef, updateData);
+      });
+
+      batch.delete(originalProjectDocRef);
 
       await batch.commit();
 
-      toast({ title: "Project Archived", description: `"${selectedProject.name}" has been successfully archived.` });
-      setSelectedProject(null); 
+      toast({ title: "Project Archived", description: `"${selectedProject.name}" and its data have been successfully archived.` });
+      setSelectedProject(null);
     } catch (error) {
       console.error("Error archiving project:", error);
-      toast({ title: "Archive Failed", description: "Could not archive the project. Please try again.", variant: "destructive" });
+      toast({ title: "Archive Failed", description: `Could not archive the project. Error: ${error instanceof Error ? error.message : 'Unknown error'}`, variant: "destructive" });
+    } finally {
+      setIsArchiving(false);
     }
   };
 
@@ -459,7 +478,9 @@ export default function ProjectInfoPage() {
   };
 
 
-  if (isLoading) return <div className="flex justify-center items-center h-64"><p>Loading projects...</p></div>;
+  if (isLoading) return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <p className="ml-2">Loading projects...</p></div>;
+  if (isArchiving) return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <p className="ml-2">Archiving project data...</p></div>;
+
 
   return ( 
     <div className="space-y-6">
@@ -564,7 +585,7 @@ export default function ProjectInfoPage() {
                   <Card> <CardHeader><CardTitle className="text-base font-semibold">Budget</CardTitle></CardHeader> <CardContent><p>{selectedProject.budget ? `$${selectedProject.budget.toLocaleString()}` : "$0"}</p></CardContent> </Card>
                   <Card> <CardHeader><CardTitle className="text-base font-semibold">Manager</CardTitle></CardHeader> <CardContent className="flex items-center gap-2"> <Avatar className="h-8 w-8"> <AvatarImage src={`https://placehold.co/40x40.png?text=${selectedProject.managerName ? selectedProject.managerName.substring(0,1).toUpperCase() : 'P'}`} alt={selectedProject.managerName || "Manager"} data-ai-hint="person avatar"/> <AvatarFallback>{selectedProject.managerName ? selectedProject.managerName.substring(0,1).toUpperCase() : "P"}</AvatarFallback> </Avatar> <p className="text-sm font-semibold">{selectedProject.managerName || "N/A"}</p> </CardContent> </Card>
                 </div>
-                {selectedProject.budget > 0 && typeof selectedProject.spent === 'number' && (
+                {selectedProject.budget && selectedProject.budget > 0 && typeof selectedProject.spent === 'number' && (
                   <Card className="mb-4"> <CardHeader><CardTitle className="text-base font-semibold">Budget Utilization</CardTitle></CardHeader> <CardContent> <Progress value={(selectedProject.spent / selectedProject.budget) * 100} className="h-2.5" /> <p className="text-sm text-muted-foreground mt-1"> ${(selectedProject.spent || 0).toLocaleString()} spent of ${selectedProject.budget.toLocaleString()} ({((selectedProject.spent / selectedProject.budget) * 100).toFixed(1)}%) </p> </CardContent> </Card>
                 )}
                 <h4 className="font-semibold text-lg text-foreground">Description</h4>
@@ -645,7 +666,10 @@ export default function ProjectInfoPage() {
 
         <div className="mt-6 flex justify-end gap-2">
             <Button variant="outline" onClick={() => handleOpenAddProjectDialog(selectedProject)}> <Edit3 className="mr-2 h-4 w-4" /> Edit Project </Button>
-             <Button variant="secondary" onClick={() => setShowArchiveConfirmDialog(true)}> <ArchiveIcon className="mr-2 h-4 w-4" /> Archive Project </Button>
+             <Button variant="secondary" onClick={() => setShowArchiveConfirmDialog(true)} disabled={isArchiving}> 
+                {isArchiving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArchiveIcon className="mr-2 h-4 w-4" />}
+                {isArchiving ? "Archiving..." : "Archive Project"}
+             </Button>
             <Button variant="destructive" onClick={handleDeleteProjectRequest}> <Trash2 className="mr-2 h-4 w-4" /> Delete Project </Button>
         </div>
 
@@ -716,14 +740,16 @@ export default function ProjectInfoPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Archive Project: {selectedProject?.name}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Archiving this project will move it to the "Archived Projects" section and remove it from the active list. 
+              Archiving this project will move it and its associated tasks and updates to the "Archived Projects" section and remove it from the active list. 
               You will still be able to view its details, but it cannot be edited or reactivated from this interface.
-              Sub-collections like Tasks and Updates will NOT be automatically moved with the project.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleArchiveProject}>Yes, Archive Project</AlertDialogAction>
+            <AlertDialogCancel onClick={() => setIsArchiving(false)} disabled={isArchiving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleArchiveProject} disabled={isArchiving}>
+                {isArchiving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {isArchiving ? "Archiving..." : "Yes, Archive Project"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -731,5 +757,3 @@ export default function ProjectInfoPage() {
     </div>
   );
 }
-
-    

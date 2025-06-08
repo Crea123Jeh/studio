@@ -9,17 +9,17 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
-import { collection, onSnapshot, query, orderBy, Timestamp } from "firebase/firestore";
+import { collection, onSnapshot, query, orderBy, Timestamp, getDocs, doc } from "firebase/firestore";
 import { format, formatDistanceToNow } from "date-fns";
-import { Archive as ArchiveIcon, FileText, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Archive as ArchiveIcon, FileText, ArrowUpDown, ArrowUp, ArrowDown, Briefcase, ListChecks, MessageCircle, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose, DialogFooter } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
-// Interfaces (mirroring ProjectData from project/page.tsx for consistency)
 interface UploadedFile {
   name: string;
   url: string;
@@ -36,31 +36,54 @@ interface ArchivedProjectData {
   startDate: Timestamp;
   endDate: Timestamp | null;
   budget: number; 
-  managerId?: string;
-  managerName?: string;
-  spent?: number; 
+  managerId?: string | null; // Allow null
+  managerName?: string | null; // Allow null
+  spent?: number | null; // Allow null
   createdAt: Timestamp;
-  lastUpdatedAt: Timestamp; // This would be the time it was archived or last updated before archive
+  lastUpdatedAt: Timestamp; // This is the original lastUpdatedAt
+  archivedAt: Timestamp; // This is when it was moved to archive
   uploadedFiles?: UploadedFile[];
 }
 
-type SortableArchivedProjectKeys = 'name' | 'status' | 'startDate' | 'lastUpdatedAt' | 'managerName';
+interface ArchivedTaskData {
+  id: string;
+  title: string;
+  description?: string;
+  status: "To Do" | "In Progress" | "Done";
+  dueDate: Timestamp;
+  createdAt: Timestamp;
+  lastUpdatedAt: Timestamp;
+}
+
+interface ArchivedUpdateNoteData {
+  id: string;
+  note: string;
+  date: Timestamp;
+  authorName?: string;
+  createdAt: Timestamp;
+}
+
+
+type SortableArchivedProjectKeys = 'name' | 'status' | 'startDate' | 'archivedAt' | 'managerName';
 
 
 export default function ArchivedProjectsPage() {
   const [archivedProjects, setArchivedProjects] = useState<ArchivedProjectData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFetchingSubcollections, setIsFetchingSubcollections] = useState(false);
   const [selectedArchivedProject, setSelectedArchivedProject] = useState<ArchivedProjectData | null>(null);
+  const [archivedTasks, setArchivedTasks] = useState<ArchivedTaskData[]>([]);
+  const [archivedUpdates, setArchivedUpdates] = useState<ArchivedUpdateNoteData[]>([]);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   
-  const [sortConfig, setSortConfig] = useState<{ key: SortableArchivedProjectKeys; direction: 'ascending' | 'descending' }>({ key: 'lastUpdatedAt', direction: 'descending' });
+  const [sortConfig, setSortConfig] = useState<{ key: SortableArchivedProjectKeys; direction: 'ascending' | 'descending' }>({ key: 'archivedAt', direction: 'descending' });
 
   const { toast } = useToast();
 
   useEffect(() => {
     setIsLoading(true);
     const archivedProjectsCollectionRef = collection(db, "archivedProjectsPPM");
-    const q = query(archivedProjectsCollectionRef, orderBy("lastUpdatedAt", "desc")); 
+    const q = query(archivedProjectsCollectionRef, orderBy("archivedAt", "desc")); 
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedProjects = snapshot.docs.map(docSnap => {
@@ -69,7 +92,7 @@ export default function ArchivedProjectsPage() {
           id: docSnap.id,
           name: data.name || "Untitled Archived Project",
           description: data.description || "No description",
-          status: data.status || "Completed", // Default to completed if status is missing
+          status: data.status || "Completed",
           startDate: data.startDate || Timestamp.now(),
           endDate: data.endDate || null,
           budget: data.budget || 0,
@@ -77,7 +100,8 @@ export default function ArchivedProjectsPage() {
           managerName: data.managerName || "N/A",
           spent: data.spent,
           createdAt: data.createdAt || Timestamp.now(),
-          lastUpdatedAt: data.lastUpdatedAt || Timestamp.now(),
+          lastUpdatedAt: data.lastUpdatedAt || data.createdAt || Timestamp.now(),
+          archivedAt: data.archivedAt || data.lastUpdatedAt || Timestamp.now(), // Fallback for older data
           uploadedFiles: data.uploadedFiles || [],
         } as ArchivedProjectData;
       });
@@ -90,6 +114,37 @@ export default function ArchivedProjectsPage() {
     });
     return () => unsubscribe();
   }, [toast]);
+
+  useEffect(() => {
+    if (selectedArchivedProject?.id && isDetailsDialogOpen) {
+      const fetchSubcollections = async () => {
+        setIsFetchingSubcollections(true);
+        try {
+          const tasksRef = collection(db, "archivedProjectsPPM", selectedArchivedProject.id, "tasks");
+          const tasksQuery = query(tasksRef, orderBy("createdAt", "desc"));
+          const tasksSnapshot = await getDocs(tasksQuery);
+          setArchivedTasks(tasksSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ArchivedTaskData)));
+
+          const updatesRef = collection(db, "archivedProjectsPPM", selectedArchivedProject.id, "updates");
+          const updatesQuery = query(updatesRef, orderBy("date", "desc"));
+          const updatesSnapshot = await getDocs(updatesQuery);
+          setArchivedUpdates(updatesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ArchivedUpdateNoteData)));
+
+        } catch (error) {
+          console.error("Error fetching subcollections for archived project: ", error);
+          toast({ title: "Error", description: "Could not fetch tasks or updates for the archived project.", variant: "destructive" });
+          setArchivedTasks([]);
+          setArchivedUpdates([]);
+        } finally {
+          setIsFetchingSubcollections(false);
+        }
+      };
+      fetchSubcollections();
+    } else {
+      setArchivedTasks([]);
+      setArchivedUpdates([]);
+    }
+  }, [selectedArchivedProject, isDetailsDialogOpen, toast]);
 
   const handleOpenDetailsDialog = (project: ArchivedProjectData) => {
     setSelectedArchivedProject(project);
@@ -132,7 +187,7 @@ export default function ArchivedProjectsPage() {
   }, [archivedProjects, sortConfig]);
 
 
-  if (isLoading) return <div className="flex justify-center items-center h-64"><p>Loading archived projects...</p></div>;
+  if (isLoading) return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">Loading archived projects...</p></div>;
 
   return (
     <div className="space-y-6">
@@ -140,7 +195,7 @@ export default function ArchivedProjectsPage() {
         <ArchiveIcon className="h-7 w-7 text-primary" />
         <h1 className="text-3xl font-bold font-headline tracking-tight">Archived Projects</h1>
       </div>
-      <CardDescription>View read-only details of projects that have been archived.</CardDescription>
+      <CardDescription>View read-only details of projects, tasks, and updates that have been archived.</CardDescription>
       
       {archivedProjects.length > 0 ? (
         <Card className="shadow-lg">
@@ -149,9 +204,9 @@ export default function ArchivedProjectsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead onClick={() => requestSort('name')} className="cursor-pointer hover:bg-muted/50">Name {getSortIcon('name')}</TableHead>
-                  <TableHead onClick={() => requestSort('status')} className="cursor-pointer hover:bg-muted/50">Status (Archived) {getSortIcon('status')}</TableHead>
+                  <TableHead onClick={() => requestSort('status')} className="cursor-pointer hover:bg-muted/50">Status (Original) {getSortIcon('status')}</TableHead>
                   <TableHead onClick={() => requestSort('managerName')} className="cursor-pointer hover:bg-muted/50">Manager {getSortIcon('managerName')}</TableHead>
-                  <TableHead onClick={() => requestSort('lastUpdatedAt')} className="cursor-pointer hover:bg-muted/50">Archived On {getSortIcon('lastUpdatedAt')}</TableHead>
+                  <TableHead onClick={() => requestSort('archivedAt')} className="cursor-pointer hover:bg-muted/50">Archived On {getSortIcon('archivedAt')}</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -166,14 +221,13 @@ export default function ArchivedProjectsPage() {
                           project.status === "In Progress" && "bg-primary text-primary-foreground", 
                           project.status === "On Hold" && "bg-secondary text-secondary-foreground", 
                           project.status === "Cancelled" && "bg-destructive text-destructive-foreground", 
-                          project.status === "Planning" && "bg-muted text-muted-foreground",
-                          "opacity-75" // Indicate archived state
+                          project.status === "Planning" && "bg-muted text-muted-foreground"
                         )}>
                         {project.status}
                       </Badge>
                     </TableCell>
                     <TableCell>{project.managerName || "N/A"}</TableCell>
-                    <TableCell>{formatDistanceToNow(project.lastUpdatedAt.toDate(), { addSuffix: true })}</TableCell>
+                    <TableCell>{project.archivedAt ? formatDistanceToNow(project.archivedAt.toDate(), { addSuffix: true }) : formatDistanceToNow(project.lastUpdatedAt.toDate(), { addSuffix: true })}</TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" onClick={() => handleOpenDetailsDialog(project)} className="h-8 w-8 hover:bg-accent/20" title="View Details">
                         <FileText className="h-4 w-4" />
@@ -198,54 +252,111 @@ export default function ArchivedProjectsPage() {
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Archived Project: {selectedArchivedProject?.name}</DialogTitle>
-            <DialogDescription>Read-only details. This project was archived on {selectedArchivedProject ? format(selectedArchivedProject.lastUpdatedAt.toDate(), "PPPp") : 'N/A'}.</DialogDescription>
+            <DialogDescription>Read-only details. This project was archived on {selectedArchivedProject ? format(selectedArchivedProject.archivedAt.toDate(), "PPPp") : 'N/A'}.</DialogDescription>
           </DialogHeader>
           {selectedArchivedProject && (
             <ScrollArea className="max-h-[70vh] p-1 pr-3">
-              <div className="space-y-4 py-4">
-                <h3 className="font-semibold text-lg text-foreground">Project Overview</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><Label>Name:</Label><p className="text-sm text-muted-foreground">{selectedArchivedProject.name}</p></div>
-                    <div><Label>Status (at archive):</Label><p><Badge variant={selectedArchivedProject.status === "Completed" ? "default" : "secondary"} className={cn(selectedArchivedProject.status === "Completed" && "bg-green-600 text-white", "opacity-75")}>{selectedArchivedProject.status}</Badge></p></div>
-                    <div><Label>Start Date:</Label><p className="text-sm text-muted-foreground">{format(selectedArchivedProject.startDate.toDate(), "PPP")}</p></div>
-                    <div><Label>End Date:</Label><p className="text-sm text-muted-foreground">{selectedArchivedProject.endDate ? format(selectedArchivedProject.endDate.toDate(), "PPP") : "N/A"}</p></div>
-                    <div><Label>Budget:</Label><p className="text-sm text-muted-foreground">${selectedArchivedProject.budget.toLocaleString()}</p></div>
-                    {typeof selectedArchivedProject.spent === 'number' && <div><Label>Spent:</Label><p className="text-sm text-muted-foreground">${selectedArchivedProject.spent.toLocaleString()}</p></div>}
-                     <div><Label>Manager:</Label>
-                        <div className="flex items-center gap-2 mt-1">
-                            <Avatar className="h-7 w-7">
-                                <AvatarImage src={`https://placehold.co/40x40.png?text=${selectedArchivedProject.managerName ? selectedArchivedProject.managerName.substring(0,1).toUpperCase() : 'P'}`} alt={selectedArchivedProject.managerName || "Manager"} data-ai-hint="person avatar small"/>
-                                <AvatarFallback>{selectedArchivedProject.managerName ? selectedArchivedProject.managerName.substring(0,1).toUpperCase() : "P"}</AvatarFallback>
-                            </Avatar>
-                            <span className="text-sm text-muted-foreground">{selectedArchivedProject.managerName || "N/A"}</span>
-                        </div>
-                    </div>
-                </div>
-                <div>
-                  <Label>Description:</Label>
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap p-2 bg-muted/30 rounded-md mt-1">{selectedArchivedProject.description}</p>
-                </div>
+              <Tabs defaultValue="overview" className="w-full mt-2">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="tasks">Tasks ({isFetchingSubcollections ? '...' : archivedTasks.length})</TabsTrigger>
+                  <TabsTrigger value="updates">Updates ({isFetchingSubcollections ? '...' : archivedUpdates.length})</TabsTrigger>
+                </TabsList>
 
-                {selectedArchivedProject.uploadedFiles && selectedArchivedProject.uploadedFiles.length > 0 && (
-                  <div className="mt-4">
-                    <h4 className="font-semibold text-md text-foreground mb-2">Archived Documents (if any from before UI removal):</h4>
-                    <ul className="space-y-2">
-                      {selectedArchivedProject.uploadedFiles.map((file, index) => (
-                        <li key={index} className="flex items-center justify-between p-2 border rounded-md">
-                           <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-primary" />
-                            <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-foreground hover:underline">
-                              {file.name}
-                            </a>
-                           </div>
-                          <span className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB</span>
-                        </li>
-                      ))}
-                    </ul>
+                <TabsContent value="overview" className="mt-4">
+                  <div className="space-y-4 py-4">
+                    <h3 className="font-semibold text-lg text-foreground">Project Overview</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><Label>Name:</Label><p className="text-sm text-muted-foreground">{selectedArchivedProject.name}</p></div>
+                        <div><Label>Status (at archive):</Label><p><Badge variant={selectedArchivedProject.status === "Completed" ? "default" : "secondary"} className={cn(selectedArchivedProject.status === "Completed" && "bg-green-600 text-white")}>{selectedArchivedProject.status}</Badge></p></div>
+                        <div><Label>Start Date:</Label><p className="text-sm text-muted-foreground">{format(selectedArchivedProject.startDate.toDate(), "PPP")}</p></div>
+                        <div><Label>End Date:</Label><p className="text-sm text-muted-foreground">{selectedArchivedProject.endDate ? format(selectedArchivedProject.endDate.toDate(), "PPP") : "N/A"}</p></div>
+                        <div><Label>Budget:</Label><p className="text-sm text-muted-foreground">${(selectedArchivedProject.budget ?? 0).toLocaleString()}</p></div>
+                        {typeof selectedArchivedProject.spent === 'number' && <div><Label>Spent:</Label><p className="text-sm text-muted-foreground">${selectedArchivedProject.spent.toLocaleString()}</p></div>}
+                         <div><Label>Manager:</Label>
+                            <div className="flex items-center gap-2 mt-1">
+                                <Avatar className="h-7 w-7">
+                                    <AvatarImage src={`https://placehold.co/40x40.png?text=${selectedArchivedProject.managerName ? selectedArchivedProject.managerName.substring(0,1).toUpperCase() : 'P'}`} alt={selectedArchivedProject.managerName || "Manager"} data-ai-hint="person avatar small"/>
+                                    <AvatarFallback>{selectedArchivedProject.managerName ? selectedArchivedProject.managerName.substring(0,1).toUpperCase() : "P"}</AvatarFallback>
+                                </Avatar>
+                                <span className="text-sm text-muted-foreground">{selectedArchivedProject.managerName || "N/A"}</span>
+                            </div>
+                        </div>
+                         <div><Label>Original Creation:</Label><p className="text-sm text-muted-foreground">{format(selectedArchivedProject.createdAt.toDate(), "PPPp")}</p></div>
+                         <div><Label>Original Last Update:</Label><p className="text-sm text-muted-foreground">{format(selectedArchivedProject.lastUpdatedAt.toDate(), "PPPp")}</p></div>
+                    </div>
+                    <div>
+                      <Label>Description:</Label>
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap p-2 bg-muted/30 rounded-md mt-1">{selectedArchivedProject.description}</p>
+                    </div>
+
+                    {selectedArchivedProject.uploadedFiles && selectedArchivedProject.uploadedFiles.length > 0 && (
+                      <div className="mt-4">
+                        <h4 className="font-semibold text-md text-foreground mb-2">Archived Documents:</h4>
+                        <ul className="space-y-2">
+                          {selectedArchivedProject.uploadedFiles.map((file, index) => (
+                            <li key={index} className="flex items-center justify-between p-2 border rounded-md">
+                               <div className="flex items-center gap-2">
+                                <FileText className="h-4 w-4 text-primary" />
+                                <a href={file.url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-foreground hover:underline">
+                                  {file.name}
+                                </a>
+                               </div>
+                              <span className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(1)} KB</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
-                )}
-                {/* Could add read-only views for tasks and updates here if needed in future */}
-              </div>
+                </TabsContent>
+                <TabsContent value="tasks" className="mt-4">
+                    {isFetchingSubcollections ? (
+                        <div className="flex justify-center items-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /><p className="ml-2">Loading tasks...</p></div>
+                    ) : archivedTasks.length > 0 ? (
+                        <div className="space-y-3">
+                        {archivedTasks.map(task => (
+                            <Card key={task.id} className="bg-muted/30">
+                                <CardHeader className="pb-2 pt-3 px-3">
+                                <div className="flex justify-between items-start">
+                                    <CardTitle className="text-sm font-semibold text-foreground">{task.title}</CardTitle>
+                                    <Badge variant={task.status === "Done" ? "default" : "secondary"} className={cn("text-xs", task.status === "Done" && "bg-green-500", task.status === "In Progress" && "bg-blue-500")}>{task.status}</Badge>
+                                </div>
+                                </CardHeader>
+                                <CardContent className="text-xs px-3 pb-3 space-y-0.5">
+                                {task.description && <p className="text-muted-foreground whitespace-pre-wrap">{task.description}</p>}
+                                <p className="text-primary/80 font-medium">Due: {task.dueDate ? format(task.dueDate.toDate(), "Pp") : "N/A"}</p>
+                                <p className="text-muted-foreground/80">Created: {task.createdAt ? formatDistanceToNow(task.createdAt.toDate(), { addSuffix: true }) : "N/A"}</p>
+                                </CardContent>
+                            </Card>
+                        ))}
+                        </div>
+                    ) : (
+                        <p className="text-muted-foreground text-center py-6">No tasks were archived with this project.</p>
+                    )}
+                </TabsContent>
+                <TabsContent value="updates" className="mt-4">
+                     {isFetchingSubcollections ? (
+                        <div className="flex justify-center items-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /><p className="ml-2">Loading updates...</p></div>
+                    ) : archivedUpdates.length > 0 ? (
+                        <div className="space-y-3">
+                        {archivedUpdates.map(update => (
+                            <Card key={update.id} className="bg-muted/30">
+                                <CardContent className="pt-3 px-3 pb-3 text-xs">
+                                <p className="text-foreground whitespace-pre-wrap">{update.note}</p>
+                                <p className="text-muted-foreground/80 mt-1.5">
+                                    Effective: {update.date ? format(update.date.toDate(), "Pp") : "N/A"} | By: {update.authorName || "System"}
+                                </p>
+                                </CardContent>
+                            </Card>
+                        ))}
+                        </div>
+                    ) : (
+                         <p className="text-muted-foreground text-center py-6">No updates were archived with this project.</p>
+                    )}
+                </TabsContent>
+
+              </Tabs>
             </ScrollArea>
           )}
           <DialogFooter className="mt-4">
@@ -256,5 +367,3 @@ export default function ArchivedProjectsPage() {
     </div>
   );
 }
-
-    
