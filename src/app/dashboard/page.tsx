@@ -95,7 +95,7 @@ export default function DashboardPage() {
             <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">
               Welcome back, {username || "User"}!
             </h1>
-            <p className="text-muted-foreground mt-1">Here's your PPM summary for today.</p>
+            <p className="text-muted-foreground mt-1 italic">Keine Daten Sind Immer Sicher</p>
           </div>
           <Image
             src={`https://placehold.co/80x80.png?text=${username ? username.charAt(0).toUpperCase() : 'U'}`}
