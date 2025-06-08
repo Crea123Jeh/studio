@@ -17,22 +17,24 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, deleteDoc, updateDoc, getDocs } from "firebase/firestore";
-import { format, isSameDay, startOfDay, formatDistanceToNow } from "date-fns";
-import { CalendarDays, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered, Trash2, Briefcase, Edit3, Timer, Users, Award, Bell, Check, ChevronsUpDown, ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, deleteDoc, updateDoc, getDocs, writeBatch } from "firebase/firestore";
+import { format, isSameDay, startOfDay, formatDistanceToNow, setHours, setMinutes, parse } from "date-fns";
+import { CalendarDays, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered, Trash2, Briefcase, Edit3, Timer, Users, Award, Bell, Check, ChevronsUpDown, ArrowDown, ArrowUp, ArrowUpDown, Clock } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 
 interface CalendarEvent {
   id: string;
-  date: Date;
+  startDateTime: Timestamp;
+  endDateTime?: Timestamp | null;
   title: string;
   description: string;
   type: "Deadline" | "Meeting" | "Milestone" | "Reminder";
   isProjectEvent?: boolean;
   projectId?: string;
-  createdAt?: Timestamp; // Added for sorting by newest
+  createdAt?: Timestamp;
+  loggedToActivity?: boolean;
 }
 
 interface ProjectOption {
@@ -42,7 +44,7 @@ interface ProjectOption {
 
 const eventTypes: CalendarEvent["type"][] = ["Deadline", "Meeting", "Milestone", "Reminder"];
 
-type SortableUpcomingEventKeys = 'title' | 'date' | 'type' | 'projectId' | 'createdAt';
+type SortableUpcomingEventKeys = 'title' | 'startDateTime' | 'type' | 'projectId' | 'createdAt';
 
 
 const calendarStyleProps = {
@@ -88,6 +90,8 @@ export default function CalendarEventsPage() {
   const [eventTitle, setEventTitle] = useState("");
   const [eventDescription, setEventDescription] = useState("");
   const [eventDate, setEventDate] = useState<Date | undefined>(new Date());
+  const [eventStartTime, setEventStartTime] = useState("09:00");
+  const [eventEndTime, setEventEndTime] = useState("10:00");
   const [eventType, setEventType] = useState<CalendarEvent["type"]>("Meeting");
   const [isProjectEvent, setIsProjectEvent] = useState(false);
   const [linkedProjectId, setLinkedProjectId] = useState<string | undefined>(undefined);
@@ -95,27 +99,84 @@ export default function CalendarEventsPage() {
   const [allProjects, setAllProjects] = useState<ProjectOption[]>([]);
   const [projectComboboxOpen, setProjectComboboxOpen] = useState(false);
 
-  const [upcomingSortConfig, setUpcomingSortConfig] = useState<{ key: SortableUpcomingEventKeys; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'ascending' });
+  const [upcomingSortConfig, setUpcomingSortConfig] = useState<{ key: SortableUpcomingEventKeys; direction: 'ascending' | 'descending' }>({ key: 'startDateTime', direction: 'ascending' });
 
   const { toast } = useToast();
 
+  const logEventToPreviousActivity = async (event: CalendarEvent) => {
+    if (!event.id || event.loggedToActivity) return;
+
+    let activityTitle = "";
+    let activityDetails = `Event: ${event.title}\nType: ${event.type}\nScheduled: ${format(event.startDateTime.toDate(), "PPpp")}`;
+    if (event.endDateTime) {
+      activityDetails += ` - ${format(event.endDateTime.toDate(), "pp")}`;
+    }
+
+    switch (event.type) {
+      case "Meeting":
+        activityTitle = `Meeting Ended: ${event.title}`;
+        break;
+      case "Deadline":
+        activityTitle = `Deadline Passed: ${event.title}`;
+        break;
+      default:
+        // For Milestones and Reminders, we might not automatically log them as "past" in the same way,
+        // or the user might manually log related activities. For now, only log Meetings and Deadlines.
+        return;
+    }
+
+    const activityLogEntry = {
+      title: activityTitle,
+      details: activityDetails,
+      date: Timestamp.now(), // Logged at the time of detection
+      source: "PPM Calendar Event",
+      sourceEventId: event.id,
+      originalEventTime: event.startDateTime,
+    };
+
+    try {
+      const batch = writeBatch(db);
+      const activityLogRef = doc(collection(db, "activityLogEntries"));
+      batch.set(activityLogRef, activityLogEntry);
+
+      const calendarEventRef = doc(db, "calendarEvents", event.id);
+      batch.update(calendarEventRef, { loggedToActivity: true });
+
+      await batch.commit();
+      console.log(`Event "${event.title}" logged to previous activity.`);
+    } catch (error) {
+      console.error("Error logging event to previous activity:", error);
+      // Do not toast here to avoid spamming user if many events are processed
+    }
+  };
+
+
   useEffect(() => {
     const eventsCollection = collection(db, "calendarEvents");
-    const q = query(eventsCollection, orderBy("date", "asc"));
+    const q = query(eventsCollection, orderBy("startDateTime", "asc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedEvents = snapshot.docs.map(docSnap => {
         const data = docSnap.data();
-        return {
+        const event = {
           id: docSnap.id,
           title: data.title,
           description: data.description,
           type: data.type,
-          date: (data.date as Timestamp).toDate(),
+          startDateTime: data.startDateTime as Timestamp,
+          endDateTime: data.endDateTime ? (data.endDateTime as Timestamp) : null,
           isProjectEvent: data.isProjectEvent || false,
           projectId: data.projectId,
           createdAt: data.createdAt ? (data.createdAt as Timestamp) : undefined,
+          loggedToActivity: data.loggedToActivity || false,
         } as CalendarEvent;
+
+        // Auto-log past events
+        if (event.endDateTime && event.endDateTime.toDate() < new Date() && !event.loggedToActivity && (event.type === "Meeting" || event.type === "Deadline")) {
+          logEventToPreviousActivity(event);
+          // Optimistically update the local state for loggedToActivity if needed, or rely on next snapshot
+        }
+        return event;
       });
       setEvents(fetchedEvents);
     }, (error) => {
@@ -155,7 +216,10 @@ export default function CalendarEventsPage() {
   const resetForm = () => {
     setEventTitle("");
     setEventDescription("");
-    setEventDate(selectedDate || new Date());
+    const defaultDate = selectedDate || new Date();
+    setEventDate(defaultDate);
+    setEventStartTime(format(defaultDate, "HH:mm"));
+    setEventEndTime(format(setHours(defaultDate, defaultDate.getHours() + 1), "HH:mm"));
     setEventType("Meeting");
     setIsProjectEvent(false);
     setLinkedProjectId(undefined);
@@ -164,7 +228,10 @@ export default function CalendarEventsPage() {
 
   const openAddDialog = () => {
     resetForm();
-    setEventDate(startOfDay(selectedDate || new Date()));
+    const newEventDate = startOfDay(selectedDate || new Date());
+    setEventDate(newEventDate);
+    setEventStartTime("09:00"); 
+    setEventEndTime("10:00");
     setIsAddEditDialogOpen(true);
   };
 
@@ -172,7 +239,14 @@ export default function CalendarEventsPage() {
     setEditingEvent(event);
     setEventTitle(event.title);
     setEventDescription(event.description);
-    setEventDate(event.date);
+    setEventDate(event.startDateTime.toDate());
+    setEventStartTime(format(event.startDateTime.toDate(), "HH:mm"));
+    if (event.endDateTime) {
+      setEventEndTime(format(event.endDateTime.toDate(), "HH:mm"));
+    } else {
+      // Default end time if none exists (e.g. 1 hour after start)
+      setEventEndTime(format(setHours(event.startDateTime.toDate(), event.startDateTime.toDate().getHours() + 1), "HH:mm"));
+    }
     setEventType(event.type);
     setIsProjectEvent(event.isProjectEvent || false);
     setLinkedProjectId(event.projectId);
@@ -203,7 +277,7 @@ export default function CalendarEventsPage() {
   
   const eventsForSelectedDate = useMemo(() => {
     if (!selectedDate) return [];
-    return events.filter(event => isSameDay(event.date, selectedDate));
+    return events.filter(event => isSameDay(event.startDateTime.toDate(), selectedDate));
   }, [events, selectedDate]);
   
   const requestUpcomingSort = (key: SortableUpcomingEventKeys) => {
@@ -222,9 +296,9 @@ export default function CalendarEventsPage() {
   };
   
   const sortedAllUpcomingEvents = useMemo(() => {
-    const today = startOfDay(new Date());
+    const today = new Date(); // Use full date-time for comparison
     let filteredEvents = events
-        .filter(event => event.date >= today)
+        .filter(event => event.startDateTime.toDate() >= startOfDay(today)) // Keep showing events from today onwards
         .map(event => ({
             ...event,
             createdAtDate: event.createdAt ? event.createdAt.toDate() : new Date(0) 
@@ -239,11 +313,15 @@ export default function CalendarEventsPage() {
                 aValue = a.createdAtDate.getTime();
                 bValue = b.createdAtDate.getTime();
             } else if (upcomingSortConfig.key === 'projectId') {
-                const aProjectName = a.isProjectEvent && a.projectId ? allProjects.find(p => p.id === a.projectId)?.name || 'zzzz' : 'zzzz'; // 'zzzz' to sort N/A last
+                const aProjectName = a.isProjectEvent && a.projectId ? allProjects.find(p => p.id === a.projectId)?.name || 'zzzz' : 'zzzz'; 
                 const bProjectName = b.isProjectEvent && b.projectId ? allProjects.find(p => p.id === b.projectId)?.name || 'zzzz' : 'zzzz';
                 aValue = aProjectName;
                 bValue = bProjectName;
-            } else {
+            } else if (upcomingSortConfig.key === 'startDateTime') {
+                 aValue = a.startDateTime.toDate();
+                 bValue = b.startDateTime.toDate();
+            }
+             else {
                 aValue = a[upcomingSortConfig.key];
                 bValue = b[upcomingSortConfig.key];
             }
@@ -297,10 +375,10 @@ export default function CalendarEventsPage() {
   
   const handleSaveEvent = async (e: FormEvent) => {
     e.preventDefault();
-    if (!eventTitle || !eventDate) {
+    if (!eventTitle || !eventDate || !eventStartTime) { // End time can be optional
       toast({
         title: "Missing Information",
-        description: "Please provide a title and date for the event.",
+        description: "Please provide title, date, and start time.",
         variant: "destructive",
       });
       return;
@@ -314,13 +392,28 @@ export default function CalendarEventsPage() {
       return;
     }
 
-    const eventData: Partial<CalendarEvent> & {date: Timestamp, title: string, type: CalendarEvent["type"]} = {
+    const [startHours, startMinutes] = eventStartTime.split(':').map(Number);
+    let finalStartDateTime = setMinutes(setHours(eventDate, startHours), startMinutes);
+    
+    let finalEndDateTime: Timestamp | null = null;
+    if (eventEndTime) {
+      const [endHours, endMinutes] = eventEndTime.split(':').map(Number);
+      let tempEndDateTime = setMinutes(setHours(eventDate, endHours), endMinutes);
+      if (tempEndDateTime <= finalStartDateTime) { // If end time is before or same as start, make it 1 hour after start
+          tempEndDateTime = setHours(finalStartDateTime, finalStartDateTime.getHours() + 1);
+      }
+      finalEndDateTime = Timestamp.fromDate(tempEndDateTime);
+    }
+
+
+    const eventData: Omit<CalendarEvent, 'id' | 'createdAt' | 'loggedToActivity'> & { createdAt?: Timestamp, loggedToActivity?: boolean } = {
       title: eventTitle,
       description: eventDescription,
       type: eventType,
-      date: Timestamp.fromDate(startOfDay(eventDate)),
+      startDateTime: Timestamp.fromDate(finalStartDateTime),
+      endDateTime: finalEndDateTime,
       isProjectEvent: isProjectEvent,
-      projectId: isProjectEvent ? linkedProjectId : undefined, // Ensure it's undefined not null for Firestore consistency if not set
+      projectId: isProjectEvent ? linkedProjectId : undefined,
     };
 
     try {
@@ -335,7 +428,8 @@ export default function CalendarEventsPage() {
           description: `"${eventTitle}" has been updated.`,
         });
       } else {
-        eventData.createdAt = Timestamp.now(); // Add createdAt for new events
+        eventData.createdAt = Timestamp.now();
+        eventData.loggedToActivity = false;
         await addDoc(collection(db, "calendarEvents"), eventData);
         toast({
           title: "Event Added",
@@ -358,7 +452,10 @@ export default function CalendarEventsPage() {
     if (!isAddEditDialogOpen) {
         resetForm();
     } else if (!editingEvent && selectedDate) { 
-        setEventDate(startOfDay(selectedDate));
+        const newEventDate = startOfDay(selectedDate);
+        setEventDate(newEventDate);
+        setEventStartTime("09:00");
+        setEventEndTime("10:00");
     }
   }, [isAddEditDialogOpen, selectedDate, editingEvent]);
 
@@ -371,10 +468,16 @@ export default function CalendarEventsPage() {
       Reminder: Bell,
     };
     const IconComponent = typeIcons[event.type];
+    const now = new Date();
+    const isPast = event.endDateTime ? event.endDateTime.toDate() < now : event.startDateTime.toDate() < now;
+
 
     return (
     <Card 
-      className="hover:shadow-xl hover:ring-2 hover:ring-primary/50 transition-all duration-200 ease-in-out border-l-4"
+      className={cn(
+        "hover:shadow-xl hover:ring-2 hover:ring-primary/50 transition-all duration-200 ease-in-out border-l-4",
+        isPast && event.loggedToActivity && "opacity-60 bg-muted/30"
+        )}
       style={{ borderLeftColor: eventTypeBorderColors[event.type] }}
     >
       <CardHeader className="p-4 pb-2">
@@ -403,7 +506,13 @@ export default function CalendarEventsPage() {
         </div>
       </CardHeader>
       <CardContent className="p-4 pt-1">
-        <p className="text-sm font-semibold text-muted-foreground mb-1.5">{format(event.date, "EEEE, MMMM d, yyyy")}</p>
+        <p className="text-sm font-semibold text-muted-foreground mb-1.5">
+            {format(event.startDateTime.toDate(), "EEEE, MMMM d, yyyy")}
+            <span className="ml-2 text-primary font-medium">
+                {format(event.startDateTime.toDate(), "p")}
+                {event.endDateTime && ` - ${format(event.endDateTime.toDate(), "p")}`}
+            </span>
+        </p>
         <p className="text-sm text-muted-foreground break-words">{event.description || <span className="italic">No description provided.</span>}</p>
         {event.isProjectEvent && event.projectId && (
           <p className="text-xs text-muted-foreground mt-2 flex items-center pt-1.5 border-t border-border/50 min-w-0">
@@ -412,6 +521,9 @@ export default function CalendarEventsPage() {
                 Project: {allProjects.find(p => p.id === event.projectId)?.name || <span className="italic">ID: {event.projectId}</span>}
             </span>
           </p>
+        )}
+        {isPast && event.loggedToActivity && (
+            <p className="text-xs italic text-green-600 mt-2 pt-1.5 border-t border-border/50">Logged to Previous Activity</p>
         )}
       </CardContent>
     </Card>
@@ -431,7 +543,7 @@ export default function CalendarEventsPage() {
               {editingEvent ? "Edit Event" : "Add Event"}
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-lg"> {/* Increased width slightly */}
             <DialogHeader>
               <DialogTitle>{editingEvent ? "Edit Event" : "Add New Event"}</DialogTitle>
               <DialogDescription>
@@ -460,6 +572,14 @@ export default function CalendarEventsPage() {
                     <Calendar mode="single" selected={eventDate} onSelect={(date) => date && setEventDate(startOfDay(date))} initialFocus month={eventDate} onMonthChange={setEventDate} />
                   </PopoverContent>
                 </Popover>
+              </div>
+               <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="event-start-time" className="text-right">Start Time</Label>
+                <Input id="event-start-time" type="time" value={eventStartTime} onChange={(e) => setEventStartTime(e.target.value)} className="col-span-3" required />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="event-end-time" className="text-right">End Time</Label>
+                 <Input id="event-end-time" type="time" value={eventEndTime} onChange={(e) => setEventEndTime(e.target.value)} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="event-type" className="text-right">Type</Label>
@@ -553,7 +673,7 @@ export default function CalendarEventsPage() {
               classNames={calendarStyleProps.classNames}
               components={{
                 DayContent: ({ date, displayMonth }) => {
-                  const dayEvents = events.filter(event => isSameDay(event.date, date));
+                  const dayEvents = events.filter(event => isSameDay(event.startDateTime.toDate(), date));
                   const isCurrentMonth = date.getMonth() === displayMonth.getMonth();
                   return (
                     <div className={cn("relative h-full w-full flex flex-col items-center justify-center")}>
@@ -584,19 +704,18 @@ export default function CalendarEventsPage() {
             <h3 className="text-xl font-semibold mb-4 pb-2 border-b text-foreground">
               Events for: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
             </h3>
-            <ScrollArea className="pr-2">
-              {eventsForSelectedDate.length > 0 ? (
-                <ul className="space-y-4">
-                  {eventsForSelectedDate.map((event) => (<li key={event.id}><EventCard event={event} showActions={true} /></li>))}
-                </ul>
-              ) : (
-                <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50">
-                  <Info className="h-12 w-12 text-primary/70 mb-3 animate-pulse"/>
-                  <p className="text-muted-foreground font-medium text-lg">{selectedDate ? "No Events Scheduled" : "Select a Date"}</p>
-                  <p className="text-sm text-muted-foreground mt-1">{selectedDate ? "There are no events for this day." : "Click on a day in the calendar."}</p>
-                </div>
-              )}
-            </ScrollArea>
+            {/* Removed ScrollArea and max-h-* here */}
+            {eventsForSelectedDate.length > 0 ? (
+              <ul className="space-y-4">
+                {eventsForSelectedDate.map((event) => (<li key={event.id}><EventCard event={event} showActions={true} /></li>))}
+              </ul>
+            ) : (
+              <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50 min-h-[150px]"> {/* Added min-height for empty state */}
+                <Info className="h-12 w-12 text-primary/70 mb-3 animate-pulse"/>
+                <p className="text-muted-foreground font-medium text-lg">{selectedDate ? "No Events Scheduled" : "Select a Date"}</p>
+                <p className="text-sm text-muted-foreground mt-1">{selectedDate ? "There are no events for this day." : "Click on a day in the calendar."}</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -609,7 +728,7 @@ export default function CalendarEventsPage() {
           </CardTitle>
           <CardDescription>A list of all scheduled events, sortable by column.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent> {/* Removed ScrollArea and max-h-* here */}
           {sortedAllUpcomingEvents.length > 0 ? (
             <Table>
               <TableHeader>
@@ -617,8 +736,8 @@ export default function CalendarEventsPage() {
                   <TableHead onClick={() => requestUpcomingSort('title')} className="cursor-pointer hover:bg-muted/50">
                     <div className="flex items-center">Title {getUpcomingSortIcon('title')}</div>
                   </TableHead>
-                  <TableHead onClick={() => requestUpcomingSort('date')} className="cursor-pointer hover:bg-muted/50">
-                     <div className="flex items-center">Date {getUpcomingSortIcon('date')}</div>
+                  <TableHead onClick={() => requestUpcomingSort('startDateTime')} className="cursor-pointer hover:bg-muted/50">
+                     <div className="flex items-center">Date & Time {getUpcomingSortIcon('startDateTime')}</div>
                   </TableHead>
                   <TableHead onClick={() => requestUpcomingSort('type')} className="cursor-pointer hover:bg-muted/50">
                     <div className="flex items-center">Type {getUpcomingSortIcon('type')}</div>
@@ -636,7 +755,13 @@ export default function CalendarEventsPage() {
                 {sortedAllUpcomingEvents.map((event) => (
                   <TableRow key={event.id} className="hover:bg-muted/50">
                     <TableCell className="font-medium text-foreground">{event.title}</TableCell>
-                    <TableCell>{format(event.date, "PP")}</TableCell>
+                    <TableCell>
+                        {format(event.startDateTime.toDate(), "PP")}<br/>
+                        <span className="text-xs text-primary">
+                            {format(event.startDateTime.toDate(), "p")}
+                            {event.endDateTime && ` - ${format(event.endDateTime.toDate(), "p")}`}
+                        </span>
+                    </TableCell>
                     <TableCell><Badge className={cn(getBadgeClassNames(event.type))}>{event.type}</Badge></TableCell>
                     <TableCell className="hidden md:table-cell text-xs">
                       {event.isProjectEvent && event.projectId 
@@ -670,4 +795,3 @@ export default function CalendarEventsPage() {
     </div>
   );
 }
-

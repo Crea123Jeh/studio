@@ -1,28 +1,27 @@
 
 "use client";
 
-import { useState, useEffect, type FormEvent, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button, buttonVariants } from "@/components/ui/button"; // Keep Button for PopoverTrigger
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, onSnapshot, query, where, Timestamp, doc, deleteDoc, updateDoc, orderBy } from "firebase/firestore";
+import { collection, onSnapshot, query, orderBy, Timestamp } from "firebase/firestore";
 import { format, isSameDay, startOfDay } from "date-fns";
-import { History, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered, Trash2, Edit3, MessageSquare } from "lucide-react";
+import { History, Info, MessageSquare, CalendarIcon as LucideCalendarIcon } from "lucide-react";
 
 interface ActivityLogEntry {
   id: string; 
-  date: Date;
+  date: Timestamp; // Date the activity was logged or occurred
   title: string; 
   details: string;
+  source?: string; // e.g., "PPM Calendar Event"
+  sourceEventId?: string; 
+  originalEventTime?: Timestamp; 
 }
 
 const calendarStyleProps = {
@@ -62,17 +61,11 @@ export default function PreviousActivityPage() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   
-  const [isAddEditDialogOpen, setIsAddEditDialogOpen] = useState(false);
-  const [editingLog, setEditingLog] = useState<ActivityLogEntry | null>(null);
-  
-  const [logTitle, setLogTitle] = useState("");
-  const [logDetails, setLogDetails] = useState("");
-  const [logDate, setLogDate] = useState<Date | undefined>(new Date());
-
   const { toast } = useToast();
 
   useEffect(() => {
     const logsCollection = collection(db, "activityLogEntries");
+    // Sort by 'date' which represents when the activity was logged or occurred
     const q = query(logsCollection, orderBy("date", "desc")); 
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -82,7 +75,10 @@ export default function PreviousActivityPage() {
           id: docSnap.id,
           title: data.title,
           details: data.details,
-          date: (data.date as Timestamp).toDate(),
+          date: data.date as Timestamp, // This is the primary date for filtering/display
+          source: data.source,
+          sourceEventId: data.sourceEventId,
+          originalEventTime: data.originalEventTime as Timestamp,
         } as ActivityLogEntry;
       });
       setActivityLogs(fetchedLogs);
@@ -97,131 +93,33 @@ export default function PreviousActivityPage() {
 
     return () => unsubscribe();
   }, [toast]);
-
-  const resetForm = () => {
-    setLogTitle("");
-    setLogDetails("");
-    setLogDate(selectedDate || new Date());
-    setEditingLog(null);
-  };
-
-  const openAddDialog = () => {
-    resetForm();
-    setLogDate(startOfDay(selectedDate || new Date())); 
-    setIsAddEditDialogOpen(true);
-  };
-
-  const openEditDialog = (log: ActivityLogEntry) => {
-    setEditingLog(log);
-    setLogTitle(log.title);
-    setLogDetails(log.details);
-    setLogDate(log.date);
-    setIsAddEditDialogOpen(true);
-  };
-
-  const handleDeleteLog = async (logId: string) => {
-    if (!logId || typeof logId !== 'string' || logId.trim() === '') {
-        toast({ title: "Deletion Error", description: "Invalid log ID.", variant: "destructive"});
-        return;
-    }
-    try {
-      await deleteDoc(doc(db, "activityLogEntries", logId));
-      toast({
-        title: "Activity Log Deleted",
-        description: "The activity log entry has been successfully deleted.",
-      });
-    } catch (error) {
-      console.error("Error deleting log: ", error);
-      toast({
-        title: "Error Deleting Log",
-        description: "Could not delete the log. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
   
   const logsForSelectedDate = useMemo(() => {
     if (!selectedDate) return [];
+    // Filter logs based on their 'date' field (when they were logged or occurred)
     return activityLogs
-        .filter(log => isSameDay(log.date, selectedDate))
-        .sort((a,b) => b.date.getTime() - a.date.getTime()); 
+        .filter(log => isSameDay(log.date.toDate(), selectedDate))
+        .sort((a,b) => b.date.toDate().getTime() - a.date.toDate().getTime()); 
   }, [activityLogs, selectedDate]);
   
-  const handleSaveLog = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!logTitle || !logDetails || !logDate) {
-      toast({
-        title: "Missing Information",
-        description: "Please provide title, details, and date for the log.",
-        variant: "destructive",
-      });
-      return;
-    }
 
-    const logData = {
-      title: logTitle,
-      details: logDetails,
-      date: Timestamp.fromDate(startOfDay(logDate)), 
-    };
-
-    try {
-      if (editingLog) {
-         if (!editingLog.id) {
-            toast({ title: "Update Error", description: "Invalid log ID for update.", variant: "destructive"});
-            return;
-        }
-        await updateDoc(doc(db, "activityLogEntries", editingLog.id), logData);
-        toast({
-          title: "Activity Log Updated",
-          description: `The log for "${logTitle}" has been updated.`,
-        });
-      } else {
-        await addDoc(collection(db, "activityLogEntries"), logData);
-        toast({
-          title: "Activity Log Added",
-          description: `A new log "${logTitle}" has been added.`,
-        });
-      }
-      resetForm();
-      setIsAddEditDialogOpen(false);
-    } catch (error) {
-      console.error("Error saving log: ", error);
-      toast({
-        title: "Error",
-        description: "Could not save the log. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-  
-  useEffect(() => {
-    if (!isAddEditDialogOpen) {
-        resetForm(); 
-    }
-  }, [isAddEditDialogOpen, selectedDate]);
-
-  const LogCard = ({ log, showActions = false }: { log: ActivityLogEntry, showActions?: boolean }) => (
+  const LogCard = ({ log }: { log: ActivityLogEntry }) => (
     <Card className="hover:shadow-md transition-shadow duration-200 ease-in-out border-l-4 border-muted-foreground">
       <CardHeader className="p-4 pb-2">
         <div className="flex justify-between items-start gap-2">
            <CardTitle className="text-md leading-tight">{log.title}</CardTitle>
-           {showActions && (
-                <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => openEditDialog(log)} title="Edit Log">
-                    <Edit3 className="h-4 w-4" />
-                    <span className="sr-only">Edit log</span>
-                </Button>
-                 <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteLog(log.id)} title="Delete Log">
-                    <Trash2 className="h-4 w-4" />
-                    <span className="sr-only">Delete log</span>
-                  </Button>
-                </div>
-            )}
+           {/* Actions removed */}
         </div>
-         <CardDescription className="text-xs">{format(log.date, "PPP")}</CardDescription>
+         <CardDescription className="text-xs">Logged: {format(log.date.toDate(), "PPPp")}</CardDescription>
+         {log.originalEventTime && (
+            <CardDescription className="text-xs italic">
+                Original Event Time: {format(log.originalEventTime.toDate(), "PPPp")}
+            </CardDescription>
+         )}
       </CardHeader>
       <CardContent className="p-4 pt-1">
         <p className="text-sm text-muted-foreground whitespace-pre-wrap">{log.details}</p>
+        {log.source && <p className="text-xs text-muted-foreground mt-2">Source: {log.source}</p>}
       </CardContent>
     </Card>
   );
@@ -233,50 +131,7 @@ export default function PreviousActivityPage() {
           <History className="h-7 w-7 text-primary" />
           <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">Previous Activity Log</h1>
         </div>
-        <Dialog open={isAddEditDialogOpen} onOpenChange={setIsAddEditDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" onClick={openAddDialog}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Add Activity Log
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>{editingLog ? "Edit Activity Log" : "Add New Activity Log"}</DialogTitle>
-              <DialogDescription>
-                {editingLog ? "Update the details for this activity." : `Log an activity that occurred on ${logDate ? format(logDate, "PPP") : "the selected date"}.`}
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSaveLog} className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="log-title" className="text-right">Title/Summary</Label>
-                <Input id="log-title" value={logTitle} onChange={(e) => setLogTitle(e.target.value)} className="col-span-3" required placeholder="Brief title or summary"/>
-              </div>
-              <div className="grid grid-cols-4 items-start gap-4">
-                <Label htmlFor="log-details" className="text-right pt-2">Details</Label>
-                <Textarea id="log-details" value={logDetails} onChange={(e) => setLogDetails(e.target.value)} className="col-span-3" rows={5} required placeholder="Detailed notes about the activity..."/>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="log-date" className="text-right">Date of Activity</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant={"outline"} className={cn("col-span-3 justify-start text-left font-normal", !logDate && "text-muted-foreground")}>
-                      <LucideCalendarIcon className="mr-2 h-4 w-4" />
-                      {logDate ? format(logDate, "PPP") : <span>Pick a date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar mode="single" selected={logDate} onSelect={(date) => date && setLogDate(startOfDay(date))} initialFocus month={logDate} onMonthChange={setLogDate}/>
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <DialogFooter>
-                <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-                <Button type="submit">{editingLog ? "Save Changes" : "Save Log Entry"}</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        {/* "Add Activity Log" button and dialog removed */}
       </div>
 
       <Card className="shadow-lg">
@@ -292,7 +147,7 @@ export default function PreviousActivityPage() {
               classNames={calendarStyleProps.classNames}
               components={{
                 DayContent: ({ date, displayMonth }) => {
-                  const dayHasLog = activityLogs.some(log => isSameDay(log.date, date));
+                  const dayHasLog = activityLogs.some(log => isSameDay(log.date.toDate(), date));
                   const isCurrentMonth = date.getMonth() === displayMonth.getMonth();
                   return (
                     <div className="relative h-full w-full flex flex-col items-center justify-center">
@@ -311,12 +166,12 @@ export default function PreviousActivityPage() {
           <div className="md:col-span-1">
             <h3 className="text-xl font-semibold mb-4 pb-2 border-b flex items-center gap-2 text-foreground">
                 <MessageSquare className="h-5 w-5 text-primary"/>
-                Activities for: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
+                Activities Logged On: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
             </h3>
             <ScrollArea className="max-h-[calc(100vh-450px)] pr-2">
               {logsForSelectedDate.length > 0 ? (
                 <ul className="space-y-4">
-                  {logsForSelectedDate.map((log) => (<li key={log.id}><LogCard log={log} showActions={true}/></li>))}
+                  {logsForSelectedDate.map((log) => (<li key={log.id}><LogCard log={log} /></li>))}
                 </ul>
               ) : (
                 <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50">
@@ -332,5 +187,3 @@ export default function PreviousActivityPage() {
     </div>
   );
 }
-
-    
