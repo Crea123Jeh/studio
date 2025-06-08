@@ -128,7 +128,7 @@ function AppSidebar() {
 
   return (
     <>
-      <SidebarHeader className="pl-2 pr-3 py-3 flex items-center">
+      <SidebarHeader className="pl-5 pr-3 py-3 flex items-center">
         <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
            <div className="bg-accent rounded-full h-7 w-7 flex items-center justify-center">
              <Building className="h-4 w-4 text-white" />
