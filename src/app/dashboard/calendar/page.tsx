@@ -87,7 +87,7 @@ export default function CalendarEventsPage() {
   const [linkedProjectId, setLinkedProjectId] = useState<string | undefined>(undefined);
 
   const [allProjects, setAllProjects] = useState<ProjectOption[]>([]);
-  const [projectComboboxOpen, setProjectComboboxOpen] = React.useState(false);
+  const [projectComboboxOpen, setProjectComboboxOpen] = useState(false);
 
   const { toast } = useToast();
 
@@ -563,3 +563,4 @@ export default function CalendarEventsPage() {
     </div>
   );
 }
+
