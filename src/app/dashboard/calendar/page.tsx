@@ -17,7 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, deleteDoc, updateDoc } from "firebase/firestore";
+import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, deleteDoc, updateDoc, getDocs } from "firebase/firestore";
 import { format, isSameDay, startOfDay } from "date-fns";
 import { CalendarDays, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered, Trash2, Briefcase, Edit3, Timer, Users, Award, Bell } from "lucide-react";
 
@@ -31,13 +31,12 @@ interface CalendarEvent {
   projectId?: string; 
 }
 
-const eventTypes: CalendarEvent["type"][] = ["Deadline", "Meeting", "Milestone", "Reminder"];
+interface ProjectOption {
+  id: string;
+  name: string;
+}
 
-const MOCK_PROJECTS = [
-  { id: "proj_alpha_centauri", name: "Project Alpha Centauri" },
-  { id: "proj_beta_initiative", name: "Project Beta Initiative" },
-  { id: "proj_gamma_exploration", name: "Project Gamma Exploration" },
-];
+const eventTypes: CalendarEvent["type"][] = ["Deadline", "Meeting", "Milestone", "Reminder"];
 
 const calendarStyleProps = {
   className: "bg-muted p-4 rounded-xl shadow-lg w-full",
@@ -86,6 +85,8 @@ export default function CalendarEventsPage() {
   const [isProjectEvent, setIsProjectEvent] = useState(false);
   const [linkedProjectId, setLinkedProjectId] = useState<string | undefined>(undefined);
 
+  const [allProjects, setAllProjects] = useState<ProjectOption[]>([]);
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -116,6 +117,28 @@ export default function CalendarEventsPage() {
     });
 
     return () => unsubscribe();
+  }, [toast]);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const projectsQuery = query(collection(db, "projectsPPM"), orderBy("name", "asc"));
+        const querySnapshot = await getDocs(projectsQuery);
+        const fetchedProjects = querySnapshot.docs.map(docSnap => ({
+          id: docSnap.id,
+          name: docSnap.data().name || "Unnamed Project"
+        } as ProjectOption));
+        setAllProjects(fetchedProjects);
+      } catch (error) {
+        console.error("Error fetching projects for calendar: ", error);
+        toast({
+          title: "Error Fetching Projects",
+          description: "Could not load project list for linking events.",
+          variant: "destructive",
+        });
+      }
+    };
+    fetchProjects();
   }, [toast]);
 
   const resetForm = () => {
@@ -320,7 +343,7 @@ export default function CalendarEventsPage() {
         {event.isProjectEvent && event.projectId && (
           <p className="text-xs text-muted-foreground mt-2 flex items-center pt-1.5 border-t border-border/50">
             <Briefcase className="h-3.5 w-3.5 mr-1.5 text-primary" />
-            Project: {MOCK_PROJECTS.find(p => p.id === event.projectId)?.name || event.projectId}
+            Project: {allProjects.find(p => p.id === event.projectId)?.name || event.projectId}
           </p>
         )}
       </CardContent>
@@ -399,7 +422,11 @@ export default function CalendarEventsPage() {
                         <SelectValue placeholder="Select linked project" />
                     </SelectTrigger>
                     <SelectContent>
-                        {MOCK_PROJECTS.map(proj => (<SelectItem key={proj.id} value={proj.id}>{proj.name}</SelectItem>))}
+                        {allProjects.length > 0 ? (
+                            allProjects.map(proj => (<SelectItem key={proj.id} value={proj.id}>{proj.name}</SelectItem>))
+                        ) : (
+                            <SelectItem value="loading" disabled>Loading projects...</SelectItem>
+                        )}
                     </SelectContent>
                     </Select>
                 </div>
@@ -457,7 +484,7 @@ export default function CalendarEventsPage() {
             <h3 className="text-xl font-semibold mb-4 pb-2 border-b text-foreground">
               Events for: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
             </h3>
-            <ScrollArea className="pr-2"> 
+            <ScrollArea className="pr-2 max-h-[calc(100vh-450px)]"> {/* Explicit max-height for scroll test */}
               {eventsForSelectedDate.length > 0 ? (
                 <ul className="space-y-4">
                   {eventsForSelectedDate.map((event) => (<li key={event.id}><EventCard event={event} showActions={true} /></li>))}
@@ -484,7 +511,7 @@ export default function CalendarEventsPage() {
         </CardHeader>
         <CardContent>
           {allUpcomingEvents.length > 0 ? (
-            <ScrollArea className="pr-2">
+            <ScrollArea className="pr-2 max-h-[400px]"> {/* Explicit max-height for scroll test */}
               <ul className="space-y-4">
                 {allUpcomingEvents.map((event) => (<li key={`${event.id}-upcoming`}><EventCard event={event} showActions={true} /></li>))}
               </ul>
@@ -501,5 +528,3 @@ export default function CalendarEventsPage() {
     </div>
   );
 }
-
-    
