@@ -76,7 +76,7 @@ export default function TeamChatPage() {
           <CardTitle className="flex items-center gap-2 text-foreground text-lg"><Users className="h-5 w-5 text-primary"/>Channels</CardTitle>
           <CardDescription className="text-xs">Select a channel.</CardDescription>
         </CardHeader>
-        <CardContent className="p-0 flex-grow">
+        <CardContent className="p-0 pt-px flex-grow">
           <ScrollArea className="h-full">
             <nav className="p-1.5 space-y-0.5">
             {channels.map(channel => (
@@ -154,5 +154,3 @@ export default function TeamChatPage() {
     </div>
   );
 }
-
-    
