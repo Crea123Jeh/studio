@@ -522,12 +522,12 @@ const SidebarMenuItem = React.forwardRef<
 SidebarMenuItem.displayName = "SidebarMenuItem"
 
 const sidebarMenuButtonVariants = cva(
-  "mx-1 peer/menu-button flex w-full items-center gap-2 overflow-hidden outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 rounded-md",
+  "mx-1 peer/menu-button flex w-full items-center gap-2 outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
   {
     variants: {
       visualState: {
-        active: "bg-sidebar-accent font-medium text-sidebar-accent-foreground [&>svg]:text-destructive-foreground",
-        inactive: "[&>svg]:text-primary",
+        active: "bg-sidebar-accent font-medium text-sidebar-accent-foreground [&>svg]:text-destructive-foreground rounded-md",
+        inactive: "[&>svg]:text-primary rounded-md",
       },
       variant: { 
         default: "", 
@@ -776,3 +776,4 @@ export {
   SidebarTrigger,
   useSidebar,
 }
+
