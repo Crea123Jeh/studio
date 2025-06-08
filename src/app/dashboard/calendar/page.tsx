@@ -115,9 +115,13 @@ export default function CalendarEventsPage() {
 
     let activityTitle = "";
     let activityDetails = `Event: ${event.title}\nType: ${event.type}\nScheduled: ${format(event.startDateTime.toDate(), "PPpp")}`;
-    if (event.endDateTime) {
+    if (event.endDateTime && event.type !== "Milestone" && event.type !== "Deadline") {
       activityDetails += ` - ${format(event.endDateTime.toDate(), "pp")}`;
     }
+    if (event.description) {
+      activityDetails += `\nDescription: ${event.description}`;
+    }
+
 
     switch (event.type) {
       case "Meeting":
@@ -126,7 +130,7 @@ export default function CalendarEventsPage() {
       case "Deadline":
         activityTitle = `Deadline Passed: ${event.title}`;
         break;
-      default: // Should not happen due to caller filtering
+      default: 
         console.warn(`Attempted to log event of unhandled type for archiving: ${event.type}`);
         return;
     }
@@ -151,7 +155,6 @@ export default function CalendarEventsPage() {
 
       await batch.commit();
       console.log(`Event "${event.title}" (ID: ${event.id}) logged to previous activity and deleted from calendar.`);
-      // No toast for successful archival to keep UI clean, event will disappear.
     } catch (error) {
       console.error(`Error logging and deleting event "${event.title}" (ID: ${event.id}):`, error);
       toast({
@@ -173,7 +176,7 @@ export default function CalendarEventsPage() {
 
       const fetchedEvents = snapshot.docs.map(docSnap => {
         const data = docSnap.data();
-        const event: CalendarEvent = { // Explicitly type here
+        const event: CalendarEvent = { 
           id: docSnap.id,
           title: data.title,
           description: data.description,
@@ -181,14 +184,14 @@ export default function CalendarEventsPage() {
           startDateTime: data.startDateTime as Timestamp,
           endDateTime: data.endDateTime ? (data.endDateTime as Timestamp) : null,
           isProjectEvent: data.isProjectEvent || false,
-          projectId: data.projectId,
+          projectId: data.projectId || null,
           createdAt: data.createdAt ? (data.createdAt as Timestamp) : undefined,
         };
+        
+        const eventMomentForArchival = event.endDateTime ? event.endDateTime.toDate() : event.startDateTime.toDate();
 
-        // Auto-log and archive past meetings/deadlines
         if (
-            event.endDateTime &&
-            event.endDateTime.toDate() < now &&
+            eventMomentForArchival < now &&
             (event.type === "Meeting" || event.type === "Deadline")
         ) {
           eventsToArchive.push(event);
@@ -196,14 +199,11 @@ export default function CalendarEventsPage() {
         return event;
       });
 
-      // Process events for archival outside the map
       for (const eventToLog of eventsToArchive) {
         logEventToPreviousActivityAndArchive(eventToLog);
       }
       
-      // The local state will be updated. Firestore will eventually send a new snapshot
-      // reflecting the deletions, which will cause a re-render.
-      setEvents(fetchedEvents);
+      setEvents(fetchedEvents.filter(event => !eventsToArchive.some(archived => archived.id === event.id)));
     }, (error) => {
       console.error("Error fetching calendar events: ", error);
       toast({
@@ -264,14 +264,19 @@ export default function CalendarEventsPage() {
     setEditingEvent(event);
     setEventTitle(event.title);
     setEventDescription(event.description);
+    setEventType(event.type);
     setEventDate(event.startDateTime.toDate());
     setEventStartTime(format(event.startDateTime.toDate(), "HH:mm"));
-    if (event.endDateTime) {
-      setEventEndTime(format(event.endDateTime.toDate(), "HH:mm"));
+    if (event.type === "Meeting" || event.type === "Reminder") {
+      if (event.endDateTime) {
+        setEventEndTime(format(event.endDateTime.toDate(), "HH:mm"));
+      } else {
+         // Default to 1 hour after start if no end time for Meeting/Reminder
+        setEventEndTime(format(setHours(event.startDateTime.toDate(), event.startDateTime.toDate().getHours() + 1), "HH:mm"));
+      }
     } else {
-      setEventEndTime(format(setHours(event.startDateTime.toDate(), event.startDateTime.toDate().getHours() + 1), "HH:mm"));
+      setEventEndTime(""); // Clear end time for Milestone/Deadline
     }
-    setEventType(event.type);
     setIsProjectEvent(event.isProjectEvent || false);
     setLinkedProjectId(event.projectId || null);
     setIsAddEditDialogOpen(true);
@@ -420,13 +425,19 @@ export default function CalendarEventsPage() {
     let finalStartDateTime = setMinutes(setHours(eventDate, startHours), startMinutes);
     
     let finalEndDateTime: Timestamp | null = null;
-    if (eventEndTime) {
-      const [endHours, endMinutes] = eventEndTime.split(':').map(Number);
-      let tempEndDateTime = setMinutes(setHours(eventDate, endHours), endMinutes);
-      if (tempEndDateTime <= finalStartDateTime) { 
-          tempEndDateTime = setHours(finalStartDateTime, finalStartDateTime.getHours() + 1);
-      }
-      finalEndDateTime = Timestamp.fromDate(tempEndDateTime);
+    if (eventType === "Meeting" || eventType === "Reminder") {
+        if (eventEndTime) {
+            const [endHours, endMinutes] = eventEndTime.split(':').map(Number);
+            let tempEndDateTime = setMinutes(setHours(eventDate, endHours), endMinutes);
+            if (tempEndDateTime <= finalStartDateTime) { 
+                toast({title: "Invalid Time", description: "End time must be after start time.", variant: "destructive"});
+                tempEndDateTime = setHours(finalStartDateTime, finalStartDateTime.getHours() + 1); 
+            }
+            finalEndDateTime = Timestamp.fromDate(tempEndDateTime);
+        } else {
+             // Default to 1 hour duration if no end time for Meeting/Reminder
+            finalEndDateTime = Timestamp.fromDate(setHours(finalStartDateTime, finalStartDateTime.getHours() + 1));
+        }
     }
 
 
@@ -492,6 +503,8 @@ export default function CalendarEventsPage() {
     };
     const IconComponent = typeIcons[event.type];
 
+    const isPointInTime = event.type === "Milestone" || event.type === "Deadline";
+
     return (
     <Card 
       className={cn(
@@ -529,7 +542,7 @@ export default function CalendarEventsPage() {
             {format(event.startDateTime.toDate(), "EEEE, MMMM d, yyyy")}
             <span className="ml-2 text-primary font-medium">
                 {format(event.startDateTime.toDate(), "p")}
-                {event.endDateTime && ` - ${format(event.endDateTime.toDate(), "p")}`}
+                {!isPointInTime && event.endDateTime && ` - ${format(event.endDateTime.toDate(), "p")}`}
             </span>
         </p>
         <p className="text-sm text-muted-foreground break-words">{event.description || <span className="italic">No description provided.</span>}</p>
@@ -593,10 +606,12 @@ export default function CalendarEventsPage() {
                 <Label htmlFor="event-start-time" className="text-right">Start Time</Label>
                 <Input id="event-start-time" type="time" value={eventStartTime} onChange={(e) => setEventStartTime(e.target.value)} className="col-span-3" required />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="event-end-time" className="text-right">End Time</Label>
-                 <Input id="event-end-time" type="time" value={eventEndTime} onChange={(e) => setEventEndTime(e.target.value)} className="col-span-3" />
-              </div>
+              {(eventType === "Meeting" || eventType === "Reminder") && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="event-end-time" className="text-right">End Time</Label>
+                  <Input id="event-end-time" type="time" value={eventEndTime} onChange={(e) => setEventEndTime(e.target.value)} className="col-span-3" />
+                </div>
+              )}
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="event-type" className="text-right">Type</Label>
                 <Select value={eventType} onValueChange={(value) => setEventType(value as CalendarEvent["type"])}>
@@ -767,35 +782,38 @@ export default function CalendarEventsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedAllUpcomingEvents.map((event) => (
-                  <TableRow key={event.id} className="hover:bg-muted/50">
-                    <TableCell className="font-medium text-foreground">{event.title}</TableCell>
-                    <TableCell>
-                        {format(event.startDateTime.toDate(), "PP")}<br/>
-                        <span className="text-xs text-primary">
-                            {format(event.startDateTime.toDate(), "p")}
-                            {event.endDateTime && ` - ${format(event.endDateTime.toDate(), "p")}`}
-                        </span>
-                    </TableCell>
-                    <TableCell><Badge className={cn(getBadgeClassNames(event.type))}>{event.type}</Badge></TableCell>
-                    <TableCell className="hidden md:table-cell text-xs">
-                      {event.isProjectEvent && event.projectId 
-                        ? (allProjects.find(p => p.id === event.projectId)?.name || <span className="italic">ID: {event.projectId}</span>) 
-                        : <span className="italic text-muted-foreground">N/A</span>}
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell text-xs">
-                      {event.createdAt ? formatDistanceToNow(event.createdAt.toDate(), { addSuffix: true }) : <span className="italic text-muted-foreground">N/A</span>}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => openEditDialog(event)} title="Edit Event">
-                          <Edit3 className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteEvent(event.id)} title="Delete Event">
-                          <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {sortedAllUpcomingEvents.map((event) => {
+                  const isPointInTime = event.type === "Milestone" || event.type === "Deadline";
+                  return (
+                    <TableRow key={event.id} className="hover:bg-muted/50">
+                      <TableCell className="font-medium text-foreground">{event.title}</TableCell>
+                      <TableCell>
+                          {format(event.startDateTime.toDate(), "PP")}<br/>
+                          <span className="text-xs text-primary">
+                              {format(event.startDateTime.toDate(), "p")}
+                              {!isPointInTime && event.endDateTime && ` - ${format(event.endDateTime.toDate(), "p")}`}
+                          </span>
+                      </TableCell>
+                      <TableCell><Badge className={cn(getBadgeClassNames(event.type))}>{event.type}</Badge></TableCell>
+                      <TableCell className="hidden md:table-cell text-xs">
+                        {event.isProjectEvent && event.projectId 
+                          ? (allProjects.find(p => p.id === event.projectId)?.name || <span className="italic">ID: {event.projectId}</span>) 
+                          : <span className="italic text-muted-foreground">N/A</span>}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-xs">
+                        {event.createdAt ? formatDistanceToNow(event.createdAt.toDate(), { addSuffix: true }) : <span className="italic text-muted-foreground">N/A</span>}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => openEditDialog(event)} title="Edit Event">
+                            <Edit3 className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteEvent(event.id)} title="Delete Event">
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           ) : (
@@ -810,3 +828,4 @@ export default function CalendarEventsPage() {
     </div>
   );
 }
+

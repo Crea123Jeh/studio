@@ -17,10 +17,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 interface ActivityLogEntry {
   id: string; 
-  date: Timestamp; // Date the activity was logged or occurred
+  date: Timestamp; 
   title: string; 
   details: string;
-  source?: string; // e.g., "PPM Calendar Event"
+  source?: string; 
   sourceEventId?: string; 
   originalEventTime?: Timestamp; 
 }
@@ -126,12 +126,12 @@ export default function PreviousActivityPage() {
         if (sortConfig.key === 'date' || sortConfig.key === 'originalEventTime') {
             const aDate = a[sortConfig.key] ? (a[sortConfig.key] as Timestamp).toDate().getTime() : 0;
             const bDate = b[sortConfig.key] ? (b[sortConfig.key] as Timestamp).toDate().getTime() : 0;
-            if(!a[sortConfig.key]) return sortConfig.direction === 'ascending' ? -1 : 1; // Put nulls/undefined last or first
+            if(!a[sortConfig.key]) return sortConfig.direction === 'ascending' ? -1 : 1; 
             if(!b[sortConfig.key]) return sortConfig.direction === 'ascending' ? 1 : -1;
             aValue = aDate;
             bValue = bDate;
         } else {
-            aValue = a[sortConfig.key] || ''; // Handle undefined for string comparison
+            aValue = a[sortConfig.key] || ''; 
             bValue = b[sortConfig.key] || '';
         }
         
@@ -238,5 +238,3 @@ export default function PreviousActivityPage() {
   );
 }
 
-
-    
