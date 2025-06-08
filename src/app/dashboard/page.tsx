@@ -89,7 +89,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <Card className="shadow-lg bg-gradient-to-br from-sky-300 to-sky-100 border-sky-200">
+      <Card className="shadow-lg bg-gradient-to-br from-yellow-300 to-yellow-100 border-yellow-200">
         <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">
