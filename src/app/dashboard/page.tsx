@@ -44,18 +44,15 @@ interface FeatureCardProps {
   value?: string | number;
   valueLabel?: string;
   ctaLabel?: string;
-  iconBgColor?: string; // Tailwind background color class e.g., "bg-primary", "bg-pink-500"
 }
 
-const FeatureCard: React.FC<FeatureCardProps> = ({ title, description, icon: Icon, link, value, valueLabel, ctaLabel = "View Details", iconBgColor = "bg-primary" }) => {
+const FeatureCard: React.FC<FeatureCardProps> = ({ title, description, icon: Icon, link, value, valueLabel, ctaLabel = "View Details" }) => {
   const router = useRouter();
   return (
     <Card className="shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300 ease-in-out flex flex-col">
       <CardHeader className="pb-3">
         <div className="flex items-center gap-3 mb-2">
-          <div className={cn("p-2.5 rounded-lg", iconBgColor)}>
-            <Icon className="h-5 w-5 text-white" />
-          </div>
+          <Icon className="h-7 w-7 text-primary" />
           <CardTitle className="text-lg font-semibold text-foreground">{title}</CardTitle>
         </div>
         <CardDescription className="text-xs leading-relaxed min-h-[30px]">{description}</CardDescription>
@@ -138,7 +135,6 @@ export default function DashboardPage() {
             link="/dashboard/calendar"
             value={data.upcomingPpmEvents.length}
             valueLabel="Upcoming Events"
-            iconBgColor="bg-blue-500"
           />
           <FeatureCard
             title="Birthday Calendar"
@@ -147,7 +143,6 @@ export default function DashboardPage() {
             link="/dashboard/birthday-calendar"
             value={data.todaysBirthdays.length}
             valueLabel="Birthdays Today"
-            iconBgColor="bg-pink-500"
           />
           <FeatureCard
             title="Academic Calendar"
@@ -156,7 +151,6 @@ export default function DashboardPage() {
             link="/dashboard/academic-calendar"
             value={data.upcomingAcademicEvents.length}
             valueLabel="Upcoming Academic Events"
-            iconBgColor="bg-indigo-500"
           />
           <FeatureCard
             title="Information Hub"
@@ -164,7 +158,6 @@ export default function DashboardPage() {
             icon={Info}
             link="/dashboard/information"
             ctaLabel="Explore Hub"
-            iconBgColor="bg-teal-500"
           />
           <FeatureCard
             title="Knowledge Hub"
@@ -172,7 +165,6 @@ export default function DashboardPage() {
             icon={BookOpen}
             link="/dashboard/knowledge"
             ctaLabel="Learn More"
-            iconBgColor="bg-purple-500"
           />
           <FeatureCard
             title="Quick Add Event"
@@ -180,7 +172,6 @@ export default function DashboardPage() {
             icon={PlusCircle}
             link="/dashboard/calendar" // Ideally opens add dialog
             ctaLabel="Add PPM Event"
-            iconBgColor="bg-green-500"
           />
         </div>
       </div>
