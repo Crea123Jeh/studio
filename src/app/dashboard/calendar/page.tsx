@@ -19,7 +19,8 @@ import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, deleteDoc, updateDoc, getDocs } from "firebase/firestore";
 import { format, isSameDay, startOfDay } from "date-fns";
-import { CalendarDays, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered, Trash2, Briefcase, Edit3, Timer, Users, Award, Bell } from "lucide-react";
+import { CalendarDays, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered, Trash2, Briefcase, Edit3, Timer, Users, Award, Bell, Check, ChevronsUpDown } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
 interface CalendarEvent {
   id: string;
@@ -86,6 +87,7 @@ export default function CalendarEventsPage() {
   const [linkedProjectId, setLinkedProjectId] = useState<string | undefined>(undefined);
 
   const [allProjects, setAllProjects] = useState<ProjectOption[]>([]);
+  const [projectComboboxOpen, setProjectComboboxOpen] = React.useState(false);
 
   const { toast } = useToast();
 
@@ -416,19 +418,52 @@ export default function CalendarEventsPage() {
               </div>
               {isProjectEvent && (
                 <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="linked-project-id" className="text-right">Project</Label>
-                    <Select value={linkedProjectId} onValueChange={setLinkedProjectId}>
-                    <SelectTrigger className="col-span-3" id="linked-project-id">
-                        <SelectValue placeholder="Select linked project" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {allProjects.length > 0 ? (
-                            allProjects.map(proj => (<SelectItem key={proj.id} value={proj.id}>{proj.name}</SelectItem>))
-                        ) : (
-                            <SelectItem value="loading" disabled>Loading projects...</SelectItem>
-                        )}
-                    </SelectContent>
-                    </Select>
+                  <Label htmlFor="linked-project-id-combobox" className="text-right">Project</Label>
+                  <Popover open={projectComboboxOpen} onOpenChange={setProjectComboboxOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={projectComboboxOpen}
+                        className="col-span-3 justify-between"
+                        id="linked-project-id-combobox"
+                      >
+                        {linkedProjectId
+                          ? allProjects.find((project) => project.id === linkedProjectId)?.name
+                          : "Select project..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="col-span-3 p-0 w-[--radix-popover-trigger-width]">
+                      <Command>
+                        <CommandInput placeholder="Search project..." />
+                        <CommandEmpty>No project found.</CommandEmpty>
+                        <CommandList>
+                          <CommandGroup>
+                            {allProjects.map((project) => (
+                              <CommandItem
+                                key={project.id}
+                                value={project.name}
+                                onSelect={(currentValue) => {
+                                  const selectedProj = allProjects.find(p => p.name.toLowerCase() === currentValue.toLowerCase());
+                                  setLinkedProjectId(selectedProj ? selectedProj.id : undefined);
+                                  setProjectComboboxOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    linkedProjectId === project.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {project.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               )}
               <DialogFooter>
