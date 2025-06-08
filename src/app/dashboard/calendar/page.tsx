@@ -32,7 +32,7 @@ interface CalendarEvent {
   description: string;
   type: "Deadline" | "Meeting" | "Milestone" | "Reminder";
   isProjectEvent?: boolean;
-  projectId?: string;
+  projectId?: string | null;
   createdAt?: Timestamp;
   loggedToActivity?: boolean;
 }
@@ -249,7 +249,7 @@ export default function CalendarEventsPage() {
     }
     setEventType(event.type);
     setIsProjectEvent(event.isProjectEvent || false);
-    setLinkedProjectId(event.projectId);
+    setLinkedProjectId(event.projectId || undefined);
     setIsAddEditDialogOpen(true);
   };
 
@@ -413,7 +413,7 @@ export default function CalendarEventsPage() {
       startDateTime: Timestamp.fromDate(finalStartDateTime),
       endDateTime: finalEndDateTime,
       isProjectEvent: isProjectEvent,
-      projectId: isProjectEvent ? linkedProjectId : undefined,
+      projectId: isProjectEvent ? linkedProjectId : null,
     };
 
     try {
@@ -795,3 +795,4 @@ export default function CalendarEventsPage() {
     </div>
   );
 }
+
