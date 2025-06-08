@@ -100,9 +100,9 @@ export default function DashboardPage() {
               </h1>
               <p className="text-muted-foreground mt-1">Keine Daten Sind Immer Sicher</p>
             </div>
-            <Avatar className="h-16 w-16 border-2 border-primary/50 shadow-md">
-              <AvatarImage src={`https://placehold.co/64x64.png?text=${username ? username.charAt(0).toUpperCase() : 'U'}`} alt={username || "User"} data-ai-hint="user avatar large" />
-              <AvatarFallback className="text-2xl">{username ? username.charAt(0).toUpperCase() : "U"}</AvatarFallback>
+            <Avatar className="h-20 w-20 border-2 border-primary/50 shadow-md">
+              <AvatarImage src={`https://placehold.co/80x80.png?text=${username ? username.charAt(0).toUpperCase() : 'U'}`} alt={username || "User"} data-ai-hint="user avatar large" />
+              <AvatarFallback className="text-3xl">{username ? username.charAt(0).toUpperCase() : "U"}</AvatarFallback>
             </Avatar>
           </div>
           <div className="flex flex-wrap gap-2 mt-2">
