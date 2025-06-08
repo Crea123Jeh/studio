@@ -12,6 +12,8 @@ import {
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
 
 // Mock data for dashboard - in a real app, this would come from API/Firestore hooks
 const mockDashboardData = {
@@ -90,12 +92,18 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <Card className="shadow-lg bg-gradient-to-br from-secondary to-card border-border">
-        <CardContent className="p-6 flex flex-col items-start gap-4">
-          <div>
-            <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">
-              Welcome back, {username || "User"}!
-            </h1>
-            <p className="text-muted-foreground mt-1">Keine Daten Sind Immer Sicher</p>
+        <CardContent className="p-6 flex flex-col gap-4">
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">
+                Welcome back, {username || "User"}!
+              </h1>
+              <p className="text-muted-foreground mt-1">Keine Daten Sind Immer Sicher</p>
+            </div>
+            <Avatar className="h-16 w-16 border-2 border-primary/50 shadow-md">
+              <AvatarImage src={`https://placehold.co/64x64.png?text=${username ? username.charAt(0).toUpperCase() : 'U'}`} alt={username || "User"} data-ai-hint="user avatar large" />
+              <AvatarFallback className="text-2xl">{username ? username.charAt(0).toUpperCase() : "U"}</AvatarFallback>
+            </Avatar>
           </div>
           <div className="flex flex-wrap gap-2 mt-2">
             <Button 
