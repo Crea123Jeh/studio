@@ -541,8 +541,8 @@ export default function CalendarEventsPage() {
       </div>
 
       <Card className="shadow-lg">
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6">
-          <div className="md:col-span-2 min-w-0">
+        <CardContent className="grid grid-cols-1 gap-y-8 pt-6">
+          <div className="min-w-0">
            <Calendar
               mode="single"
               selected={selectedDate}
@@ -580,11 +580,11 @@ export default function CalendarEventsPage() {
               }}
             />
           </div>
-          <div className="md:col-span-1">
+          <div>
             <h3 className="text-xl font-semibold mb-4 pb-2 border-b text-foreground">
               Events for: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
             </h3>
-            <ScrollArea className="max-h-[calc(100vh-450px)] pr-2">
+            <ScrollArea className="pr-2">
               {eventsForSelectedDate.length > 0 ? (
                 <ul className="space-y-4">
                   {eventsForSelectedDate.map((event) => (<li key={event.id}><EventCard event={event} showActions={true} /></li>))}
