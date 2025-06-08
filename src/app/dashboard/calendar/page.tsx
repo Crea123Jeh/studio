@@ -18,9 +18,11 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, deleteDoc, updateDoc, getDocs } from "firebase/firestore";
-import { format, isSameDay, startOfDay } from "date-fns";
-import { CalendarDays, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered, Trash2, Briefcase, Edit3, Timer, Users, Award, Bell, Check, ChevronsUpDown } from "lucide-react";
+import { format, isSameDay, startOfDay, formatDistanceToNow } from "date-fns";
+import { CalendarDays, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered, Trash2, Briefcase, Edit3, Timer, Users, Award, Bell, Check, ChevronsUpDown, ArrowDown, ArrowUp } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
 
 interface CalendarEvent {
   id: string;
@@ -29,7 +31,8 @@ interface CalendarEvent {
   description: string;
   type: "Deadline" | "Meeting" | "Milestone" | "Reminder";
   isProjectEvent?: boolean;
-  projectId?: string; 
+  projectId?: string;
+  createdAt?: Timestamp; // Added for sorting by newest
 }
 
 interface ProjectOption {
@@ -38,6 +41,9 @@ interface ProjectOption {
 }
 
 const eventTypes: CalendarEvent["type"][] = ["Deadline", "Meeting", "Milestone", "Reminder"];
+
+type SortableUpcomingEventKeys = 'title' | 'date' | 'type' | 'projectId' | 'createdAt';
+
 
 const calendarStyleProps = {
   className: "bg-muted p-4 rounded-xl shadow-lg w-full",
@@ -89,6 +95,8 @@ export default function CalendarEventsPage() {
   const [allProjects, setAllProjects] = useState<ProjectOption[]>([]);
   const [projectComboboxOpen, setProjectComboboxOpen] = useState(false);
 
+  const [upcomingSortConfig, setUpcomingSortConfig] = useState<{ key: SortableUpcomingEventKeys; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'ascending' });
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -106,6 +114,7 @@ export default function CalendarEventsPage() {
           date: (data.date as Timestamp).toDate(),
           isProjectEvent: data.isProjectEvent || false,
           projectId: data.projectId,
+          createdAt: data.createdAt ? (data.createdAt as Timestamp) : undefined,
         } as CalendarEvent;
       });
       setEvents(fetchedEvents);
@@ -197,12 +206,65 @@ export default function CalendarEventsPage() {
     return events.filter(event => isSameDay(event.date, selectedDate));
   }, [events, selectedDate]);
   
-  const allUpcomingEvents = useMemo(() => {
+  const requestUpcomingSort = (key: SortableUpcomingEventKeys) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (upcomingSortConfig && upcomingSortConfig.key === key && upcomingSortConfig.direction === 'ascending') {
+        direction = 'descending';
+    }
+    setUpcomingSortConfig({ key, direction });
+  };
+
+  const getUpcomingSortIcon = (key: SortableUpcomingEventKeys) => {
+      if (!upcomingSortConfig || upcomingSortConfig.key !== key) {
+          return <ArrowUpDown className="ml-1 h-3 w-3 opacity-40" />;
+      }
+      return upcomingSortConfig.direction === 'ascending' ? <ArrowUp className="ml-1 h-3 w-3" /> : <ArrowDown className="ml-1 h-3 w-3" />;
+  };
+  
+  const sortedAllUpcomingEvents = useMemo(() => {
     const today = startOfDay(new Date());
-    return events
-      .filter(event => event.date >= today)
-      .sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [events]);
+    let filteredEvents = events
+        .filter(event => event.date >= today)
+        .map(event => ({
+            ...event,
+            createdAtDate: event.createdAt ? event.createdAt.toDate() : new Date(0) 
+        }));
+
+    if (upcomingSortConfig) {
+        filteredEvents.sort((a, b) => {
+            let aValue: any;
+            let bValue: any;
+
+            if (upcomingSortConfig.key === 'createdAt') {
+                aValue = a.createdAtDate.getTime();
+                bValue = b.createdAtDate.getTime();
+            } else if (upcomingSortConfig.key === 'projectId') {
+                const aProjectName = a.isProjectEvent && a.projectId ? allProjects.find(p => p.id === a.projectId)?.name || 'zzzz' : 'zzzz'; // 'zzzz' to sort N/A last
+                const bProjectName = b.isProjectEvent && b.projectId ? allProjects.find(p => p.id === b.projectId)?.name || 'zzzz' : 'zzzz';
+                aValue = aProjectName;
+                bValue = bProjectName;
+            } else {
+                aValue = a[upcomingSortConfig.key];
+                bValue = b[upcomingSortConfig.key];
+            }
+
+            if (aValue instanceof Date && bValue instanceof Date) {
+                return upcomingSortConfig.direction === 'ascending' ? aValue.getTime() - bValue.getTime() : bValue.getTime() - aValue.getTime();
+            }
+            if (typeof aValue === 'string' && typeof bValue === 'string') {
+                const valA = aValue.toLowerCase();
+                const valB = bValue.toLowerCase();
+                return upcomingSortConfig.direction === 'ascending' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            }
+             if (typeof aValue === 'number' && typeof bValue === 'number') {
+                 return upcomingSortConfig.direction === 'ascending' ? aValue - bValue : bValue - aValue;
+            }
+            return 0;
+        });
+    }
+    return filteredEvents;
+  }, [events, upcomingSortConfig, allProjects]);
+
 
   const eventTypeDotColors: Record<CalendarEvent["type"], string> = {
     Deadline: "bg-destructive", 
@@ -252,13 +314,13 @@ export default function CalendarEventsPage() {
       return;
     }
 
-    const eventData = {
+    const eventData: Partial<CalendarEvent> & {date: Timestamp, title: string, type: CalendarEvent["type"]} = {
       title: eventTitle,
       description: eventDescription,
       type: eventType,
       date: Timestamp.fromDate(startOfDay(eventDate)),
       isProjectEvent: isProjectEvent,
-      projectId: isProjectEvent ? linkedProjectId : null,
+      projectId: isProjectEvent ? linkedProjectId : undefined, // Ensure it's undefined not null for Firestore consistency if not set
     };
 
     try {
@@ -273,6 +335,7 @@ export default function CalendarEventsPage() {
           description: `"${eventTitle}" has been updated.`,
         });
       } else {
+        eventData.createdAt = Timestamp.now(); // Add createdAt for new events
         await addDoc(collection(db, "calendarEvents"), eventData);
         toast({
           title: "Event Added",
@@ -346,7 +409,7 @@ export default function CalendarEventsPage() {
           <p className="text-xs text-muted-foreground mt-2 flex items-center pt-1.5 border-t border-border/50 min-w-0">
             <Briefcase className="h-3.5 w-3.5 mr-1.5 text-primary shrink-0" />
             <span className="truncate">
-                Project: {allProjects.find(p => p.id === event.projectId)?.name || event.projectId}
+                Project: {allProjects.find(p => p.id === event.projectId)?.name || <span className="italic">ID: {event.projectId}</span>}
             </span>
           </p>
         )}
@@ -521,7 +584,7 @@ export default function CalendarEventsPage() {
             <h3 className="text-xl font-semibold mb-4 pb-2 border-b text-foreground">
               Events for: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
             </h3>
-            <ScrollArea className="pr-2">
+            <ScrollArea className="max-h-[calc(100vh-450px)] pr-2">
               {eventsForSelectedDate.length > 0 ? (
                 <ul className="space-y-4">
                   {eventsForSelectedDate.map((event) => (<li key={event.id}><EventCard event={event} showActions={true} /></li>))}
@@ -544,15 +607,57 @@ export default function CalendarEventsPage() {
             <ListOrdered className="h-6 w-6 text-primary" />
             All Upcoming Events
           </CardTitle>
-          <CardDescription>A list of all scheduled events, sorted by date.</CardDescription>
+          <CardDescription>A list of all scheduled events, sortable by column.</CardDescription>
         </CardHeader>
         <CardContent>
-          {allUpcomingEvents.length > 0 ? (
-            <ScrollArea className="pr-2">
-              <ul className="space-y-4">
-                {allUpcomingEvents.map((event) => (<li key={`${event.id}-upcoming`}><EventCard event={event} showActions={true} /></li>))}
-              </ul>
-            </ScrollArea>
+          {sortedAllUpcomingEvents.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead onClick={() => requestUpcomingSort('title')} className="cursor-pointer hover:bg-muted/50">
+                    <div className="flex items-center">Title {getUpcomingSortIcon('title')}</div>
+                  </TableHead>
+                  <TableHead onClick={() => requestUpcomingSort('date')} className="cursor-pointer hover:bg-muted/50">
+                     <div className="flex items-center">Date {getUpcomingSortIcon('date')}</div>
+                  </TableHead>
+                  <TableHead onClick={() => requestUpcomingSort('type')} className="cursor-pointer hover:bg-muted/50">
+                    <div className="flex items-center">Type {getUpcomingSortIcon('type')}</div>
+                  </TableHead>
+                  <TableHead onClick={() => requestUpcomingSort('projectId')} className="cursor-pointer hover:bg-muted/50 hidden md:table-cell">
+                     <div className="flex items-center">Project {getUpcomingSortIcon('projectId')}</div>
+                  </TableHead>
+                  <TableHead onClick={() => requestUpcomingSort('createdAt')} className="cursor-pointer hover:bg-muted/50 hidden lg:table-cell">
+                    <div className="flex items-center">Date Added {getUpcomingSortIcon('createdAt')}</div>
+                  </TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedAllUpcomingEvents.map((event) => (
+                  <TableRow key={event.id} className="hover:bg-muted/50">
+                    <TableCell className="font-medium text-foreground">{event.title}</TableCell>
+                    <TableCell>{format(event.date, "PP")}</TableCell>
+                    <TableCell><Badge className={cn(getBadgeClassNames(event.type))}>{event.type}</Badge></TableCell>
+                    <TableCell className="hidden md:table-cell text-xs">
+                      {event.isProjectEvent && event.projectId 
+                        ? (allProjects.find(p => p.id === event.projectId)?.name || <span className="italic">ID: {event.projectId}</span>) 
+                        : <span className="italic text-muted-foreground">N/A</span>}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell text-xs">
+                      {event.createdAt ? formatDistanceToNow(event.createdAt.toDate(), { addSuffix: true }) : <span className="italic text-muted-foreground">N/A</span>}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => openEditDialog(event)} title="Edit Event">
+                          <Edit3 className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteEvent(event.id)} title="Delete Event">
+                          <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           ) : (
             <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50 min-h-[150px]">
               <CalendarDays className="h-12 w-12 text-primary/70 mb-3"/>
