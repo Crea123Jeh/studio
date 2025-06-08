@@ -89,22 +89,24 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <Card className="shadow-lg bg-gradient-to-br from-primary to-muted border-border">
-        <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <Card className="shadow-lg bg-gradient-to-br from-primary/70 via-background to-background border-border">
+        <CardContent className="p-6 flex flex-col items-start gap-4">
           <div>
             <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">
               Welcome back, {username || "User"}!
             </h1>
             <p className="text-muted-foreground mt-1">Keine Daten Sind Immer Sicher</p>
           </div>
-          <Image
-            src={`https://placehold.co/80x80.png?text=${username ? username.charAt(0).toUpperCase() : 'U'}`}
-            alt="User Avatar"
-            width={72}
-            height={72}
-            className="rounded-full border-2 border-white shadow-md"
-            data-ai-hint="user avatar large"
-          />
+          <div className="flex flex-wrap gap-2 mt-2">
+            <Button onClick={() => router.push('/dashboard/project')}>
+              <Briefcase className="mr-2 h-4 w-4" />
+              View Projects
+            </Button>
+            <Button variant="outline" onClick={() => router.push('/dashboard/target-list')}>
+              <Crosshair className="mr-2 h-4 w-4" />
+              View Target List
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
