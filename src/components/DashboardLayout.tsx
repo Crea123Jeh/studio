@@ -128,7 +128,7 @@ function AppSidebar() {
 
   return (
     <>
-      <SidebarHeader className="pl-5 pr-3 py-3 flex items-center">
+      <SidebarHeader className="pl-2 pr-3 py-3 flex items-center">
         <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
            <div className="bg-accent rounded-full h-7 w-7 flex items-center justify-center">
              <Building className="h-4 w-4 text-white" />
@@ -143,7 +143,7 @@ function AppSidebar() {
               <SidebarMenuItem key={item.href}>
                 <Link href={item.href} legacyBehavior passHref>
                   <SidebarMenuButton
-                    className="pl-5"
+                    className="ml-1"
                     isActive={pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))}
                     tooltip={item.label}
                     asChild
@@ -166,7 +166,7 @@ function AppSidebar() {
               <SidebarMenuItem key={item.href}>
                 <Link href={item.href} legacyBehavior passHref>
                   <SidebarMenuButton
-                    className="pl-5"
+                    className="ml-1"
                     isActive={pathname === item.href}
                     tooltip={item.label}
                     asChild
@@ -180,7 +180,7 @@ function AppSidebar() {
               </SidebarMenuItem>
             ))}
             <SidebarMenuItem>
-              <SidebarMenuButton onClick={signOut} tooltip="Logout" className="pl-5">
+              <SidebarMenuButton onClick={signOut} tooltip="Logout" className="ml-1">
                 <LogOut/>
                 <span>Logout</span>
               </SidebarMenuButton>
