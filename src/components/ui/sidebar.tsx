@@ -414,7 +414,7 @@ const SidebarContent = React.forwardRef<
       ref={ref}
       data-sidebar="content"
       className={cn(
-        "flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden pr-1", 
+        "flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden pr-2",
         className
       )}
       {...props}
@@ -522,22 +522,22 @@ const SidebarMenuItem = React.forwardRef<
 SidebarMenuItem.displayName = "SidebarMenuItem"
 
 const sidebarMenuButtonVariants = cva(
-  "mx-1 peer/menu-button flex w-full items-center gap-2 outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
+  "mx-1 peer/menu-button flex w-full items-center gap-2 rounded-md outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 group-data-[collapsible=icon]:!size-8 group-data-[collapsible=icon]:!p-2 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 overflow-clip",
   {
     variants: {
       visualState: {
-        active: "bg-sidebar-accent font-medium text-sidebar-accent-foreground [&>svg]:text-destructive-foreground rounded-md",
-        inactive: "[&>svg]:text-primary rounded-md",
+        active: "bg-sidebar-accent font-medium text-sidebar-accent-foreground [&>svg]:text-destructive-foreground",
+        inactive: "[&>svg]:text-primary",
       },
-      variant: { 
-        default: "", 
+      variant: {
+        default: "",
         outline:
           "bg-background shadow-[0_0_0_1px_hsl(var(--sidebar-border))] hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))]",
       },
-      size: { 
+      size: {
         default: "h-10 px-4 py-2",
-        sm: "h-9 px-3", 
-        lg: "h-12 group-data-[collapsible=icon]:!p-0", 
+        sm: "h-9 px-3",
+        lg: "h-12 group-data-[collapsible=icon]:!p-0",
       },
     },
     defaultVariants: {
@@ -559,8 +559,8 @@ const SidebarMenuButton = React.forwardRef<
   (
     {
       asChild = false,
-      isActive = false, 
-      variant, 
+      isActive = false,
+      variant,
       size,
       tooltip,
       className,
@@ -575,8 +575,8 @@ const SidebarMenuButton = React.forwardRef<
       <Comp
         ref={ref}
         data-sidebar="menu-button"
-        data-size={size} 
-        data-active={isActive} 
+        data-size={size}
+        data-active={isActive}
         className={cn(sidebarMenuButtonVariants({ variant, size, visualState: isActive ? "active" : "inactive" }), className)}
         {...props}
       />
@@ -776,4 +776,3 @@ export {
   SidebarTrigger,
   useSidebar,
 }
-
