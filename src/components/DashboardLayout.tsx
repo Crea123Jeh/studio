@@ -137,7 +137,7 @@ function AppSidebar() {
         </Link>
       </SidebarHeader>
       <SidebarContent className="flex flex-col">
-        <ScrollArea className="flex-grow pt-2">
+        <ScrollArea className="flex-grow pt-2 sidebar-scrollarea-custom">
           <SidebarMenu>
             {mainNavItems.map((item) => (
               <SidebarMenuItem key={item.href}>
@@ -372,3 +372,4 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
+

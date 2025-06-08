@@ -119,3 +119,9 @@
     font-family: 'Poppins', sans-serif; /* Ensuring Poppins is still primary */
   }
 }
+
+@layer utilities {
+  .sidebar-scrollarea-custom .shadcn-scroll-thumb {
+    background-color: transparent !important;
+  }
+}
