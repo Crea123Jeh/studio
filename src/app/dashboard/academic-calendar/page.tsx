@@ -162,11 +162,6 @@ export default function AcademicCalendarPage() {
     return events.filter(event => isSameDay(event.date, selectedDate));
   }, [events, selectedDate]);
 
-  const todaysAcademicEvents = useMemo(() => {
-    const today = startOfDay(new Date());
-    return events.filter(event => isSameDay(event.date, today));
-  }, [events]);
-
   const sortEvents = (items: AcademicEvent[], config: { key: SortableAcademicEventKeys; direction: 'ascending' | 'descending' }) => {
     return [...items].sort((a, b) => {
       let comparison = 0;
@@ -181,13 +176,13 @@ export default function AcademicCalendarPage() {
   
   const upcomingAcademicEventsTableData = useMemo(() => {
     const today = startOfDay(new Date());
-    const upcoming = events.filter(event => !isBefore(event.date, today));
+    const upcoming = events.filter(event => !isBefore(event.date, today) || isSameDay(event.date, today));
     return sortEvents(upcoming, upcomingSortConfig);
   }, [events, upcomingSortConfig]);
 
   const pastAcademicEventsTableData = useMemo(() => {
     const today = startOfDay(new Date());
-    const past = events.filter(event => isBefore(event.date, today));
+    const past = events.filter(event => isBefore(event.date, today) && !isSameDay(event.date, today));
     return sortEvents(past, pastSortConfig);
   }, [events, pastSortConfig]);
 
@@ -294,7 +289,7 @@ export default function AcademicCalendarPage() {
   }, [isAddEditDialogOpen, selectedDate]);
 
 
-  const EventCard = ({ event, showActions = false }: { event: AcademicEvent, showActions?: boolean }) => (
+  const EventCard = ({ event, showCardActions = false }: { event: AcademicEvent, showCardActions?: boolean }) => (
     <Card 
       className="hover:shadow-xl transition-shadow duration-200 ease-in-out border-l-4"
       style={{ borderLeftColor: eventCategoryBorderColors[event.category] }}
@@ -306,7 +301,7 @@ export default function AcademicCalendarPage() {
             <Badge className={cn("text-xs whitespace-nowrap shrink-0", getBadgeClassNames(event.category))}>
               {event.category}
             </Badge>
-            {showActions && (
+            {showCardActions && (
                 <>
                 <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => openEditDialog(event)} title="Edit Event">
                     <Edit3 className="h-4 w-4" />
@@ -426,33 +421,19 @@ export default function AcademicCalendarPage() {
                 <h3 className="text-xl font-semibold mb-3 pb-2 border-b text-foreground">
                     Events for: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
                 </h3>
-                <ScrollArea className="pr-2"> {/* Removed max-h here */}
+                <ScrollArea className="pr-2">
                   {eventsForSelectedDate.length > 0 ? (
                     <ul className="space-y-4">
-                      {eventsForSelectedDate.map((event) => (<li key={event.id}><EventCard event={event} showActions={true} /></li>))}
+                      {eventsForSelectedDate.map((event) => {
+                        const isEventPast = isBefore(event.date, startOfDay(new Date())) && !isSameDay(event.date, startOfDay(new Date()));
+                        return (<li key={event.id}><EventCard event={event} showCardActions={!isEventPast} /></li>)
+                      })}
                     </ul>
                   ) : (
                     <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50">
                       <Info className="h-12 w-12 text-primary/70 mb-3"/>
                       <p className="text-muted-foreground font-medium text-lg">{selectedDate ? "No Events Scheduled" : "Select a Date"}</p>
                       <p className="text-sm text-muted-foreground mt-1">{selectedDate ? "There are no academic events for this day." : "Click on a day in the calendar."}</p>
-                    </div>
-                  )}
-                </ScrollArea>
-             </div>
-             <div>
-                <h3 className="text-xl font-semibold mb-3 pb-2 border-b text-foreground">
-                    Today&apos;s Events ({format(new Date(), "PPP")})
-                </h3>
-                <ScrollArea className="pr-2 max-h-60"> {/* Added max-h for today's events if it gets long */}
-                  {todaysAcademicEvents.length > 0 ? (
-                    <ul className="space-y-4">
-                      {todaysAcademicEvents.map((event) => (<li key={`${event.id}-today`}><EventCard event={event} showActions={true} /></li>))}
-                    </ul>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50">
-                      <Info className="h-10 w-10 text-primary/70 mb-2"/>
-                      <p className="text-muted-foreground font-medium text-md">No Events Today</p>
                     </div>
                   )}
                 </ScrollArea>
@@ -512,7 +493,7 @@ export default function AcademicCalendarPage() {
             <BookMarked className="h-6 w-6 text-primary" />
             Past Academic Events
           </CardTitle>
-          <CardDescription>A log of academic events that have already occurred.</CardDescription>
+          <CardDescription>A log of academic events that have already occurred. These records are view-only.</CardDescription>
         </CardHeader>
         <CardContent>
           {pastAcademicEventsTableData.length > 0 ? (
@@ -523,7 +504,6 @@ export default function AcademicCalendarPage() {
                     <TableHead onClick={() => requestSort('title', 'past')} className="cursor-pointer hover:bg-muted/50"><div className="flex items-center">Title {getSortIcon('title', 'past')}</div></TableHead>
                     <TableHead onClick={() => requestSort('date', 'past')} className="cursor-pointer hover:bg-muted/50"><div className="flex items-center">Date {getSortIcon('date', 'past')}</div></TableHead>
                     <TableHead onClick={() => requestSort('category', 'past')} className="cursor-pointer hover:bg-muted/50"><div className="flex items-center">Category {getSortIcon('category', 'past')}</div></TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -532,10 +512,6 @@ export default function AcademicCalendarPage() {
                       <TableCell className="font-medium text-foreground">{event.title}</TableCell>
                       <TableCell>{format(event.date, "PP")}</TableCell>
                       <TableCell><Badge className={cn(getBadgeClassNames(event.category))}>{event.category}</Badge></TableCell>
-                       <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => openEditDialog(event)} title="Edit Event"><Edit3 className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteEvent(event.id)} title="Delete Event"><Trash2 className="h-4 w-4" /></Button>
-                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -553,3 +529,6 @@ export default function AcademicCalendarPage() {
     </div>
   );
 }
+
+
+    
