@@ -1,34 +1,30 @@
 
 "use client";
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, FormEvent } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { MessageSquare, Send, Users, CornerDownLeft, Briefcase } from "lucide-react";
+import { MessageSquare, Send, Users, CornerDownLeft, Briefcase, Loader2 } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, query, orderBy, onSnapshot, Timestamp, serverTimestamp, QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
+
 
 interface Message {
   id: string;
-  user: string;
+  userId: string;
+  username: string;
   avatar: string;
   text: string;
-  timestamp: string;
-  isSender: boolean;
+  timestamp: Timestamp | null; // Firestore Timestamp or null if optimistic update
 }
-
-const initialMessages: Message[] = [
-  { id: "1", user: "Alice", avatar: "https://placehold.co/28x28.png?text=A", text: "Hey team, how's Project Alpha progressing?", timestamp: "10:00 AM", isSender: false },
-  { id: "2", user: "Bob", avatar: "https://placehold.co/28x28.png?text=B", text: "Good! Just pushed the latest updates for the UI.", timestamp: "10:01 AM", isSender: false },
-  { id: "3", user: "You", avatar: "https://placehold.co/28x28.png?text=Y", text: "Great to hear, Bob! I'll review them shortly.", timestamp: "10:02 AM", isSender: true },
-  { id: "4", user: "Charlie", avatar: "https://placehold.co/28x28.png?text=C", text: "Anyone available for a quick call on the new API integration?", timestamp: "10:05 AM", isSender: false },
-  { id: "5", user: "You", avatar: "https://placehold.co/28x28.png?text=Y", text: "I can jump on a call in 15 mins, Charlie.", timestamp: "10:06 AM", isSender: true },
-  { id: "6", user: "Alice", avatar: "https://placehold.co/28x28.png?text=A", text: "Remember the client demo is tomorrow at 2 PM.", timestamp: "10:10 AM", isSender: false },
-];
 
 const channels = [
   { id: "general", name: "General Discussion", icon: MessageSquare },
@@ -39,28 +35,87 @@ const channels = [
 
 
 export default function TeamChatPage() {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [activeChannel, setActiveChannel] = useState("general");
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const { username } = useAuth();
+  const { user: currentUser, username: currentUsername } = useAuth();
+  const { toast } = useToast();
 
-  const currentUserAvatar = `https://placehold.co/28x28.png?text=${username ? username.charAt(0).toUpperCase() : 'U'}`;
+  const currentUserAvatar = `https://placehold.co/28x28.png?text=${currentUsername ? currentUsername.charAt(0).toUpperCase() : 'U'}`;
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!activeChannel || !currentUser) return;
+
+    setIsLoadingMessages(true);
+    const messagesColRef = collection(db, "chatChannels", activeChannel, "messages");
+    const q = query(messagesColRef, orderBy("timestamp", "asc"));
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const fetchedMessages: Message[] = [];
+      querySnapshot.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
+        const data = doc.data();
+        fetchedMessages.push({
+          id: doc.id,
+          userId: data.userId,
+          username: data.username,
+          avatar: data.avatar,
+          text: data.text,
+          timestamp: data.timestamp as Timestamp, // Assuming timestamp is always a Firestore Timestamp
+        });
+      });
+      setMessages(fetchedMessages);
+      setIsLoadingMessages(false);
+    }, (error) => {
+      console.error("Error fetching messages: ", error);
+      toast({
+        title: "Error",
+        description: "Could not fetch messages for this channel.",
+        variant: "destructive",
+      });
+      setIsLoadingMessages(false);
+    });
+
+    return () => unsubscribe();
+
+  }, [activeChannel, currentUser, toast]);
+
+
+  const handleSendMessage = async (e: FormEvent) => {
     e.preventDefault();
-    if (newMessage.trim() === "") return;
+    if (newMessage.trim() === "" || !currentUser || !currentUsername) {
+      if (!currentUser || !currentUsername) {
+        toast({title: "Not Logged In", description: "You must be logged in to send messages.", variant: "destructive"});
+      }
+      return;
+    }
+    setIsSending(true);
 
-    const message: Message = {
-      id: String(Date.now()),
-      user: username || "You",
+    const messageData = {
+      userId: currentUser.uid,
+      username: currentUsername,
       avatar: currentUserAvatar,
       text: newMessage,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isSender: true,
+      timestamp: serverTimestamp(),
+      channelId: activeChannel,
     };
-    setMessages([...messages, message]);
-    setNewMessage("");
+
+    try {
+      await addDoc(collection(db, "chatChannels", activeChannel, "messages"), messageData);
+      setNewMessage("");
+    } catch (error) {
+      console.error("Error sending message: ", error);
+      toast({
+        title: "Send Error",
+        description: "Could not send message. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSending(false);
+    }
   };
 
   useEffect(() => {
@@ -102,36 +157,53 @@ export default function TeamChatPage() {
             <MessageSquare className="h-5 w-5 text-primary" /> 
             {channels.find(c => c.id === activeChannel)?.name || "Team Chat"}
           </CardTitle>
-          <CardDescription className="text-xs">Real-time communication.</CardDescription>
+          <CardDescription className="text-xs">Real-time communication for {activeChannel}.</CardDescription>
         </CardHeader>
         
         <CardContent className="flex-grow p-0 overflow-hidden">
           <ScrollArea className="h-full p-3" ref={scrollAreaRef}>
-            <div className="space-y-2.5">
-              {messages.map((msg) => (
-                <div key={msg.id} className={`flex items-end gap-1.5 ${msg.isSender ? "justify-end" : ""}`}>
-                  {!msg.isSender && (
-                     <Avatar className="h-6 w-6 self-start">
-                      <AvatarImage src={msg.avatar} alt={msg.user} data-ai-hint="person avatar"/>
-                      <AvatarFallback className="text-xs">{msg.user.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                  )}
-                  <div className={`max-w-[70%] lg:max-w-[65%] p-1.5 rounded-md shadow ${msg.isSender ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-                    {!msg.isSender && <p className="text-xs font-semibold mb-0.5 text-foreground">{msg.user}</p>}
-                    <p className="text-sm">{msg.text}</p>
-                    <p className={`text-[10px] mt-0.5 ${msg.isSender ? "text-primary-foreground/70" : "text-muted-foreground/80"} ${msg.isSender ? 'text-right' : 'text-left'}`}>
-                      {msg.timestamp}
-                    </p>
-                  </div>
-                   {msg.isSender && (
-                    <Avatar className="h-6 w-6 self-start">
-                      <AvatarImage src={msg.avatar} alt={msg.user} data-ai-hint="user avatar" />
-                      <AvatarFallback className="text-xs">{msg.user.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                  )}
+            {isLoadingMessages ? (
+              <div className="flex justify-center items-center h-full">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <p className="ml-2 text-muted-foreground">Loading messages...</p>
+              </div>
+            ) : messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                    <MessageSquare className="h-12 w-12 mb-2"/>
+                    <p className="text-lg font-medium">No messages yet.</p>
+                    <p className="text-sm">Be the first to send a message in this channel!</p>
                 </div>
-              ))}
-            </div>
+            ) : (
+                <div className="space-y-2.5">
+                {messages.map((msg) => {
+                    const isSender = msg.userId === currentUser?.uid;
+                    const messageTimestamp = msg.timestamp ? format(msg.timestamp.toDate(), 'p') : "Sending...";
+                    return (
+                    <div key={msg.id} className={`flex items-end gap-1.5 ${isSender ? "justify-end" : ""}`}>
+                        {!isSender && (
+                        <Avatar className="h-6 w-6 self-start">
+                            <AvatarImage src={msg.avatar} alt={msg.username} data-ai-hint="person avatar"/>
+                            <AvatarFallback className="text-xs">{msg.username ? msg.username.charAt(0).toUpperCase() : '?'}</AvatarFallback>
+                        </Avatar>
+                        )}
+                        <div className={`max-w-[70%] lg:max-w-[65%] p-1.5 rounded-md shadow ${isSender ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                        {!isSender && <p className="text-xs font-semibold mb-0.5 text-foreground">{msg.username}</p>}
+                        <p className="text-sm whitespace-pre-wrap break-words">{msg.text}</p>
+                        <p className={`text-[10px] mt-0.5 ${isSender ? "text-primary-foreground/70" : "text-muted-foreground/80"} ${isSender ? 'text-right' : 'text-left'}`}>
+                            {messageTimestamp}
+                        </p>
+                        </div>
+                        {isSender && (
+                        <Avatar className="h-6 w-6 self-start">
+                            <AvatarImage src={msg.avatar} alt={msg.username} data-ai-hint="user avatar" />
+                            <AvatarFallback className="text-xs">{msg.username ? msg.username.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
+                        </Avatar>
+                        )}
+                    </div>
+                    );
+                })}
+                </div>
+            )}
           </ScrollArea>
         </CardContent>
         
@@ -143,9 +215,10 @@ export default function TeamChatPage() {
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               className="flex-grow h-8 text-sm px-2.5"
+              disabled={isSending || isLoadingMessages || !currentUser}
             />
-            <Button type="submit" size="icon" className="h-8 w-8 bg-accent hover:bg-accent/90">
-              <Send className="h-3.5 w-3.5" />
+            <Button type="submit" size="icon" className="h-8 w-8 bg-accent hover:bg-accent/90" disabled={isSending || isLoadingMessages || !currentUser}>
+              {isSending ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : <Send className="h-3.5 w-3.5" />}
               <span className="sr-only">Send</span>
             </Button>
           </form>
@@ -154,3 +227,5 @@ export default function TeamChatPage() {
     </div>
   );
 }
+
+    
