@@ -496,6 +496,31 @@ export default function BirthdayCalendarPage() {
     </Card>
   )};
 
+  const studentGradeKeysInOrder: string[] = useMemo(() => {
+    const keys: string[] = [];
+    const processed = new Set<string>();
+
+    studentGradeOptions.forEach(optGrade => {
+      if (filteredUpcomingBirthdays.studentsByGrade[optGrade]?.length > 0) {
+        keys.push(optGrade);
+        processed.add(optGrade);
+      }
+    });
+
+    Object.keys(filteredUpcomingBirthdays.studentsByGrade).forEach(dataGrade => {
+      if (dataGrade !== "Ungraded" && !processed.has(dataGrade) && filteredUpcomingBirthdays.studentsByGrade[dataGrade]?.length > 0) {
+        keys.push(dataGrade);
+        processed.add(dataGrade);
+      }
+    });
+
+    if (filteredUpcomingBirthdays.studentsByGrade["Ungraded"]?.length > 0 && !processed.has("Ungraded")) {
+      keys.push("Ungraded");
+    }
+    return keys;
+  }, [filteredUpcomingBirthdays.studentsByGrade]);
+
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -758,20 +783,21 @@ export default function BirthdayCalendarPage() {
               </div>
             )}
 
-            {Object.keys(filteredUpcomingBirthdays.studentsByGrade).some(gradeKey => filteredUpcomingBirthdays.studentsByGrade[gradeKey]?.length > 0) && (
+            {studentGradeKeysInOrder.length > 0 && (
               <div>
                 <h4 className="text-xl font-semibold mb-4 pb-2 border-b flex items-center text-foreground">
                   <User className="h-6 w-6 text-primary mr-2" />
                   Students
                 </h4>
-                {studentGradeOptions.map(gradeKey => {
+                {studentGradeKeysInOrder.map(gradeKey => {
                     const studentsInGrade = filteredUpcomingBirthdays.studentsByGrade[gradeKey];
-                    if(studentsInGrade && studentsInGrade.length > 0) {
+                    // This check is technically redundant due to how studentGradeKeysInOrder is constructed, but safe.
+                    if(studentsInGrade && studentsInGrade.length > 0) { 
                         return (
                             <div key={`grade-section-table-${gradeKey}`} className="mb-6">
                                 <h5 className="text-lg font-medium text-muted-foreground mb-2 ml-1 flex items-center">
                                     <User className="h-5 w-5 text-primary mr-2" />
-                                    Grade: {gradeKey}
+                                    Grade: {gradeKey === "Ungraded" ? "Ungraded/Other" : gradeKey}
                                 </h5>
                                 <Table>
                                   <TableHeader>
@@ -805,45 +831,10 @@ export default function BirthdayCalendarPage() {
                     }
                     return null;
                 })}
-                {filteredUpcomingBirthdays.studentsByGrade["Ungraded"] && filteredUpcomingBirthdays.studentsByGrade["Ungraded"].length > 0 && (
-                     <div key="grade-section-table-ungraded" className="mb-6">
-                        <h5 className="text-lg font-medium text-muted-foreground mb-2 ml-1 flex items-center">
-                            <User className="h-5 w-5 text-primary mr-2" />
-                            Grade: Ungraded/Other
-                        </h5>
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Name</TableHead>
-                              <TableHead>Next Birthday</TableHead>
-                              <TableHead className="text-right">Age on Date</TableHead>
-                              <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {filteredUpcomingBirthdays.studentsByGrade["Ungraded"].map((event) => (
-                              <TableRow key={`${event.id}-student-ungraded-upcoming`}>
-                                <TableCell className="font-medium">{event.name}</TableCell>
-                                <TableCell><BirthdayCountdownCell displayDate={event.displayDate} /></TableCell>
-                                <TableCell className="text-right">{event.age}</TableCell>
-                                <TableCell className="text-right">
-                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(event)} title="Edit">
-                                    <Edit3 className="h-4 w-4" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteBirthday(event.id)} title="Delete">
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                    </div>
-                )}
               </div>
             )}
             
-            {filteredUpcomingBirthdays.teachers.length === 0 && Object.keys(filteredUpcomingBirthdays.studentsByGrade).every(g => !filteredUpcomingBirthdays.studentsByGrade[g] || filteredUpcomingBirthdays.studentsByGrade[g].length === 0) && (
+            {filteredUpcomingBirthdays.teachers.length === 0 && studentGradeKeysInOrder.length === 0 && (
                <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50 min-h-[150px]">
                 <Cake className="h-12 w-12 text-primary/70 mb-3"/>
                 <p className="text-muted-foreground font-medium text-lg">
@@ -860,5 +851,3 @@ export default function BirthdayCalendarPage() {
     </div>
   );
 }
-
-    
