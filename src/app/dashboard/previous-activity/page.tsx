@@ -4,15 +4,16 @@
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
-import { Button, buttonVariants } from "@/components/ui/button"; // Keep Button for PopoverTrigger
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
 import { collection, onSnapshot, query, orderBy, Timestamp } from "firebase/firestore";
-import { format, isSameDay, startOfDay } from "date-fns";
-import { History, Info, MessageSquare, CalendarIcon as LucideCalendarIcon } from "lucide-react";
+import { format, isSameDay, startOfDay, formatDistanceToNow } from "date-fns";
+import { History, Info, MessageSquare, CalendarIcon as LucideCalendarIcon, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface ActivityLogEntry {
   id: string; 
@@ -23,6 +24,8 @@ interface ActivityLogEntry {
   sourceEventId?: string; 
   originalEventTime?: Timestamp; 
 }
+
+type SortableLogKeys = 'title' | 'date' | 'originalEventTime' | 'source';
 
 const calendarStyleProps = {
   className: "bg-muted p-4 rounded-xl shadow-lg w-full",
@@ -60,12 +63,12 @@ export default function PreviousActivityPage() {
   const [activityLogs, setActivityLogs] = useState<ActivityLogEntry[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+  const [sortConfig, setSortConfig] = useState<{ key: SortableLogKeys; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'descending' });
   
   const { toast } = useToast();
 
   useEffect(() => {
     const logsCollection = collection(db, "activityLogEntries");
-    // Sort by 'date' which represents when the activity was logged or occurred
     const q = query(logsCollection, orderBy("date", "desc")); 
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -75,7 +78,7 @@ export default function PreviousActivityPage() {
           id: docSnap.id,
           title: data.title,
           details: data.details,
-          date: data.date as Timestamp, // This is the primary date for filtering/display
+          date: data.date as Timestamp, 
           source: data.source,
           sourceEventId: data.sourceEventId,
           originalEventTime: data.originalEventTime as Timestamp,
@@ -94,35 +97,56 @@ export default function PreviousActivityPage() {
     return () => unsubscribe();
   }, [toast]);
   
-  const logsForSelectedDate = useMemo(() => {
-    if (!selectedDate) return [];
-    // Filter logs based on their 'date' field (when they were logged or occurred)
-    return activityLogs
-        .filter(log => isSameDay(log.date.toDate(), selectedDate))
-        .sort((a,b) => b.date.toDate().getTime() - a.date.toDate().getTime()); 
-  }, [activityLogs, selectedDate]);
-  
+  const requestSort = (key: SortableLogKeys) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
 
-  const LogCard = ({ log }: { log: ActivityLogEntry }) => (
-    <Card className="hover:shadow-md transition-shadow duration-200 ease-in-out border-l-4 border-muted-foreground">
-      <CardHeader className="p-4 pb-2">
-        <div className="flex justify-between items-start gap-2">
-           <CardTitle className="text-md leading-tight">{log.title}</CardTitle>
-           {/* Actions removed */}
-        </div>
-         <CardDescription className="text-xs">Logged: {format(log.date.toDate(), "PPPp")}</CardDescription>
-         {log.originalEventTime && (
-            <CardDescription className="text-xs italic">
-                Original Event Time: {format(log.originalEventTime.toDate(), "PPPp")}
-            </CardDescription>
-         )}
-      </CardHeader>
-      <CardContent className="p-4 pt-1">
-        <p className="text-sm text-muted-foreground whitespace-pre-wrap">{log.details}</p>
-        {log.source && <p className="text-xs text-muted-foreground mt-2">Source: {log.source}</p>}
-      </CardContent>
-    </Card>
-  );
+  const getSortIcon = (key: SortableLogKeys) => {
+    if (!sortConfig || sortConfig.key !== key) {
+      return <ArrowUpDown className="ml-1 h-3 w-3 opacity-40" />;
+    }
+    return sortConfig.direction === 'ascending' ? <ArrowUp className="ml-1 h-3 w-3" /> : <ArrowDown className="ml-1 h-3 w-3" />;
+  };
+
+  const sortedLogsForSelectedDate = useMemo(() => {
+    if (!selectedDate) return [];
+    
+    let filteredLogs = activityLogs
+        .filter(log => isSameDay(log.date.toDate(), selectedDate));
+
+    if (sortConfig) {
+      filteredLogs.sort((a, b) => {
+        let aValue: any;
+        let bValue: any;
+
+        if (sortConfig.key === 'date' || sortConfig.key === 'originalEventTime') {
+            const aDate = a[sortConfig.key] ? (a[sortConfig.key] as Timestamp).toDate().getTime() : 0;
+            const bDate = b[sortConfig.key] ? (b[sortConfig.key] as Timestamp).toDate().getTime() : 0;
+            if(!a[sortConfig.key]) return sortConfig.direction === 'ascending' ? -1 : 1; // Put nulls/undefined last or first
+            if(!b[sortConfig.key]) return sortConfig.direction === 'ascending' ? 1 : -1;
+            aValue = aDate;
+            bValue = bDate;
+        } else {
+            aValue = a[sortConfig.key] || ''; // Handle undefined for string comparison
+            bValue = b[sortConfig.key] || '';
+        }
+        
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+            return sortConfig.direction === 'ascending' ? aValue - bValue : bValue - aValue;
+        }
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+            return sortConfig.direction === 'ascending' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+        }
+        return 0;
+      });
+    }
+    return filteredLogs;
+  }, [activityLogs, selectedDate, sortConfig]);
+
 
   return (
     <div className="space-y-6">
@@ -131,12 +155,11 @@ export default function PreviousActivityPage() {
           <History className="h-7 w-7 text-primary" />
           <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">Previous Activity Log</h1>
         </div>
-        {/* "Add Activity Log" button and dialog removed */}
       </div>
 
       <Card className="shadow-lg">
-        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6">
-          <div className="md:col-span-2 min-w-0">
+        <CardContent className="grid grid-cols-1 gap-y-8 pt-6">
+          <div className="min-w-0">
            <Calendar
               mode="single"
               selected={selectedDate}
@@ -163,27 +186,57 @@ export default function PreviousActivityPage() {
               }}
             />
           </div>
-          <div className="md:col-span-1">
+          <div>
             <h3 className="text-xl font-semibold mb-4 pb-2 border-b flex items-center gap-2 text-foreground">
                 <MessageSquare className="h-5 w-5 text-primary"/>
                 Activities Logged On: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
             </h3>
-            <ScrollArea className="max-h-[calc(100vh-450px)] pr-2">
-              {logsForSelectedDate.length > 0 ? (
-                <ul className="space-y-4">
-                  {logsForSelectedDate.map((log) => (<li key={log.id}><LogCard log={log} /></li>))}
-                </ul>
-              ) : (
-                <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50">
-                  <Info className="h-12 w-12 text-primary/70 mb-3"/>
-                  <p className="text-muted-foreground font-medium text-lg">{selectedDate ? "No Activities Logged" : "Select a Date"}</p>
-                  <p className="text-sm text-muted-foreground mt-1">{selectedDate ? "There are no activity logs for this day." : "Click on a day in the calendar to view its activity logs."}</p>
-                </div>
-              )}
-            </ScrollArea>
+            {sortedLogsForSelectedDate.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead onClick={() => requestSort('title')} className="cursor-pointer hover:bg-muted/50">
+                        <div className="flex items-center">Title {getSortIcon('title')}</div>
+                    </TableHead>
+                    <TableHead onClick={() => requestSort('date')} className="cursor-pointer hover:bg-muted/50">
+                        <div className="flex items-center">Logged At {getSortIcon('date')}</div>
+                    </TableHead>
+                    <TableHead onClick={() => requestSort('originalEventTime')} className="cursor-pointer hover:bg-muted/50 hidden md:table-cell">
+                        <div className="flex items-center">Original Event Time {getSortIcon('originalEventTime')}</div>
+                    </TableHead>
+                     <TableHead onClick={() => requestSort('source')} className="cursor-pointer hover:bg-muted/50 hidden lg:table-cell">
+                        <div className="flex items-center">Source {getSortIcon('source')}</div>
+                    </TableHead>
+                    <TableHead>Details</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedLogsForSelectedDate.map((log) => (
+                    <TableRow key={log.id} className="hover:bg-muted/50">
+                      <TableCell className="font-medium text-foreground">{log.title}</TableCell>
+                      <TableCell>{format(log.date.toDate(), "Pp")}</TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {log.originalEventTime ? format(log.originalEventTime.toDate(), "Pp") : <span className="italic text-muted-foreground/70">N/A</span>}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-xs">{log.source || <span className="italic text-muted-foreground/70">N/A</span>}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground whitespace-pre-wrap max-w-sm">{log.details}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="flex flex-col items-center justify-center text-center p-6 border rounded-md border-dashed h-full bg-muted/50 min-h-[150px]">
+                <Info className="h-12 w-12 text-primary/70 mb-3"/>
+                <p className="text-muted-foreground font-medium text-lg">{selectedDate ? "No Activities Logged" : "Select a Date"}</p>
+                <p className="text-sm text-muted-foreground mt-1">{selectedDate ? "There are no activity logs for this day." : "Click on a day in the calendar to view its activity logs."}</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
     </div>
   );
 }
+
+
+    
