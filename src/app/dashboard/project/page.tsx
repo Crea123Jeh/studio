@@ -26,7 +26,7 @@ import {
 } from "firebase/firestore";
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
 import { format, formatDistanceToNow } from "date-fns";
-import { Briefcase, ListChecks, FileText, MessageCircle, PlusCircle, ArrowLeft, Edit3, Trash2, CalendarIcon, ArrowUpDown, ArrowUp, ArrowDown, UploadCloud, Paperclip } from "lucide-react";
+import { Briefcase, ListChecks, FileText, MessageCircle, PlusCircle, ArrowLeft, Edit3, Trash2, CalendarIcon, ArrowUpDown, ArrowUp, ArrowDown, UploadCloud, Paperclip, Archive as ArchiveIcon } from "lucide-react";
 import Image from "next/image";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -139,6 +139,7 @@ export default function ProjectInfoPage() {
   const [isAddUpdateDialogOpen, setIsAddUpdateDialogOpen] = useState(false);
 
   const [showDeleteInfoAlert, setShowDeleteInfoAlert] = useState(false);
+  const [showArchiveConfirmDialog, setShowArchiveConfirmDialog] = useState(false);
   
   const [sortConfig, setSortConfig] = useState<{ key: SortableProjectKeys; direction: 'ascending' | 'descending' }>({ key: 'lastUpdatedAt', direction: 'descending' });
 
@@ -322,6 +323,34 @@ export default function ProjectInfoPage() {
   
   const handleDeleteProjectRequest = () => {
     setShowDeleteInfoAlert(true);
+  };
+
+  const handleArchiveProject = async () => {
+    if (!selectedProject) {
+      toast({ title: "Error", description: "No project selected to archive.", variant: "destructive" });
+      return;
+    }
+
+    setShowArchiveConfirmDialog(false); // Close confirmation dialog first
+
+    const projectToArchive = { ...selectedProject, status: "Completed" as const, lastUpdatedAt: Timestamp.now() }; // Optionally set status to Completed on archive
+
+    try {
+      const batch = writeBatch(db);
+      const archivedProjectRef = doc(collection(db, "archivedProjectsPPM"));
+      batch.set(archivedProjectRef, projectToArchive);
+      
+      const originalProjectRef = doc(db, "projectsPPM", selectedProject.id);
+      batch.delete(originalProjectRef);
+
+      await batch.commit();
+
+      toast({ title: "Project Archived", description: `"${selectedProject.name}" has been successfully archived.` });
+      setSelectedProject(null); // Go back to project list view
+    } catch (error) {
+      console.error("Error archiving project:", error);
+      toast({ title: "Archive Failed", description: "Could not archive the project. Please try again.", variant: "destructive" });
+    }
   };
 
 
@@ -730,6 +759,7 @@ export default function ProjectInfoPage() {
 
         <div className="mt-6 flex justify-end gap-2">
             <Button variant="outline" onClick={() => handleOpenAddProjectDialog(selectedProject)}> <Edit3 className="mr-2 h-4 w-4" /> Edit Project </Button>
+             <Button variant="secondary" onClick={() => setShowArchiveConfirmDialog(true)}> <ArchiveIcon className="mr-2 h-4 w-4" /> Archive Project </Button>
             <Button variant="destructive" onClick={handleDeleteProjectRequest}> <Trash2 className="mr-2 h-4 w-4" /> Delete Project </Button>
         </div>
 
@@ -780,7 +810,7 @@ export default function ProjectInfoPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Project Deletion Information</AlertDialogTitle>
             <AlertDialogDescription>
-              Contact Developer To Delete Projects. Projects are designed for long-term archival and cannot be deleted directly through this interface.
+              Contact Developer To Delete Projects. Projects are designed for long-term archival and cannot be deleted directly through this interface. Consider archiving the project instead.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -789,8 +819,22 @@ export default function ProjectInfoPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={showArchiveConfirmDialog} onOpenChange={setShowArchiveConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive Project: {selectedProject?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Archiving this project will move it to the "Archived Projects" section and remove it from the active list. 
+              You will still be able to view its details, but it cannot be edited or reactivated from this interface.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleArchiveProject}>Yes, Archive Project</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
-
-    

@@ -17,7 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, deleteDoc, updateDoc, getDocs, writeBatch } from "firebase/firestore";
+import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, deleteDoc, updateDoc, getDocs, writeBatch, getDoc } from "firebase/firestore";
 import { format, isSameDay, startOfDay, formatDistanceToNow, setHours, setMinutes, parse } from "date-fns";
 import { CalendarDays, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered, Trash2, Briefcase, Edit3, Timer, Users, Award, Bell, Check, ChevronsUpDown, ArrowDown, ArrowUp, ArrowUpDown, Clock } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -122,6 +122,15 @@ export default function CalendarEventsPage() {
       activityDetails += `\nDescription: ${event.description}`;
     }
 
+    if (event.isProjectEvent && event.projectId) {
+      const projectDoc = await getDoc(doc(db, "projectsPPM", event.projectId));
+      if (projectDoc.exists()) {
+        activityDetails += `\nProject: ${projectDoc.data().name || "Unnamed Project"}`;
+      } else {
+        activityDetails += `\nProject ID: ${event.projectId} (Name not found)`;
+      }
+    }
+
 
     switch (event.type) {
       case "Meeting":
@@ -131,8 +140,8 @@ export default function CalendarEventsPage() {
         activityTitle = `Deadline Passed: ${event.title}`;
         break;
       default: 
-        console.warn(`Attempted to log event of unhandled type for archiving: ${event.type}`);
-        return;
+        console.warn(`Attempted to log event of unhandled type for archiving: ${event.type}. Event ID: ${event.id}`);
+        return; 
     }
 
     const activityLogEntry = {
@@ -159,7 +168,7 @@ export default function CalendarEventsPage() {
       console.error(`Error logging and deleting event "${event.title}" (ID: ${event.id}):`, error);
       toast({
         title: "Archiving Error",
-        description: `Could not archive past event "${event.title}". It may be processed again later.`,
+        description: `Could not archive past event "${event.title}". It may be processed again later. Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive",
       });
     }
@@ -199,8 +208,13 @@ export default function CalendarEventsPage() {
         return event;
       });
 
-      for (const eventToLog of eventsToArchive) {
-        logEventToPreviousActivityAndArchive(eventToLog);
+      // Asynchronously process archiving to avoid blocking UI updates
+      if (eventsToArchive.length > 0) {
+        (async () => {
+          for (const eventToLog of eventsToArchive) {
+            await logEventToPreviousActivityAndArchive(eventToLog);
+          }
+        })();
       }
       
       setEvents(fetchedEvents.filter(event => !eventsToArchive.some(archived => archived.id === event.id)));
@@ -214,7 +228,7 @@ export default function CalendarEventsPage() {
     });
 
     return () => unsubscribe();
-  }, [toast]);
+  }, [toast]); // Removed allProjects from dependencies here as it's fetched inside the logging function now
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -271,11 +285,10 @@ export default function CalendarEventsPage() {
       if (event.endDateTime) {
         setEventEndTime(format(event.endDateTime.toDate(), "HH:mm"));
       } else {
-         // Default to 1 hour after start if no end time for Meeting/Reminder
         setEventEndTime(format(setHours(event.startDateTime.toDate(), event.startDateTime.toDate().getHours() + 1), "HH:mm"));
       }
     } else {
-      setEventEndTime(""); // Clear end time for Milestone/Deadline
+      setEventEndTime(""); 
     }
     setIsProjectEvent(event.isProjectEvent || false);
     setLinkedProjectId(event.projectId || null);
@@ -435,7 +448,6 @@ export default function CalendarEventsPage() {
             }
             finalEndDateTime = Timestamp.fromDate(tempEndDateTime);
         } else {
-             // Default to 1 hour duration if no end time for Meeting/Reminder
             finalEndDateTime = Timestamp.fromDate(setHours(finalStartDateTime, finalStartDateTime.getHours() + 1));
         }
     }
@@ -828,4 +840,3 @@ export default function CalendarEventsPage() {
     </div>
   );
 }
-

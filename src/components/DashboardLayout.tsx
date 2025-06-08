@@ -31,7 +31,8 @@ import {
   CheckCircle2,
   Circle,
   ShieldAlert,
-  Crosshair // Added Crosshair icon
+  Crosshair,
+  Archive as ArchiveIcon // Added ArchiveIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -72,6 +73,7 @@ interface NavItem {
 const mainNavItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/project', label: 'Projects', icon: Briefcase },
+  { href: '/dashboard/archived-projects', label: 'Archived Projects', icon: ArchiveIcon },
   { href: '/dashboard/target-list', label: 'Target List', icon: Crosshair },
   { href: '/dashboard/calendar', label: 'PPM Calendar', icon: CalendarDays },
   { href: '/dashboard/previous-activity', label: 'Previous Activity', icon: History },
@@ -374,4 +376,3 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
-
