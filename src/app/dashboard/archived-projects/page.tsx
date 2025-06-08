@@ -228,7 +228,7 @@ export default function ArchivedProjectsPage() {
 
                 {selectedArchivedProject.uploadedFiles && selectedArchivedProject.uploadedFiles.length > 0 && (
                   <div className="mt-4">
-                    <h4 className="font-semibold text-md text-foreground mb-2">Archived Documents:</h4>
+                    <h4 className="font-semibold text-md text-foreground mb-2">Archived Documents (if any from before UI removal):</h4>
                     <ul className="space-y-2">
                       {selectedArchivedProject.uploadedFiles.map((file, index) => (
                         <li key={index} className="flex items-center justify-between p-2 border rounded-md">
@@ -256,3 +256,5 @@ export default function ArchivedProjectsPage() {
     </div>
   );
 }
+
+    

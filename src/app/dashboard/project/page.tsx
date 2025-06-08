@@ -19,15 +19,13 @@ import { Calendar } from "@/components/ui/calendar";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { db, storage } from "@/lib/firebase"; 
+import { db } from "@/lib/firebase"; 
 import {
   collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, updateDoc, deleteDoc,
-  writeBatch, getDocs,
+  writeBatch,
 } from "firebase/firestore";
-import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
-import { format, formatDistanceToNow } from "date-fns";
-import { Briefcase, ListChecks, FileText, MessageCircle, PlusCircle, ArrowLeft, Edit3, Trash2, CalendarIcon, ArrowUpDown, ArrowUp, ArrowDown, UploadCloud, Paperclip, Archive as ArchiveIcon } from "lucide-react";
-import Image from "next/image";
+import { format, formatDistanceToNow, setHours, setMinutes, parse } from "date-fns";
+import { Briefcase, ListChecks, FileText, MessageCircle, PlusCircle, ArrowLeft, Edit3, Trash2, CalendarIcon, ArrowUpDown, ArrowUp, ArrowDown, Archive as ArchiveIcon, Clock } from "lucide-react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -44,7 +42,7 @@ const projectFormSchema = z.object({
   startDate: z.date({ required_error: "Start date is required." }),
   endDate: z.date().optional().nullable(),
   budget: z.string().optional().transform(val => {
-    if (val === null || val === undefined || val.trim() === "") return undefined; // Keep undefined if empty
+    if (val === null || val === undefined || val.trim() === "") return undefined; 
     const num = parseFloat(String(val).replace(/,/g, ''));
     return isNaN(num) ? undefined : num;
   }),
@@ -56,25 +54,20 @@ const taskFormSchema = z.object({
   title: z.string().min(3, "Task title is required."),
   description: z.string().optional(),
   status: z.enum(taskStatusOptions),
+  dueDate: z.date({ required_error: "Due date is required."}),
+  dueTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:MM). Use 24-hour format.").optional().default("00:00"),
 });
 type TaskFormValues = z.infer<typeof taskFormSchema>;
 
 const updateNoteFormSchema = z.object({
   note: z.string().min(5, "Update note must be at least 5 characters."),
   date: z.date({ required_error: "Date for the update is required." }),
+  time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:MM). Use 24-hour format.").optional().default("00:00"),
 });
 type UpdateNoteFormValues = z.infer<typeof updateNoteFormSchema>;
 
 
 // Interfaces
-interface UploadedFile {
-  name: string;
-  url: string;
-  type: string;
-  size: number;
-  storagePath: string;
-  uploadedAt: Timestamp;
-}
 interface ProjectData {
   id: string;
   name: string;
@@ -88,7 +81,8 @@ interface ProjectData {
   spent?: number; 
   createdAt: Timestamp;
   lastUpdatedAt: Timestamp;
-  uploadedFiles?: UploadedFile[];
+  // uploadedFiles field can remain for legacy data but won't be actively used
+  uploadedFiles?: Array<{ name: string; url: string; storagePath: string; size: number; type: string; uploadedAt: Timestamp }>;
 }
 
 interface TaskData {
@@ -97,6 +91,7 @@ interface TaskData {
   title: string;
   description?: string;
   status: typeof taskStatusOptions[number];
+  dueDate: Timestamp; // Will store combined date and time
   createdAt: Timestamp;
   lastUpdatedAt: Timestamp;
 }
@@ -105,7 +100,7 @@ interface UpdateNoteData {
   id: string;
   projectId: string;
   note: string;
-  date: Timestamp; 
+  date: Timestamp; // Will store combined date and time
   authorId?: string;
   authorName?: string;
   createdAt: Timestamp;
@@ -120,6 +115,13 @@ const mockUsers = [
 
 type SortableProjectKeys = 'name' | 'status' | 'startDate' | 'lastUpdatedAt';
 
+const combineDateAndTime = (date: Date, timeStr: string): Date => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const newDate = new Date(date);
+    newDate.setHours(hours, minutes, 0, 0);
+    return newDate;
+};
+
 
 export default function ProjectInfoPage() {
   const [projects, setProjects] = useState<ProjectData[]>([]);
@@ -131,10 +133,6 @@ export default function ProjectInfoPage() {
   const [projectTasks, setProjectTasks] = useState<TaskData[]>([]);
   const [isAddTaskDialogOpen, setIsAddTaskDialogOpen] = useState(false);
   
-  const [projectUploadedFiles, setProjectUploadedFiles] = useState<UploadedFile[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-
   const [projectUpdates, setProjectUpdates] = useState<UpdateNoteData[]>([]);
   const [isAddUpdateDialogOpen, setIsAddUpdateDialogOpen] = useState(false);
 
@@ -154,12 +152,12 @@ export default function ProjectInfoPage() {
 
   const taskForm = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
-    defaultValues: { title: "", description: "", status: "To Do" },
+    defaultValues: { title: "", description: "", status: "To Do", dueDate: new Date(), dueTime: "09:00" },
   });
 
   const updateNoteForm = useForm<UpdateNoteFormValues>({
     resolver: zodResolver(updateNoteFormSchema),
-    defaultValues: { note: "", date: new Date() },
+    defaultValues: { note: "", date: new Date(), time: "09:00" },
   });
 
   // Fetch Projects
@@ -216,7 +214,7 @@ export default function ProjectInfoPage() {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, []); 
+  }, [toast]); 
 
   // Fetch Subcollections when selectedProject changes
   useEffect(() => {
@@ -235,15 +233,12 @@ export default function ProjectInfoPage() {
         setProjectUpdates(snapshot.docs.map(doc => ({ id: doc.id, projectId, ...doc.data() } as UpdateNoteData)));
       }, (err) => { console.error(`Error fetching updates for project ${projectId}:`, err); toast({title:"Error", description:`Could not fetch updates for ${selectedProject.name}.`, variant:"destructive"});});
       
-      setProjectUploadedFiles(selectedProject.uploadedFiles || []);
-
       return () => { unsubTasks(); unsubUpdates(); };
     } else {
       setProjectTasks([]);
       setProjectUpdates([]);
-      setProjectUploadedFiles([]);
     }
-  }, [selectedProject]);
+  }, [selectedProject, toast]);
 
   const updateProjectTimestamp = async (projectId: string) => {
     const projectRef = doc(db, "projectsPPM", projectId);
@@ -279,7 +274,7 @@ export default function ProjectInfoPage() {
 
     const budgetToSave = values.budget ?? 0; 
 
-    const projectDataToSave: Omit<ProjectData, 'id' | 'createdAt' | 'spent' | 'uploadedFiles'> & { createdAt?: Timestamp, uploadedFiles?: UploadedFile[] } = {
+    const projectDataToSave: Omit<ProjectData, 'id' | 'createdAt' | 'spent' | 'uploadedFiles'> & { createdAt?: Timestamp, uploadedFiles?: ProjectData['uploadedFiles'] } = {
       name: values.name,
       description: values.description,
       status: values.status,
@@ -308,7 +303,7 @@ export default function ProjectInfoPage() {
         }
       } else {
         projectDataToSave.createdAt = now;
-        projectDataToSave.uploadedFiles = [];
+        projectDataToSave.uploadedFiles = []; // Initialize for new projects, though UI is removed
         await addDoc(collection(db, "projectsPPM"), projectDataToSave);
         toast({ title: "Project Added", description: `"${values.name}" has been added.` });
       }
@@ -331,22 +326,25 @@ export default function ProjectInfoPage() {
       return;
     }
 
-    setShowArchiveConfirmDialog(false); // Close confirmation dialog first
+    setShowArchiveConfirmDialog(false); 
 
-    const projectToArchive = { ...selectedProject, status: "Completed" as const, lastUpdatedAt: Timestamp.now() }; // Optionally set status to Completed on archive
+    const projectToArchive = { ...selectedProject, status: "Completed" as const, lastUpdatedAt: Timestamp.now() }; 
+    // Note: sub-collections (tasks, updates) are not explicitly moved here. 
+    // They would become orphaned or require a more complex archival process (e.g., Cloud Function).
+    // For this implementation, we focus on moving the main project document.
 
     try {
       const batch = writeBatch(db);
-      const archivedProjectRef = doc(collection(db, "archivedProjectsPPM"));
-      batch.set(archivedProjectRef, projectToArchive);
+      const archivedProjectRef = doc(collection(db, "archivedProjectsPPM")); // Create a new doc in archive
+      batch.set(archivedProjectRef, projectToArchive); // Set its data
       
       const originalProjectRef = doc(db, "projectsPPM", selectedProject.id);
-      batch.delete(originalProjectRef);
+      batch.delete(originalProjectRef); // Delete from active projects
 
       await batch.commit();
 
       toast({ title: "Project Archived", description: `"${selectedProject.name}" has been successfully archived.` });
-      setSelectedProject(null); // Go back to project list view
+      setSelectedProject(null); 
     } catch (error) {
       console.error("Error archiving project:", error);
       toast({ title: "Archive Failed", description: "Could not archive the project. Please try again.", variant: "destructive" });
@@ -361,9 +359,14 @@ export default function ProjectInfoPage() {
     }
     const projectId = selectedProject.id;
     const now = Timestamp.now();
+    const combinedDueDate = combineDateAndTime(values.dueDate, values.dueTime || "00:00");
+
     const taskData: Omit<TaskData, 'id'> = { 
-        ...values, 
         projectId: projectId,
+        title: values.title,
+        description: values.description,
+        status: values.status,
+        dueDate: Timestamp.fromDate(combinedDueDate),
         createdAt: now, 
         lastUpdatedAt: now 
     };
@@ -371,108 +374,11 @@ export default function ProjectInfoPage() {
       await addDoc(collection(db, "projectsPPM", projectId, "tasks"), taskData);
       toast({ title: "Task Added", description: `Task "${values.title}" added to ${selectedProject.name}.` });
       setIsAddTaskDialogOpen(false);
-      taskForm.reset();
+      taskForm.reset({ title: "", description: "", status: "To Do", dueDate: new Date(), dueTime: "09:00" });
       await updateProjectTimestamp(projectId);
     } catch (error) {
       console.error("Error adding task:", error);
       toast({ title: "Error Adding Task", description: `Could not add task. ${error instanceof Error ? error.message : ''}`, variant: "destructive" });
-    }
-  };
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!selectedProject?.id || !event.target.files || event.target.files.length === 0) {
-      toast({ title: "Upload Error", description: "No file selected or no project active.", variant: "destructive" });
-      return;
-    }
-    const file = event.target.files[0];
-    const fileStoragePath = `project_documents/${selectedProject.id}/${Date.now()}_${file.name}`;
-    const fileRef = storageRef(storage, fileStoragePath);
-
-    setIsUploading(true);
-    setUploadProgress(0);
-
-    const uploadTask = uploadBytesResumable(fileRef, file);
-
-    uploadTask.on(
-      "state_changed",
-      (snapshot) => {
-        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        setUploadProgress(progress);
-      },
-      (error) => {
-        console.error("Upload failed:", error);
-        toast({ title: "Upload Failed", description: error.message, variant: "destructive" });
-        setIsUploading(false);
-      },
-      async () => {
-        try {
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          const newFile: UploadedFile = {
-            name: file.name,
-            url: downloadURL,
-            type: file.type,
-            size: file.size,
-            storagePath: fileStoragePath,
-            uploadedAt: Timestamp.now(),
-          };
-
-          const projectRef = doc(db, "projectsPPM", selectedProject.id);
-          const currentFiles = selectedProject.uploadedFiles || [];
-          await updateDoc(projectRef, {
-            uploadedFiles: [...currentFiles, newFile],
-            lastUpdatedAt: Timestamp.now(),
-          });
-          
-          setProjectUploadedFiles(prev => [...prev, newFile]);
-          if(selectedProject){
-            setSelectedProject(prev => prev ? {...prev, uploadedFiles: [...(prev.uploadedFiles || []), newFile], lastUpdatedAt: Timestamp.now()} : null);
-          }
-
-          toast({ title: "File Uploaded", description: `${file.name} uploaded successfully.` });
-        } catch (dbError) {
-          console.error("Error saving file metadata:", dbError);
-          toast({ title: "Metadata Error", description: "File uploaded, but failed to save metadata.", variant: "destructive" });
-          // Attempt to delete orphaned file from storage
-          try {
-            await deleteObject(fileRef);
-            console.log("Orphaned file deleted from storage:", fileStoragePath);
-          } catch (deleteError) {
-            console.error("Failed to delete orphaned file from storage:", deleteError);
-          }
-        } finally {
-          setIsUploading(false);
-          setUploadProgress(0);
-        }
-      }
-    );
-  };
-
-  const handleDeleteFile = async (fileToDelete: UploadedFile) => {
-    if (!selectedProject?.id) return;
-
-    const confirmDelete = window.confirm(`Are you sure you want to delete "${fileToDelete.name}"?`);
-    if (!confirmDelete) return;
-
-    try {
-      const fileRef = storageRef(storage, fileToDelete.storagePath);
-      await deleteObject(fileRef);
-
-      const projectRef = doc(db, "projectsPPM", selectedProject.id);
-      const updatedFiles = (selectedProject.uploadedFiles || []).filter(f => f.storagePath !== fileToDelete.storagePath);
-      await updateDoc(projectRef, {
-        uploadedFiles: updatedFiles,
-        lastUpdatedAt: Timestamp.now(),
-      });
-      
-      setProjectUploadedFiles(updatedFiles);
-       if(selectedProject){
-         setSelectedProject(prev => prev ? {...prev, uploadedFiles: updatedFiles, lastUpdatedAt: Timestamp.now()} : null);
-       }
-
-      toast({ title: "File Deleted", description: `${fileToDelete.name} deleted successfully.` });
-    } catch (error: any) {
-      console.error("Error deleting file:", error);
-      toast({ title: "Delete Failed", description: error.message, variant: "destructive" });
     }
   };
 
@@ -484,10 +390,12 @@ export default function ProjectInfoPage() {
     }
     const projectId = selectedProject.id;
     const now = Timestamp.now();
+    const combinedEffectiveDateTime = combineDateAndTime(values.date, values.time || "00:00");
+
     const updateData: Omit<UpdateNoteData, 'id'> = { 
       projectId: projectId, 
       note: values.note,
-      date: Timestamp.fromDate(values.date),
+      date: Timestamp.fromDate(combinedEffectiveDateTime),
       authorId: currentUser.uid,
       authorName: currentUsername || "System User",
       createdAt: now,
@@ -496,7 +404,7 @@ export default function ProjectInfoPage() {
       await addDoc(collection(db, "projectsPPM", projectId, "updates"), updateData);
       toast({ title: "Update Note Added", description: `Update added to ${selectedProject.name}.` });
       setIsAddUpdateDialogOpen(false);
-      updateNoteForm.reset({ note: "", date: new Date() });
+      updateNoteForm.reset({ note: "", date: new Date(), time: "09:00" });
       await updateProjectTimestamp(projectId);
     } catch (error) {
       console.error("Error adding update note:", error);
@@ -627,10 +535,9 @@ export default function ProjectInfoPage() {
         </div>
         
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-4"> {/* Adjusted for 4 tabs */}
+          <TabsList className="grid w-full grid-cols-3"> {/* Adjusted for 3 tabs */}
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
-            <TabsTrigger value="documents">Documents</TabsTrigger>
             <TabsTrigger value="updates">Updates</TabsTrigger>
           </TabsList>
 
@@ -668,7 +575,7 @@ export default function ProjectInfoPage() {
                         toast({ title: "Error", description: "Cannot add task: No project selected.", variant: "destructive" });
                         return;
                     }
-                    taskForm.reset({ title: "", description: "", status: "To Do" }); 
+                    taskForm.reset({ title: "", description: "", status: "To Do", dueDate: new Date(), dueTime: "09:00" }); 
                     setIsAddTaskDialogOpen(true); 
                 }}><PlusCircle className="mr-2 h-4 w-4"/>Add Task</Button>
               </CardHeader>
@@ -678,11 +585,14 @@ export default function ProjectInfoPage() {
                     <CardHeader className="pb-2">
                       <div className="flex justify-between items-start">
                         <CardTitle className="text-md text-foreground">{task.title}</CardTitle>
-                        <Badge variant={task.status === "Done" ? "default" : "secondary"} className={cn(task.status === "Done" && "bg-green-600 text-white", task.status === "In Progress" && "bg-primary text-primary-foreground", task.status === "To Do" && "bg-muted text-muted-foreground", "text-white")}>{task.status}</Badge>
+                        <Badge variant={task.status === "Done" ? "default" : "secondary"} className={cn(task.status === "Done" && "bg-green-600 text-white", task.status === "In Progress" && "bg-primary text-primary-foreground", task.status === "To Do" && "bg-muted text-muted-foreground")}>{task.status}</Badge>
                       </div>
                     </CardHeader>
                     <CardContent className="text-sm space-y-1">
                       {task.description && <p className="text-muted-foreground whitespace-pre-wrap">{task.description}</p>}
+                       <p className="text-xs text-primary font-medium">
+                        Due: {format(task.dueDate.toDate(), "PPPp")}
+                      </p>
                       <p className="text-xs text-muted-foreground">Created: {formatDistanceToNow(task.createdAt.toDate(), { addSuffix: true })} | Updated: {formatDistanceToNow(task.lastUpdatedAt.toDate(), { addSuffix: true })}</p>
                     </CardContent>
                   </Card>
@@ -691,40 +601,6 @@ export default function ProjectInfoPage() {
             </Card>
           </TabsContent>
           
-           <TabsContent value="documents" className="mt-4">
-            <Card className="shadow-md">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2"><Paperclip className="h-5 w-5 text-primary"/>Documents</CardTitle>
-                  <CardDescription>Upload and manage project documents. Last project update: {formatDistanceToNow(selectedProject.lastUpdatedAt.toDate(), { addSuffix: true })}</CardDescription>
-                </div>
-                <Label htmlFor="file-upload" className={cn(buttonVariants({variant: "outline"}), "cursor-pointer")}> <UploadCloud className="mr-2 h-4 w-4"/> Upload File </Label>
-                <Input id="file-upload" type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading}/>
-              </CardHeader>
-              <CardContent>
-                {isUploading && ( <div className="mb-4"> <Progress value={uploadProgress} className="h-2.5"/> <p className="text-sm text-muted-foreground text-center mt-1">Uploading: {uploadProgress.toFixed(0)}%</p> </div> )}
-                {projectUploadedFiles.length > 0 ? (
-                  <ul className="space-y-3">
-                    {projectUploadedFiles.map((file, index) => (
-                      <li key={index} className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <Paperclip className="h-5 w-5 text-primary" />
-                          <div>
-                            <a href={file.url} target="_blank" rel="noopener noreferrer" className="font-medium text-foreground hover:underline hover:text-primary transition-colors"> {file.name} </a>
-                            <p className="text-xs text-muted-foreground"> {(file.size / 1024).toFixed(1)} KB | Uploaded: {formatDistanceToNow(file.uploadedAt.toDate(), {addSuffix: true})} </p>
-                          </div>
-                        </div>
-                        <Button variant="ghost" size="icon" onClick={() => handleDeleteFile(file)} className="text-muted-foreground hover:text-destructive hover:bg-destructive/10" title="Delete File"> <Trash2 className="h-4 w-4"/> </Button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-muted-foreground text-center py-4">No documents uploaded yet.</p>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
           <TabsContent value="updates" className="mt-4">
             <Card className="shadow-md">
                 <CardHeader className="flex flex-row items-center justify-between">
@@ -737,7 +613,7 @@ export default function ProjectInfoPage() {
                             toast({ title: "Error", description: "Cannot add update: No project selected.", variant: "destructive" });
                             return;
                         }
-                        updateNoteForm.reset({ note: "", date: new Date() }); 
+                        updateNoteForm.reset({ note: "", date: new Date(), time: "09:00" }); 
                         setIsAddUpdateDialogOpen(true); 
                     }}><PlusCircle className="mr-2 h-4 w-4"/>Add Update</Button>
                 </CardHeader>
@@ -747,7 +623,7 @@ export default function ProjectInfoPage() {
                       <CardContent className="pt-4">
                         <p className="text-sm text-foreground whitespace-pre-wrap">{update.note}</p>
                         <p className="text-xs text-muted-foreground mt-2">
-                          Effective: {format(update.date.toDate(), "PPP")} | Logged by {update.authorName || "System"} {formatDistanceToNow(update.createdAt.toDate(), { addSuffix: true })}
+                          Effective: <span className="text-primary font-medium">{format(update.date.toDate(), "PPPp")}</span> | Logged by {update.authorName || "System"} {formatDistanceToNow(update.createdAt.toDate(), { addSuffix: true })}
                         </p>
                       </CardContent>
                     </Card>
@@ -764,11 +640,15 @@ export default function ProjectInfoPage() {
         </div>
 
         <Dialog open={isAddTaskDialogOpen} onOpenChange={setIsAddTaskDialogOpen}>
-          <DialogContent key={`${selectedProject.id}-task-dialog`}>
+          <DialogContent key={`${selectedProject?.id || 'new'}-task-dialog`}>
               <DialogHeader><DialogTitle>Add New Task</DialogTitle><DialogDescription>Fill in the details for the new task for {selectedProject?.name || "the current project"}.</DialogDescription></DialogHeader>
               <form onSubmit={taskForm.handleSubmit(onTaskSubmit)} className="space-y-4 py-4">
                   <div><Label htmlFor="task-title">Title</Label><Controller name="title" control={taskForm.control} render={({ field }) => <Input id="task-title" {...field} placeholder="Task Title"/>} />{taskForm.formState.errors.title && <p className="text-xs text-destructive">{taskForm.formState.errors.title.message}</p>}</div>
                   <div><Label htmlFor="task-description">Description (Optional)</Label><Controller name="description" control={taskForm.control} render={({ field }) => <Textarea id="task-description" {...field} placeholder="Describe the task..."/>} /></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div><Label htmlFor="task-dueDate">Due Date</Label><Controller name="dueDate" control={taskForm.control} render={({ field }) => (<Popover><PopoverTrigger asChild><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP") : <span>Pick date</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover>)} />{taskForm.formState.errors.dueDate && <p className="text-xs text-destructive">{taskForm.formState.errors.dueDate.message}</p>}</div>
+                    <div><Label htmlFor="task-dueTime">Due Time</Label><Controller name="dueTime" control={taskForm.control} render={({ field }) => <Input id="task-dueTime" type="time" {...field} />} />{taskForm.formState.errors.dueTime && <p className="text-xs text-destructive">{taskForm.formState.errors.dueTime.message}</p>}</div>
+                  </div>
                   <div><Label htmlFor="task-status">Status</Label><Controller name="status" control={taskForm.control} render={({ field }) => (<Select onValueChange={field.onChange} value={field.value}><SelectTrigger id="task-status"><SelectValue /></SelectTrigger><SelectContent>{taskStatusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select>)} /></div>
                   <DialogFooter><DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose><Button type="submit" disabled={taskForm.formState.isSubmitting}>{taskForm.formState.isSubmitting ? "Adding..." : "Add Task"}</Button></DialogFooter>
               </form>
@@ -776,18 +656,20 @@ export default function ProjectInfoPage() {
         </Dialog>
 
         <Dialog open={isAddUpdateDialogOpen} onOpenChange={setIsAddUpdateDialogOpen}>
-          <DialogContent key={`${selectedProject.id}-update-dialog`}> 
+          <DialogContent key={`${selectedProject?.id || 'new'}-update-dialog`}> 
               <DialogHeader><DialogTitle>Add Project Update</DialogTitle><DialogDescription>Log an update for {selectedProject?.name || "the current project"}.</DialogDescription></DialogHeader>
               <form onSubmit={updateNoteForm.handleSubmit(onUpdateNoteSubmit)} className="space-y-4 py-4">
                   <div><Label htmlFor="update-note">Update Note</Label><Controller name="note" control={updateNoteForm.control} render={({ field }) => <Textarea id="update-note" {...field} rows={4} placeholder="Describe the update..."/>} />{updateNoteForm.formState.errors.note && <p className="text-xs text-destructive">{updateNoteForm.formState.errors.note.message}</p>}</div>
-                  <div><Label htmlFor="update-date">Effective Date</Label><Controller name="date" control={updateNoteForm.control} render={({ field }) => (<Popover><PopoverTrigger asChild><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover>)} />{updateNoteForm.formState.errors.date && <p className="text-xs text-destructive">{updateNoteForm.formState.errors.date.message}</p>}</div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div><Label htmlFor="update-date">Effective Date</Label><Controller name="date" control={updateNoteForm.control} render={({ field }) => (<Popover><PopoverTrigger asChild><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover>)} />{updateNoteForm.formState.errors.date && <p className="text-xs text-destructive">{updateNoteForm.formState.errors.date.message}</p>}</div>
+                    <div><Label htmlFor="update-time">Effective Time</Label><Controller name="time" control={updateNoteForm.control} render={({ field }) => <Input id="update-time" type="time" {...field} />} />{updateNoteForm.formState.errors.time && <p className="text-xs text-destructive">{updateNoteForm.formState.errors.time.message}</p>}</div>
+                  </div>
                   <DialogFooter><DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose><Button type="submit" disabled={updateNoteForm.formState.isSubmitting}>{updateNoteForm.formState.isSubmitting ? "Adding..." : "Add Update"}</Button></DialogFooter>
               </form>
           </DialogContent>
         </Dialog>
       </div>
       )}
-
 
       <Dialog open={isAddProjectDialogOpen} onOpenChange={(isOpen) => { setIsAddProjectDialogOpen(isOpen); if (!isOpen) { projectForm.reset({ name: "", description: "", status: "Planning", startDate: new Date(), endDate: null, budget: "0", managerId: "" }); setEditingProject(null); } }}>
         <DialogContent className="sm:max-w-lg">
@@ -826,6 +708,7 @@ export default function ProjectInfoPage() {
             <AlertDialogDescription>
               Archiving this project will move it to the "Archived Projects" section and remove it from the active list. 
               You will still be able to view its details, but it cannot be edited or reactivated from this interface.
+              Sub-collections like Tasks and Updates will NOT be automatically moved with the project.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -838,3 +721,5 @@ export default function ProjectInfoPage() {
     </div>
   );
 }
+
+    
