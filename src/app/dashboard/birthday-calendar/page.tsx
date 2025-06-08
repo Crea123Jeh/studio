@@ -172,7 +172,7 @@ export default function BirthdayCalendarPage() {
           id: docSnap.id,
           name: data.name,
           anchorDate: (data.anchorDate as Timestamp).toDate(),
-          type: data.type || "Student", // Firestore data might have varied casing or be missing
+          type: data.type || "Student", 
           grade: data.grade,
         } as BirthdayEvent;
       });
@@ -366,7 +366,7 @@ export default function BirthdayCalendarPage() {
     const birthdayData = {
       name: birthdayName,
       anchorDate: Timestamp.fromDate(startOfDay(birthdayDate)), 
-      type: birthdayType, // Save with the casing selected in the form
+      type: birthdayType, 
       grade: birthdayType.toLowerCase() === "student" ? birthdayGrade : null, 
     };
 
@@ -517,7 +517,7 @@ export default function BirthdayCalendarPage() {
     allKeysInFilteredData.forEach(dataGrade => {
       if (dataGrade !== "Ungraded" && !processed.has(dataGrade)) {
         orderedKeys.push(dataGrade);
-        processed.add(dataGrade);
+        processed.add(dataGrade); 
       }
     });
 
@@ -753,7 +753,7 @@ export default function BirthdayCalendarPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="max-h-[700px] pr-2">
+          <ScrollArea className="max-h-[300px] pr-2">
             {filteredUpcomingBirthdays.teachers.length > 0 && (
               <div className="mb-8">
                 <h4 className="text-xl font-semibold mb-3 pb-2 border-b flex items-center text-foreground">
@@ -857,6 +857,3 @@ export default function BirthdayCalendarPage() {
     </div>
   );
 }
-
-
-    
