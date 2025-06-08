@@ -82,14 +82,14 @@ export default function DashboardPage() {
 
   const summaryMetrics = [
     { title: "Active Projects", value: data.activeProjectsCount, icon: Briefcase, link: "/dashboard/project", iconColor: "text-primary" },
-    { title: "Targets In Progress", value: data.inProgressTargetsCount, icon: Crosshair, link: "/dashboard/target-list", iconColor: "text-primary" }, // Changed from text-accent
-    { title: "Recent Violations", value: data.recentViolationsCount, icon: ShieldAlert, link: "/dashboard/violations", iconColor: "text-primary" }, // Changed from text-destructive
-    { title: "Today's Birthdays", value: data.todaysBirthdays.length, icon: Cake, link: "/dashboard/birthday-calendar", iconColor: "text-primary" }, // Changed from text-pink-500
+    { title: "Targets In Progress", value: data.inProgressTargetsCount, icon: Crosshair, link: "/dashboard/target-list", iconColor: "text-primary" },
+    { title: "Recent Violations", value: data.recentViolationsCount, icon: ShieldAlert, link: "/dashboard/violations", iconColor: "text-primary" },
+    { title: "Today's Birthdays", value: data.todaysBirthdays.length, icon: Cake, link: "/dashboard/birthday-calendar", iconColor: "text-primary" },
   ];
 
   return (
     <div className="space-y-8">
-      <Card className="shadow-lg bg-gradient-to-br from-primary/10 via-background to-background border-primary/20">
+      <Card className="shadow-lg bg-gradient-to-br from-sky-300 to-sky-100 border-sky-200">
         <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">
@@ -102,7 +102,7 @@ export default function DashboardPage() {
             alt="User Avatar"
             width={72}
             height={72}
-            className="rounded-full border-2 border-primary shadow-md"
+            className="rounded-full border-2 border-white shadow-md"
             data-ai-hint="user avatar large"
           />
         </CardContent>
