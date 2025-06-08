@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, deleteDoc, updateDoc } from "firebase/firestore";
 import { format, isSameDay, startOfDay, isBefore } from "date-fns";
-import { School, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListChecks, Trash2, Edit3, ArrowUpDown, ArrowUp, ArrowDown, CalendarClock, BookMarked } from "lucide-react";
+import { School, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListChecks, Trash2, Edit3, ArrowUpDown, ArrowUp, ArrowDown, CalendarClock, BookMarked, Eye } from "lucide-react";
 
 interface AcademicEvent {
   id: string; 
@@ -81,6 +81,9 @@ export default function AcademicCalendarPage() {
   const [upcomingSortConfig, setUpcomingSortConfig] = useState<{ key: SortableAcademicEventKeys; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'ascending' });
   const [pastSortConfig, setPastSortConfig] = useState<{ key: SortableAcademicEventKeys; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'descending' });
 
+  const [isViewDetailsDialogOpen, setIsViewDetailsDialogOpen] = useState(false);
+  const [viewingEventDetails, setViewingEventDetails] = useState<AcademicEvent | null>(null);
+
 
   const { toast } = useToast();
 
@@ -133,6 +136,11 @@ export default function AcademicCalendarPage() {
     setEventDate(event.date);
     setEventCategory(event.category);
     setIsAddEditDialogOpen(true);
+  };
+
+  const openViewDetailsDialog = (event: AcademicEvent) => {
+    setViewingEventDetails(event);
+    setIsViewDetailsDialogOpen(true);
   };
 
   const handleDeleteEvent = async (eventId: string) => {
@@ -388,7 +396,7 @@ export default function AcademicCalendarPage() {
       </div>
 
       <Card className="shadow-lg">
-        <CardContent className="grid grid-cols-1 gap-6 pt-6"> {/* Changed from md:grid-cols-3 */}
+        <CardContent className="grid grid-cols-1 gap-y-8 pt-6"> {/* Changed from md:grid-cols-3 to single column */}
           <div className="min-w-0"> {/* Removed md:col-span-2 */}
            <Calendar
               mode="single"
@@ -416,7 +424,7 @@ export default function AcademicCalendarPage() {
               }}
             />
           </div>
-          <div className="space-y-4"> {/* Removed md:col-span-1 */}
+          <div className="space-y-4"> {/* Removed md:col-span-1. This will now stack below calendar. */}
              <div>
                 <h3 className="text-xl font-semibold mb-3 pb-2 border-b text-foreground">
                     Events for: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
@@ -504,6 +512,7 @@ export default function AcademicCalendarPage() {
                     <TableHead onClick={() => requestSort('title', 'past')} className="cursor-pointer hover:bg-muted/50"><div className="flex items-center">Title {getSortIcon('title', 'past')}</div></TableHead>
                     <TableHead onClick={() => requestSort('date', 'past')} className="cursor-pointer hover:bg-muted/50"><div className="flex items-center">Date {getSortIcon('date', 'past')}</div></TableHead>
                     <TableHead onClick={() => requestSort('category', 'past')} className="cursor-pointer hover:bg-muted/50"><div className="flex items-center">Category {getSortIcon('category', 'past')}</div></TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -512,6 +521,11 @@ export default function AcademicCalendarPage() {
                       <TableCell className="font-medium text-foreground">{event.title}</TableCell>
                       <TableCell>{format(event.date, "PP")}</TableCell>
                       <TableCell><Badge className={cn(getBadgeClassNames(event.category))}>{event.category}</Badge></TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-blue-600" onClick={() => openViewDetailsDialog(event)} title="View Details">
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -526,9 +540,34 @@ export default function AcademicCalendarPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={isViewDetailsDialogOpen} onOpenChange={setIsViewDetailsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{viewingEventDetails?.title || "Event Details"}</DialogTitle>
+            {viewingEventDetails && <DialogDescription>Category: <Badge className={cn(getBadgeClassNames(viewingEventDetails.category))}>{viewingEventDetails.category}</Badge></DialogDescription>}
+          </DialogHeader>
+          {viewingEventDetails && (
+            <div className="py-4 space-y-2">
+              <p><strong>Date:</strong> {format(viewingEventDetails.date, "EEEE, MMMM d, yyyy")}</p>
+              <p><strong>Description:</strong></p>
+              <ScrollArea className="max-h-40 w-full rounded-md border p-3 bg-muted/50">
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                  {viewingEventDetails.description || <span className="italic">No description provided.</span>}
+                </p>
+              </ScrollArea>
+            </div>
+          )}
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">Close</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
-
 
     
