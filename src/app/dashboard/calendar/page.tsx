@@ -546,7 +546,7 @@ export default function CalendarEventsPage() {
         </CardHeader>
         <CardContent>
           {allUpcomingEvents.length > 0 ? (
-            <ScrollArea className="pr-2 max-h-[400px]"> {/* Explicit max-height for scroll test */}
+            <ScrollArea className="pr-2"> {/* Explicit max-height for scroll test */}
               <ul className="space-y-4">
                 {allUpcomingEvents.map((event) => (<li key={`${event.id}-upcoming`}><EventCard event={event} showActions={true} /></li>))}
               </ul>
