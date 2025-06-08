@@ -24,7 +24,7 @@ interface BirthdayEvent {
   id: string; 
   anchorDate: Date; 
   name: string; 
-  type: "Teacher" | "Student";
+  type: "Teacher" | "Student" | string; // Allow string for flexibility from Firestore, normalize later
   grade?: string; 
 }
 
@@ -172,7 +172,7 @@ export default function BirthdayCalendarPage() {
           id: docSnap.id,
           name: data.name,
           anchorDate: (data.anchorDate as Timestamp).toDate(),
-          type: data.type || "Student", 
+          type: data.type || "Student", // Firestore data might have varied casing or be missing
           grade: data.grade,
         } as BirthdayEvent;
       });
@@ -265,9 +265,11 @@ export default function BirthdayCalendarPage() {
       const ageAtUpcomingBirthday = calculateAgeOnDate(bday.anchorDate, displayDate);
       const eventWithDisplayInfo: BirthdayEventWithDisplayInfo = { ...bday, displayDate, age: ageAtUpcomingBirthday };
 
-      if (bday.type === "Teacher") {
+      const normalizedType = typeof bday.type === 'string' ? bday.type.toLowerCase() : 'student';
+
+      if (normalizedType === "teacher") {
         upcoming.teachers.push(eventWithDisplayInfo);
-      } else if (bday.type === "Student") {
+      } else if (normalizedType === "student") {
         const grade = bday.grade || "Ungraded";
         if (!upcoming.studentsByGrade[grade]) {
           upcoming.studentsByGrade[grade] = [];
@@ -324,10 +326,12 @@ export default function BirthdayCalendarPage() {
         const displayDate = new Date(getYear(today), getMonth(bday.anchorDate), getDate(bday.anchorDate));
         const ageAtToday = calculateAgeOnDate(bday.anchorDate, displayDate);
         const eventWithDisplayInfo: BirthdayEventWithDisplayInfo = { ...bday, displayDate, age: ageAtToday };
+        
+        const normalizedType = typeof bday.type === 'string' ? bday.type.toLowerCase() : 'student';
 
-        if (bday.type === "Teacher") {
+        if (normalizedType === "teacher") {
           result.teachers.push(eventWithDisplayInfo);
-        } else if (bday.type === "Student") {
+        } else if (normalizedType === "student") {
           result.students.push(eventWithDisplayInfo);
         }
       }
@@ -350,7 +354,7 @@ export default function BirthdayCalendarPage() {
       });
       return;
     }
-    if (birthdayType === "Student" && !birthdayGrade) {
+    if (birthdayType.toLowerCase() === "student" && !birthdayGrade) {
         toast({
             title: "Missing Grade",
             description: "Please provide a grade for the student.",
@@ -362,8 +366,8 @@ export default function BirthdayCalendarPage() {
     const birthdayData = {
       name: birthdayName,
       anchorDate: Timestamp.fromDate(startOfDay(birthdayDate)), 
-      type: birthdayType,
-      grade: birthdayType === "Student" ? birthdayGrade : null, 
+      type: birthdayType, // Save with the casing selected in the form
+      grade: birthdayType.toLowerCase() === "student" ? birthdayGrade : null, 
     };
 
     try {
@@ -464,7 +468,7 @@ export default function BirthdayCalendarPage() {
         <p className="text-sm font-semibold text-muted-foreground mb-1">{format(displayDate, "EEEE, MMMM d, yyyy")}</p>
         <div className="text-sm text-muted-foreground space-y-0.5">
             <p>Type: <span className="font-medium text-foreground">{birthday.type}</span></p>
-            {birthday.type === "Student" && birthday.grade && (
+            {birthday.type.toLowerCase() === "student" && birthday.grade && (
                 <p>Grade: <span className="font-medium text-foreground">{birthday.grade}</span></p>
             )}
             <p>Age on this date: <span className="font-medium text-foreground">{age}</span></p>
@@ -497,27 +501,30 @@ export default function BirthdayCalendarPage() {
   )};
 
   const studentGradeKeysInOrder: string[] = useMemo(() => {
-    const keys: string[] = [];
+    const allKeysInFilteredData = Object.keys(filteredUpcomingBirthdays.studentsByGrade)
+      .filter(grade => filteredUpcomingBirthdays.studentsByGrade[grade]?.length > 0);
+
+    const orderedKeys: string[] = [];
     const processed = new Set<string>();
 
     studentGradeOptions.forEach(optGrade => {
-      if (filteredUpcomingBirthdays.studentsByGrade[optGrade]?.length > 0) {
-        keys.push(optGrade);
+      if (allKeysInFilteredData.includes(optGrade)) {
+        orderedKeys.push(optGrade);
         processed.add(optGrade);
       }
     });
 
-    Object.keys(filteredUpcomingBirthdays.studentsByGrade).forEach(dataGrade => {
-      if (dataGrade !== "Ungraded" && !processed.has(dataGrade) && filteredUpcomingBirthdays.studentsByGrade[dataGrade]?.length > 0) {
-        keys.push(dataGrade);
+    allKeysInFilteredData.forEach(dataGrade => {
+      if (dataGrade !== "Ungraded" && !processed.has(dataGrade)) {
+        orderedKeys.push(dataGrade);
         processed.add(dataGrade);
       }
     });
 
-    if (filteredUpcomingBirthdays.studentsByGrade["Ungraded"]?.length > 0 && !processed.has("Ungraded")) {
-      keys.push("Ungraded");
+    if (allKeysInFilteredData.includes("Ungraded") && !processed.has("Ungraded")) {
+      orderedKeys.push("Ungraded");
     }
-    return keys;
+    return orderedKeys;
   }, [filteredUpcomingBirthdays.studentsByGrade]);
 
 
@@ -609,7 +616,7 @@ export default function BirthdayCalendarPage() {
                         </SelectContent>
                     </Select>
                 </div>
-                {birthdayType === "Student" && (
+                {birthdayType.toLowerCase() === "student" && (
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="birthday-grade" className="text-right">Grade</Label>
                          <Select value={birthdayGrade} onValueChange={setBirthdayGrade}>
@@ -791,8 +798,7 @@ export default function BirthdayCalendarPage() {
                 </h4>
                 {studentGradeKeysInOrder.map(gradeKey => {
                     const studentsInGrade = filteredUpcomingBirthdays.studentsByGrade[gradeKey];
-                    // This check is technically redundant due to how studentGradeKeysInOrder is constructed, but safe.
-                    if(studentsInGrade && studentsInGrade.length > 0) { 
+                    if (studentsInGrade?.length > 0) { 
                         return (
                             <div key={`grade-section-table-${gradeKey}`} className="mb-6">
                                 <h5 className="text-lg font-medium text-muted-foreground mb-2 ml-1 flex items-center">
@@ -851,3 +857,6 @@ export default function BirthdayCalendarPage() {
     </div>
   );
 }
+
+
+    
