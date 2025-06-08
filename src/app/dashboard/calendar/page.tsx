@@ -316,7 +316,7 @@ export default function CalendarEventsPage() {
     >
       <CardHeader className="p-4 pb-2">
         <div className="flex justify-between items-start gap-2">
-           <div className="flex items-center gap-2 min-w-0">
+           <div className="flex items-center gap-2 min-w-0 overflow-hidden">
             {IconComponent && <IconComponent className="h-5 w-5 text-primary shrink-0" />}
             <CardTitle className="text-md leading-tight truncate text-foreground">{event.title}</CardTitle>
            </div>
@@ -341,11 +341,13 @@ export default function CalendarEventsPage() {
       </CardHeader>
       <CardContent className="p-4 pt-1">
         <p className="text-sm font-semibold text-muted-foreground mb-1.5">{format(event.date, "EEEE, MMMM d, yyyy")}</p>
-        <p className="text-sm text-muted-foreground">{event.description || <span className="italic">No description provided.</span>}</p>
+        <p className="text-sm text-muted-foreground break-words">{event.description || <span className="italic">No description provided.</span>}</p>
         {event.isProjectEvent && event.projectId && (
-          <p className="text-xs text-muted-foreground mt-2 flex items-center pt-1.5 border-t border-border/50">
-            <Briefcase className="h-3.5 w-3.5 mr-1.5 text-primary" />
-            Project: {allProjects.find(p => p.id === event.projectId)?.name || event.projectId}
+          <p className="text-xs text-muted-foreground mt-2 flex items-center pt-1.5 border-t border-border/50 min-w-0">
+            <Briefcase className="h-3.5 w-3.5 mr-1.5 text-primary shrink-0" />
+            <span className="truncate">
+                Project: {allProjects.find(p => p.id === event.projectId)?.name || event.projectId}
+            </span>
           </p>
         )}
       </CardContent>
@@ -519,7 +521,7 @@ export default function CalendarEventsPage() {
             <h3 className="text-xl font-semibold mb-4 pb-2 border-b text-foreground">
               Events for: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
             </h3>
-            <ScrollArea className="pr-2 max-h-[calc(100vh-450px)]"> {/* Explicit max-height for scroll test */}
+            <ScrollArea className="pr-2">
               {eventsForSelectedDate.length > 0 ? (
                 <ul className="space-y-4">
                   {eventsForSelectedDate.map((event) => (<li key={event.id}><EventCard event={event} showActions={true} /></li>))}
@@ -546,7 +548,7 @@ export default function CalendarEventsPage() {
         </CardHeader>
         <CardContent>
           {allUpcomingEvents.length > 0 ? (
-            <ScrollArea className="pr-2"> {/* Explicit max-height for scroll test */}
+            <ScrollArea className="pr-2">
               <ul className="space-y-4">
                 {allUpcomingEvents.map((event) => (<li key={`${event.id}-upcoming`}><EventCard event={event} showActions={true} /></li>))}
               </ul>
