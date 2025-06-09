@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BookOpen, Youtube, PlusCircle, Loader2, UploadCloud } from "lucide-react"; 
+import { BookOpen, Youtube, PlusCircle, Loader2, UploadCloud, Search, ListFilter } from "lucide-react"; 
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
@@ -38,6 +38,9 @@ export default function KnowledgeHubPage() {
   const [newDescription, setNewDescription] = useState("");
   const [newVideoId, setNewVideoId] = useState("");
   const [newCategory, setNewCategory] = useState(knowledgeCategories[0]);
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
 
   const { toast } = useToast();
 
@@ -99,6 +102,27 @@ export default function KnowledgeHubPage() {
     }
   };
 
+  const filteredAndSortedFeed = useMemo(() => {
+    let filtered = knowledgeFeed;
+
+    if (searchTerm) {
+      const lowercasedSearchTerm = searchTerm.toLowerCase();
+      filtered = filtered.filter(item =>
+        item.title.toLowerCase().includes(lowercasedSearchTerm) ||
+        item.description.toLowerCase().includes(lowercasedSearchTerm) ||
+        item.category.toLowerCase().includes(lowercasedSearchTerm)
+      );
+    }
+
+    if (sortOrder === "newest") {
+      return filtered; // Already sorted by newest due to Firestore query
+    } else {
+      // Create a new sorted array for "oldest"
+      return [...filtered].sort((a, b) => a.createdAt.toMillis() - b.createdAt.toMillis());
+    }
+  }, [knowledgeFeed, searchTerm, sortOrder]);
+
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -111,7 +135,7 @@ export default function KnowledgeHubPage() {
           if (!isOpen) resetForm();
         }}>
           <DialogTrigger asChild>
-            <Button variant="outline">
+            <Button variant="outline" className="w-full sm:w-auto">
               <PlusCircle className="mr-2 h-4 w-4" /> Add New Learning Item
             </Button>
           </DialogTrigger>
@@ -160,17 +184,38 @@ export default function KnowledgeHubPage() {
 
       <Card className="shadow-lg">
         <CardHeader>
-          <CardDescription>
-            Latest videos and tutorials relevant to project management, methodologies, and tools.
-          </CardDescription>
+          <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
+            <div className="relative w-full md:w-2/3 lg:w-1/2">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Search by title, description, category..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="w-full md:w-auto flex items-center gap-2">
+              <ListFilter className="h-5 w-5 text-muted-foreground" />
+              <Select value={sortOrder} onValueChange={(value) => setSortOrder(value as "newest" | "oldest")}>
+                <SelectTrigger className="w-full md:w-[180px]">
+                  <SelectValue placeholder="Sort by..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest First</SelectItem>
+                  <SelectItem value="oldest">Oldest First</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-[calc(100vh-280px)] pr-3">
+          <ScrollArea className="h-[calc(100vh-350px)] pr-3"> {/* Adjusted height slightly */}
             {isLoading ? (
               <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2 text-muted-foreground">Loading learning feed...</p></div>
-            ) : knowledgeFeed.length > 0 ? (
-              <div className="grid grid-cols-1 gap-6"> {/* Changed to single column for card layout */}
-                {knowledgeFeed.map((item) => (
+            ) : filteredAndSortedFeed.length > 0 ? (
+              <div className="grid grid-cols-1 gap-6">
+                {filteredAndSortedFeed.map((item) => (
                   <Card 
                     key={item.id} 
                     className={cn(
@@ -178,7 +223,7 @@ export default function KnowledgeHubPage() {
                         "flex flex-col md:flex-row" 
                     )}
                   >
-                    <div className="md:w-2/5 lg:w-1/3 aspect-video bg-muted shrink-0"> {/* Video container takes up portion of width on md+ */}
+                    <div className="md:w-2/5 lg:w-1/3 aspect-video bg-muted shrink-0">
                       <iframe
                         className="w-full h-full"
                         src={`https://www.youtube.com/embed/${item.videoId}`}
@@ -189,7 +234,7 @@ export default function KnowledgeHubPage() {
                         loading="lazy"
                       ></iframe>
                     </div>
-                    <div className="p-4 flex flex-col flex-grow"> {/* Details container */}
+                    <div className="p-4 flex flex-col flex-grow">
                       <CardTitle className="text-lg leading-tight mb-1.5 text-foreground">{item.title}</CardTitle>
                       <p className="text-sm text-muted-foreground line-clamp-3 mb-2 flex-grow">{item.description}</p>
                       <div className="flex justify-between items-center mt-auto pt-2 border-t">
@@ -206,8 +251,12 @@ export default function KnowledgeHubPage() {
             ) : (
               <div className="flex flex-col items-center justify-center text-center p-10 border rounded-md border-dashed h-full bg-muted/50 min-h-[200px]">
                 <Youtube className="h-12 w-12 text-primary/70 mb-4" />
-                <p className="text-muted-foreground font-medium text-lg">Knowledge Feed is Empty</p>
-                <p className="text-sm text-muted-foreground mt-1">Be the first to add a learning item!</p>
+                <p className="text-muted-foreground font-medium text-lg">
+                  {searchTerm ? "No items match your search." : "Knowledge Feed is Empty"}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {searchTerm ? "Try a different search term or clear the search." : "Be the first to add a learning item!"}
+                </p>
               </div>
             )}
           </ScrollArea>
@@ -216,3 +265,4 @@ export default function KnowledgeHubPage() {
     </div>
   );
 }
+
