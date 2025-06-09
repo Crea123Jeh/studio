@@ -13,15 +13,8 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'placehold.co',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'jak101fm.com', // Added this new pattern
-        port: '',
-        pathname: '/**',
+        hostname: '**', // Wildcard to allow any hostname
+        pathname: '/**', // Allow any path
       },
     ],
   },
