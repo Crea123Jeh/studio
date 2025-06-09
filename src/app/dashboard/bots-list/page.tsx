@@ -5,7 +5,7 @@ import { useState, useEffect, type FormEvent, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, updateD
 import { format, formatDistanceToNow, startOfDay } from "date-fns";
 import { Bot, PlusCircle, Edit3, Trash2, CalendarIcon as LucideCalendarIcon, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
+import { Badge } from "@/components/ui/badge";
 
 type BotVersion = "V1.9.1" | "V2.0";
 const botVersionOptions: BotVersion[] = ["V1.9.1", "V2.0"];
@@ -64,6 +65,7 @@ export default function BotsListPage() {
   useEffect(() => {
     setIsLoading(true);
     const botsCollectionRef = collection(db, "botConfigurations");
+    // Initial sort from Firestore for lastUpdatedAt, client-side sort will override for display
     const q = query(botsCollectionRef, orderBy("lastUpdatedAt", "desc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -182,8 +184,8 @@ export default function BotsListPage() {
       await updateDoc(botRef, {
         enabled: !botItem.enabled,
         lastUpdatedAt: Timestamp.now(),
-        editedByUserId: user.uid,
-        editedByUserName: username || "Unknown User",
+        addedByUserId: user.uid, // Track who made the change
+        addedByUserName: username || "Unknown User",
       });
       toast({ title: "Status Updated", description: `Bot "${botItem.room}" enabled status changed.` });
     } catch (error) {
@@ -218,7 +220,7 @@ export default function BotsListPage() {
         if (aVal instanceof Timestamp && bVal instanceof Timestamp) {
           comparison = aVal.toDate().getTime() - bVal.toDate().getTime();
         } else if (typeof aVal === 'boolean' && typeof bVal === 'boolean') {
-          comparison = aVal === bVal ? 0 : aVal ? -1 : 1; 
+          comparison = aVal === bVal ? 0 : aVal ? -1 : 1; // true comes before false when ascending
         } else if (typeof aVal === 'string' && typeof bVal === 'string') {
           comparison = aVal.localeCompare(bVal);
         }
@@ -370,7 +372,7 @@ export default function BotsListPage() {
             </ScrollArea>
             <DialogFooter className="mt-4 pt-4 border-t">
               <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-              <Button type="submit">{editingBot ? "Save Changes" : "Add Bot Config"}</Button>
+              <Button type="submit" disabled={isLoading}>{isLoading ? "Saving..." : (editingBot ? "Save Changes" : "Add Bot Config")}</Button>
             </DialogFooter>
           </form>
         </DialogContent>
