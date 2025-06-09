@@ -221,13 +221,13 @@ export default function ProjectInfoPage() {
       const tasksCol = collection(db, "projectsPPM", projectId, "tasks");
       const tasksQuery = query(tasksCol, orderBy("createdAt", "desc"));
       const unsubTasks = onSnapshot(tasksQuery, (snapshot) => {
-        setProjectTasks(snapshot.docs.map(doc => ({ id: doc.id, projectId, ...doc.data() } as TaskData)));
+        setProjectTasks(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, projectId } as TaskData)));
       }, (err) => { console.error(`Error fetching tasks for project ${projectId}:`, err); toast({title:"Error", description:`Could not fetch tasks for ${selectedProject.name}.`, variant:"destructive"});});
 
       const updatesCol = collection(db, "projectsPPM", projectId, "updates");
       const updatesQuery = query(updatesCol, orderBy("date", "desc")); 
       const unsubUpdates = onSnapshot(updatesQuery, (snapshot) => {
-        setProjectUpdates(snapshot.docs.map(doc => ({ id: doc.id, projectId, ...doc.data() } as UpdateNoteData)));
+        setProjectUpdates(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, projectId } as UpdateNoteData)));
       }, (err) => { console.error(`Error fetching updates for project ${projectId}:`, err); toast({title:"Error", description:`Could not fetch updates for ${selectedProject.name}.`, variant:"destructive"});});
       
       return () => { unsubTasks(); unsubUpdates(); };
@@ -288,6 +288,8 @@ export default function ProjectInfoPage() {
         const projectRef = doc(db, "projectsPPM", editingProject.id);
         await updateDoc(projectRef, projectDataToSave);
         toast({ title: "Project Updated", description: `"${values.name}" has been updated.` });
+        // TODO: Trigger backend function to create notifications for project update
+        // e.g., await createNotificationForProjectUpdate({ projectId: editingProject.id, projectName: values.name, updatedBy: currentUsername });
         if(selectedProject?.id === editingProject.id) {
              const updatedProjectData = {
                 ...selectedProject, 
@@ -300,8 +302,10 @@ export default function ProjectInfoPage() {
         }
       } else {
         projectDataToSave.createdAt = now;
-        await addDoc(collection(db, "projectsPPM"), projectDataToSave);
+        const newDocRef = await addDoc(collection(db, "projectsPPM"), projectDataToSave);
         toast({ title: "Project Added", description: `"${values.name}" has been added.` });
+        // TODO: Trigger backend function to create notifications for new project
+        // e.g., await createNotificationForNewProject({ projectId: newDocRef.id, projectName: values.name, createdBy: currentUsername });
       }
       setIsAddProjectDialogOpen(false);
       setEditingProject(null);
@@ -335,17 +339,7 @@ export default function ProjectInfoPage() {
       const batch = writeBatch(db);
 
       const archivedProjectPayload = {
-        name: selectedProject.name,
-        description: selectedProject.description,
-        status: selectedProject.status, 
-        startDate: selectedProject.startDate,
-        endDate: selectedProject.endDate ?? null,
-        budget: selectedProject.budget ?? 0,
-        managerId: selectedProject.managerId ?? null,
-        managerName: selectedProject.managerName ?? null,
-        spent: selectedProject.spent ?? null,
-        createdAt: selectedProject.createdAt, 
-        lastUpdatedAt: selectedProject.lastUpdatedAt, 
+        ...selectedProject, // spread existing selected project data
         archivedAt: Timestamp.now(), 
       };
       batch.set(projectToArchiveDocRef, archivedProjectPayload);
@@ -355,6 +349,7 @@ export default function ProjectInfoPage() {
         const taskData = taskDoc.data();
         const archivedTaskRef = doc(db, "archivedProjectsPPM", selectedProject.id, "tasks", taskDoc.id);
         batch.set(archivedTaskRef, taskData);
+        batch.delete(doc(tasksCollectionRef, taskDoc.id)); // Delete original task
       });
 
       const updatesSnapshot = await getDocs(updatesCollectionRef);
@@ -362,6 +357,7 @@ export default function ProjectInfoPage() {
         const updateData = updateDocSnapshot.data();
         const archivedUpdateRef = doc(db, "archivedProjectsPPM", selectedProject.id, "updates", updateDocSnapshot.id);
         batch.set(archivedUpdateRef, updateData);
+        batch.delete(doc(updatesCollectionRef, updateDocSnapshot.id)); // Delete original update
       });
 
       batch.delete(originalProjectDocRef);
@@ -369,6 +365,8 @@ export default function ProjectInfoPage() {
       await batch.commit();
 
       toast({ title: "Project Archived", description: `"${selectedProject.name}" and its data have been successfully archived.` });
+      // TODO: Trigger backend function to create notification for project archival
+      // e.g., await createNotificationForProjectArchive({ projectName: selectedProject.name, archivedBy: currentUsername });
       setSelectedProject(null);
     } catch (error) {
       console.error("Error archiving project:", error);
@@ -398,8 +396,10 @@ export default function ProjectInfoPage() {
         lastUpdatedAt: now 
     };
     try {
-      await addDoc(collection(db, "projectsPPM", projectId, "tasks"), taskData);
+      const newDocRef = await addDoc(collection(db, "projectsPPM", projectId, "tasks"), taskData);
       toast({ title: "Task Added", description: `Task "${values.title}" added to ${selectedProject.name}.` });
+      // TODO: Trigger backend function to create notifications for new task
+      // e.g., await createNotificationForNewTask({ taskId: newDocRef.id, taskTitle: values.title, projectId: projectId, projectName: selectedProject.name, assignedBy: currentUsername });
       setIsAddTaskDialogOpen(false);
       taskForm.reset({ title: "", description: "", status: "To Do", dueDate: new Date(), dueTime: "09:00" });
       await updateProjectTimestamp(projectId);
@@ -428,8 +428,10 @@ export default function ProjectInfoPage() {
       createdAt: now,
     };
     try {
-      await addDoc(collection(db, "projectsPPM", projectId, "updates"), updateData);
+      const newDocRef = await addDoc(collection(db, "projectsPPM", projectId, "updates"), updateData);
       toast({ title: "Update Note Added", description: `Update added to ${selectedProject.name}.` });
+      // TODO: Trigger backend function to create notifications for project update
+      // e.g., await createNotificationForProjectUpdateNote({ updateId: newDocRef.id, noteSummary: values.note.substring(0,50), projectId: projectId, projectName: selectedProject.name, author: currentUsername });
       setIsAddUpdateDialogOpen(false);
       updateNoteForm.reset({ note: "", date: new Date(), time: "09:00" });
       await updateProjectTimestamp(projectId);
@@ -515,7 +517,7 @@ export default function ProjectInfoPage() {
                         <TableBody>
                             {sortedProjects.map((project) => (
                                 <TableRow key={project.id} className="hover:bg-muted/50 transition-colors">
-                                    <TableCell className="font-medium text-foreground">{project.name}</TableCell>
+                                    <TableCell className="font-medium text-foreground">{project.name ?? ""}</TableCell>
                                     <TableCell>
                                         <Badge variant={project.status === "Completed" ? "default" : "secondary"} 
                                           className={cn(
@@ -581,13 +583,13 @@ export default function ProjectInfoPage() {
                   <Card> <CardHeader><CardTitle className="text-base font-semibold">Start Date</CardTitle></CardHeader> <CardContent><p>{selectedProject.startDate ? format(selectedProject.startDate.toDate(), "PPP") : "N/A"}</p></CardContent> </Card>
                   <Card> <CardHeader><CardTitle className="text-base font-semibold">End Date</CardTitle></CardHeader> <CardContent><p>{selectedProject.endDate ? format(selectedProject.endDate.toDate(), "PPP") : "N/A"}</p></CardContent> </Card>
                   <Card> <CardHeader><CardTitle className="text-base font-semibold">Budget</CardTitle></CardHeader> <CardContent><p>{selectedProject.budget ? `$${selectedProject.budget.toLocaleString()}` : "$0"}</p></CardContent> </Card>
-                  <Card> <CardHeader><CardTitle className="text-base font-semibold">Manager</CardTitle></CardHeader> <CardContent className="flex items-center gap-2"> <Avatar className="h-8 w-8"> <AvatarImage src={`https://placehold.co/40x40.png?text=${selectedProject.managerName ? selectedProject.managerName.substring(0,1).toUpperCase() : 'P'}`} alt={selectedProject.managerName || "Manager"} data-ai-hint="person avatar"/> <AvatarFallback>{selectedProject.managerName ? selectedProject.managerName.substring(0,1).toUpperCase() : "P"}</AvatarFallback> </Avatar> <p className="text-sm font-semibold">{selectedProject.managerName || "N/A"}</p> </CardContent> </Card>
+                  <Card> <CardHeader><CardTitle className="text-base font-semibold">Manager</CardTitle></CardHeader> <CardContent className="flex items-center gap-2"> <Avatar className="h-8 w-8"> <AvatarImage src={`https://placehold.co/40x40.png?text=${selectedProject.managerName ? selectedProject.managerName.substring(0,1).toUpperCase() : 'P'}`} alt={selectedProject.managerName || "Manager"} data-ai-hint="person avatar"/> <AvatarFallback>{selectedProject.managerName ? selectedProject.managerName.substring(0,1).toUpperCase() : "P"}</AvatarFallback> </Avatar> <p className="text-sm font-semibold">{selectedProject.managerName ?? ""}</p> </CardContent> </Card>
                 </div>
                 {selectedProject.budget && selectedProject.budget > 0 && typeof selectedProject.spent === 'number' && (
                   <Card className="mb-4"> <CardHeader><CardTitle className="text-base font-semibold">Budget Utilization</CardTitle></CardHeader> <CardContent> <Progress value={(selectedProject.spent / selectedProject.budget) * 100} className="h-2.5" /> <p className="text-sm text-muted-foreground mt-1"> ${(selectedProject.spent || 0).toLocaleString()} spent of ${selectedProject.budget.toLocaleString()} ({((selectedProject.spent / selectedProject.budget) * 100).toFixed(1)}%) </p> </CardContent> </Card>
                 )}
                 <h4 className="font-semibold text-lg text-foreground">Description</h4>
-                <p className="text-muted-foreground whitespace-pre-wrap">{selectedProject.description}</p>
+                <p className="text-muted-foreground whitespace-pre-wrap">{selectedProject.description ?? ""}</p>
               </CardContent>
             </Card>
           </TabsContent>
@@ -755,4 +757,3 @@ export default function ProjectInfoPage() {
     </div>
   );
 }
-

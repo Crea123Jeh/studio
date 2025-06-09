@@ -20,6 +20,7 @@ import Image from "next/image";
 import { Info, Newspaper, TrendingUp, AlertTriangle, Megaphone, Users, Briefcase, PlusCircle, CalendarIcon as LucideCalendarIcon, Loader2 } from "lucide-react";
 import type { LucideProps } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
 
 interface HappeningItem {
   id: string;
@@ -63,6 +64,7 @@ export default function InformationPage() {
   const [isLoadingHappenings, setIsLoadingHappenings] = useState(true);
   const [isLoadingTrends, setIsLoadingTrends] = useState(true);
   const { toast } = useToast();
+  const { user, username } = useAuth(); // Get user and username from AuthContext
 
   const [isAddHappeningDialogOpen, setIsAddHappeningDialogOpen] = useState(false);
   const [isAddTrendDialogOpen, setIsAddTrendDialogOpen] = useState(false);
@@ -141,8 +143,10 @@ export default function InformationPage() {
     };
 
     try {
-      await addDoc(collection(db, "informationHubHappenings"), happeningData);
+      const newDocRef = await addDoc(collection(db, "informationHubHappenings"), happeningData);
       toast({ title: "Happening Added", description: `"${newHappeningTitle}" has been added.` });
+      // TODO: Trigger backend function to create notifications for new happening
+      // e.g., await createNotificationForNewHappening({ happeningId: newDocRef.id, title: newHappeningTitle, category: newHappeningCategory, addedBy: username });
       setIsAddHappeningDialogOpen(false);
       resetNewHappeningForm();
     } catch (error) {
@@ -182,8 +186,10 @@ export default function InformationPage() {
     };
 
     try {
-      await addDoc(collection(db, "informationHubTrends"), trendData);
+      const newDocRef = await addDoc(collection(db, "informationHubTrends"), trendData);
       toast({ title: "Trend Added", description: `"${newTrendName}" has been added.` });
+      // TODO: Trigger backend function to create notifications for new trend
+      // e.g., await createNotificationForNewTrend({ trendId: newDocRef.id, trendName: newTrendName, addedBy: username });
       setIsAddTrendDialogOpen(false);
       resetNewTrendForm();
     } catch (error) {
@@ -330,7 +336,7 @@ export default function InformationPage() {
             <CardDescription>Latest updates, articles, and important announcements.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="pr-3">
+            <ScrollArea className="h-[400px] pr-3"> {/* Added fixed height for scrollability demo */}
               {isLoadingHappenings ? (
                  <div className="flex justify-center items-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /><p className="ml-2">Loading happenings...</p></div>
               ) : happenings.length > 0 ? (
@@ -372,7 +378,7 @@ export default function InformationPage() {
             <CardDescription>Emerging patterns and insights in technology and project management.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="pr-3">
+            <ScrollArea className="h-[400px] pr-3"> {/* Added fixed height for scrollability demo */}
             {isLoadingTrends ? (
                 <div className="flex justify-center items-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /><p className="ml-2">Loading trends...</p></div>
             ) : trends.length > 0 ? (

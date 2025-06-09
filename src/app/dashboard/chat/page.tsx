@@ -181,6 +181,8 @@ export default function TeamChatPage() {
       const channelMessagesRef = ref(rtdb, `channelMessages/${activeChannelId}`);
       await push(channelMessagesRef, messageData);
       setNewMessage("");
+      // TODO: Trigger backend function to create notifications for new chat message for channel members
+      // e.g., await createNotificationForNewChatMessage({ channelId: activeChannelId, senderName: currentUsername, messagePreview: newMessage.substring(0, 50) });
     } catch (error) {
       console.error("Error sending message: ", error);
       toast({ title: "Send Error", description: "Could not send message. Please try again.", variant: "destructive" });
@@ -213,6 +215,8 @@ export default function TeamChatPage() {
       });
 
       toast({ title: "Channel Created", description: `Channel "${trimmedChannelName}" created successfully.` });
+      // TODO: Trigger backend function to create a notification for new channel creation (optional)
+      // e.g., await createNotificationForNewChannel({ channelId: newChannelNodeRef.key, channelName: trimmedChannelName, createdBy: currentUsername });
       setIsCreateChannelDialogOpen(false);
       setNewChannelName("");
       setNewChannelIconName(defaultIconName); 

@@ -6,63 +6,29 @@ import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  LayoutDashboard,
-  UserCircle,
-  Briefcase,
-  CalendarDays,
-  MessageSquare,
-  LogOut,
-  Settings,
-  ChevronDown,
-  PanelLeft,
-  Building, 
-  Info,
-  Cake,
-  BookOpen,
-  School,
-  History,
-  Package,
-  FileSpreadsheet,
-  RadioTower,
-  Bot,
-  Bell,
-  ListChecks,
-  AlertCircle,
-  CheckCircle2,
-  Circle,
-  ShieldAlert,
-  Crosshair,
-  Archive as ArchiveIcon,
-  ClipboardList
+  LayoutDashboard, UserCircle, Briefcase, CalendarDays, MessageSquare, LogOut, Settings,
+  ChevronDown, PanelLeft, Building, Info, Cake, BookOpen, School, History, Package,
+  FileSpreadsheet, RadioTower, Bot, Bell, ListChecks, AlertCircle, CheckCircle2, Circle,
+  ShieldAlert, Crosshair, Archive as ArchiveIcon, ClipboardList, Home, User as UserIcon // Added Home & UserIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
+  DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
-  SidebarProvider,
-  Sidebar,
-  SidebarHeader,
-  SidebarContent,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarTrigger,
-  useSidebar,
-  SidebarSeparator,
-} from '@/components/ui/sidebar'; // Removed SidebarInset as it's used differently below
+  SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarMenu,
+  SidebarMenuItem, SidebarMenuButton, SidebarTrigger, useSidebar, SidebarSeparator,
+} from '@/components/ui/sidebar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from './ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { db } from '@/lib/firebase'; // Import db
+import { collection, query, orderBy, onSnapshot, Timestamp, limit } from 'firebase/firestore'; // Firestore imports
 
 interface NavItem {
   href: string;
@@ -94,28 +60,41 @@ const bottomNavItems: NavItem[] = [
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
 
-interface NotificationItem {
+export interface NotificationItem {
   id: string;
-  type: 'project' | 'task' | 'alert' | 'message' | 'generic' | 'birthday' | 'academic' | 'info' | 'chat';
+  type: 'project' | 'task' | 'alert' | 'message' | 'generic' | 'birthday' | 'academic' | 'info' | 'chat' | 'violation' | 'target' | 'asset' | 'lss' | 'sheet5b7s' | 'bot';
   message: string;
   link?: string;
-  timestamp: Date;
+  timestamp: Date; // Changed from Timestamp to Date for easier handling in state
   read: boolean;
-  icon: React.ElementType;
+  iconName: string; // Store icon name as string, resolve to component later
 }
 
-const initialMockNotifications: NotificationItem[] = [
-  { id: '1', type: 'project', message: 'New project "Phoenix Initiative" has been assigned to you.', link: '/dashboard/project', timestamp: new Date(Date.now() - 1000 * 60 * 5), read: false, icon: Briefcase },
-  { id: '2', type: 'task', message: 'Task "Setup CI/CD Pipeline" is due tomorrow.', link: '/dashboard/project', timestamp: new Date(Date.now() - 1000 * 60 * 30), read: false, icon: ListChecks },
-  { id: '3', type: 'alert', message: 'Project "Gamma" budget nearing 90% utilization.', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), read: true, icon: AlertCircle },
-  { id: '4', type: 'message', message: 'Alice mentioned you in #project-alpha channel.', link: '/dashboard/chat', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5), read: false, icon: MessageSquare },
-  { id: '5', type: 'generic', message: 'System maintenance scheduled for Sunday 2 AM.', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24), read: true, icon: Settings },
-];
+// Firestore data structure for notifications (conceptual)
+interface FirestoreNotificationData {
+  type: NotificationItem['type'];
+  message: string;
+  link?: string;
+  timestamp: Timestamp; // Firestore Timestamp
+  iconName: string;
+  // any other fields your backend might send
+}
+
+const iconMap: Record<string, React.ElementType> = {
+  Briefcase, CalendarDays, MessageSquare, Settings, Info, Cake, BookOpen, School,
+  History, Package, FileSpreadsheet, RadioTower, Bot, ListChecks, AlertCircle,
+  ShieldAlert, Crosshair, LayoutDashboard, Home, UserIcon,
+  default: Bell, // Default icon if no match
+};
+
+const getIconComponent = (iconName: string): React.ElementType => {
+  return iconMap[iconName] || iconMap.default;
+};
 
 
 function AppSidebar() {
   const pathname = usePathname();
-  const { signOut, loading } = useAuth(); // Removed user and username as they are used in Header
+  const { signOut, loading } = useAuth();
 
   if (loading) {
     return (
@@ -201,7 +180,6 @@ interface HeaderProps {
   unreadCount: number;
   onMarkAsRead: (id: string, link?: string) => void;
   onMarkAllAsRead: () => void;
-  // addNotification: (notificationData: Omit<NotificationItem, 'id' | 'timestamp' | 'read'>) => void; // For potential future use
 }
 
 function Header({ notifications, unreadCount, onMarkAsRead, onMarkAllAsRead }: HeaderProps) {
@@ -250,7 +228,7 @@ function Header({ notifications, unreadCount, onMarkAsRead, onMarkAllAsRead }: H
                 </DropdownMenuItem>
               ) : (
                 notifications.map((notification) => {
-                  const Icon = notification.icon;
+                  const Icon = getIconComponent(notification.iconName);
                   return (
                     <DropdownMenuItem
                       key={notification.id}
@@ -261,7 +239,7 @@ function Header({ notifications, unreadCount, onMarkAsRead, onMarkAllAsRead }: H
                       onClick={() => onMarkAsRead(notification.id, notification.link)}
                     >
                       {!notification.read && <Circle className="h-2 w-2 mt-1.5 fill-primary text-primary flex-shrink-0" />}
-                      {notification.read && <div className="w-2 h-2 mt-1.5 flex-shrink-0" />} 
+                      {notification.read && <div className="w-2 h-2 mt-1.5 flex-shrink-0" />}
 
                       <Icon className={cn("h-5 w-5 mt-0.5 text-muted-foreground flex-shrink-0", !notification.read && "text-primary")} />
                       <div className="flex-grow">
@@ -282,13 +260,11 @@ function Header({ notifications, unreadCount, onMarkAsRead, onMarkAllAsRead }: H
               <CheckCircle2 className="mr-2 h-4 w-4" />
               Mark all as read
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => {
-              // Placeholder: In a real app, you'd navigate to a dedicated notifications page.
-              // For now, this could just close the dropdown or do nothing extra.
-              console.log("View all notifications clicked");
+            {/* <DropdownMenuItem onClick={() => {
+              // console.log("View all notifications clicked");
             }} className="cursor-pointer"> 
               View all notifications (UI Placeholder)
-            </DropdownMenuItem>
+            </DropdownMenuItem> */}
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -341,40 +317,67 @@ function Header({ notifications, unreadCount, onMarkAsRead, onMarkAllAsRead }: H
 
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, username } = useAuth(); // Added username here
   const router = useRouter();
   
-  const [notifications, setNotifications] = useState<NotificationItem[]>(initialMockNotifications);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // Placeholder for a function to add new notifications
-  // In a real app, this would be called by listeners to Firestore, RTDB, or FCM
-  const addNotification = useCallback((notificationData: Omit<NotificationItem, 'id' | 'timestamp' | 'read'>) => {
+  const addNotification = useCallback((notificationData: Omit<NotificationItem, 'id' | 'read'>) => {
     const newNotification: NotificationItem = {
       ...notificationData,
-      id: Date.now().toString() + Math.random().toString(36).substring(2,7), // Simple unique ID
-      timestamp: new Date(),
+      id: Date.now().toString() + Math.random().toString(36).substring(2,7),
       read: false,
     };
-    setNotifications(prev => [newNotification, ...prev.slice(0, 29)]); // Keep max 30 notifications
-    
-    // Example: Play a sound (requires an audio file and browser permissions)
-    // const audio = new Audio('/path/to/notification-sound.mp3');
-    // audio.play().catch(e => console.warn("Failed to play notification sound:", e));
+    setNotifications(prev => [newNotification, ...prev.slice(0, 29)]);
   }, []);
 
-  // Example of how you might simulate adding a notification (e.g., after a delay or user action)
-  // useEffect(() => {
-  //   const timer = setTimeout(() => {
-  //     addNotification({
-  //       type: 'generic',
-  //       message: 'This is a new sample notification!',
-  //       icon: Info,
-  //       link: '/dashboard/information'
-  //     });
-  //   }, 15000); // Add a notification after 15 seconds
-  //   return () => clearTimeout(timer);
-  // }, [addNotification]);
+  // Listener for user-specific notifications from Firestore
+  useEffect(() => {
+    if (user?.uid) {
+      const notificationsRef = collection(db, `userNotifications/${user.uid}/notifications`);
+      // Query for the latest (e.g., 10) notifications, ordered by timestamp
+      const q = query(notificationsRef, orderBy("timestamp", "desc"), limit(10));
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const newNotifications: NotificationItem[] = [];
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === "added") {
+            const data = change.doc.data() as FirestoreNotificationData;
+            // Check if this notification ID already exists to prevent duplicates if listener re-runs
+            if (!notifications.some(n => n.id === change.doc.id)) {
+              newNotifications.push({
+                id: change.doc.id,
+                type: data.type,
+                message: data.message,
+                link: data.link,
+                timestamp: (data.timestamp as Timestamp).toDate(), // Convert Firestore Timestamp to JS Date
+                read: false, // New notifications are unread
+                iconName: data.iconName,
+              });
+            }
+          }
+        });
+
+        if (newNotifications.length > 0) {
+          // Add new notifications to the beginning of the list, maintaining sort by actual timestamp
+          setNotifications(prev => 
+            [...newNotifications, ...prev]
+            .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()) // Sort by JS Date timestamp
+            .slice(0, 30) // Keep max 30 notifications
+          );
+        }
+      }, (error) => {
+        console.error("Error fetching real-time notifications:", error);
+        // Optionally, inform the user via toast, but be careful not to spam if there are connection issues
+        // toast({ title: "Notification Error", description: "Could not fetch real-time notifications.", variant: "destructive" });
+      });
+
+      return () => unsubscribe(); // Cleanup listener on component unmount or user change
+    } else {
+      setNotifications([]); // Clear notifications if user logs out
+    }
+  }, [user, notifications]); // Added notifications to dependencies to avoid re-adding existing ones
 
 
   const handleMarkAsRead = useCallback((id: string, link?: string) => {
@@ -384,10 +387,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     if (link) {
       router.push(link);
     }
+    // TODO: In a real app, you would also update the 'read' status of this notification
+    // in the `userNotifications/{userId}/notifications/{notificationId}` document in Firestore.
+    // Example: await updateDoc(doc(db, `userNotifications/${user.uid}/notifications`, id), { read: true });
   }, [router]);
 
   const handleMarkAllAsRead = useCallback(() => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    // TODO: In a real app, you would update all unread notifications for this user in Firestore.
+    // This might involve a batch write or a Cloud Function.
   }, []);
 
 
@@ -405,9 +413,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  // The `SidebarInset` component is not part of the standard shadcn/ui sidebar,
-  // assuming it was a custom component or a typo for how main content is typically handled.
-  // The standard approach is to have the main content as a sibling to the Sidebar.
   return (
     <SidebarProvider defaultOpen>
       <Sidebar variant="sidebar" collapsible="icon" className="border-r border-sidebar-border">
@@ -419,19 +424,25 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           unreadCount={unreadCount}
           onMarkAsRead={handleMarkAsRead}
           onMarkAllAsRead={handleMarkAllAsRead}
-          // addNotification={addNotification} // Pass if Header needs to trigger adding notifications
         />
-        {/* Main content area */}
         <main className="flex-1 p-4 sm:p-6 overflow-auto"> 
-            {/* To make `addNotification` available to children, you'd typically use React Context.
-                For now, children pages cannot directly call `addNotification` from this layout.
-                If a child page needs to add a notification, it would need to:
-                1. Update data in Firestore/RTDB.
-                2. A backend function (e.g., Cloud Function) would listen to this change.
-                3. The backend function would then push a notification payload (e.g., to a specific RTDB path or user-specific Firestore collection).
-                4. This DashboardLayout would listen to that RTDB path/Firestore collection and call `addNotification` internally.
+            {/* 
+              To make other pages trigger notifications:
+              1. Ensure the page has access to `user.uid` and `username`.
+              2. After a data-saving operation (e.g., adding a project), you would typically call a 
+                 Cloud Function. e.g., functions.httpsCallable('createProjectNotification')({ projectId: '...', ... });
+              3. That Cloud Function would then write the notification to:
+                 `userNotifications/{relevantUserId}/notifications/{newNotificationId}`
+              4. The listener in *this* DashboardLayout component will then pick it up.
             */}
-            {children}
+            {React.cloneElement(children as React.ReactElement, { 
+              // This is a conceptual way to pass addNotification down. 
+              // For a cleaner approach across many nested components, React Context is better.
+              // However, direct "addNotification" calls from child pages are less ideal for
+              // a true real-time system where the backend should be the source of truth for notifications.
+              // For now, this line is commented out as direct child-to-parent calls for this aren't the final pattern.
+              // addAppNotification: addNotification 
+            })}
         </main>
       </div>
     </SidebarProvider>
