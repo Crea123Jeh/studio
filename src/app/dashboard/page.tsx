@@ -55,8 +55,8 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ title, description, icon: Ico
             <Skeleton className="h-4 w-3/4" />
           </div>
         ) : value !== undefined && valueLabel && (
-          <div className="mb-1">
-            <p className="text-3xl font-bold text-foreground">{value}</p>
+          <div className="mb-1 min-w-0">
+            <p className="text-2xl md:text-3xl font-bold text-foreground break-all">{value}</p>
             <p className="text-xs text-muted-foreground">{valueLabel}</p>
           </div>
         )}
