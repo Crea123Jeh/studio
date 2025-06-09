@@ -320,20 +320,24 @@ export default function DashboardPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {summaryMetrics.map((metric) => (
-          <Card key={metric.title} className="shadow-md hover:shadow-lg hover:ring-2 hover:ring-primary/30 hover:scale-[1.01] transition-all duration-200 cursor-pointer" onClick={() => router.push(metric.link)}>
+          <Card 
+            key={metric.title} 
+            className="shadow-md hover:shadow-lg hover:ring-2 hover:ring-primary/30 hover:scale-[1.01] transition-all duration-200 cursor-pointer flex flex-col" 
+            onClick={() => router.push(metric.link)}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">{metric.title}</CardTitle>
               <metric.icon className={cn("h-5 w-5", metric.iconColor)} />
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex flex-col flex-grow justify-between pt-2">
               {metric.isLoading ? (
                 <Skeleton className="h-8 w-16" />
               ) : (
                 <div className="text-3xl font-bold text-foreground">{metric.value}</div>
               )}
-              <span className="text-xs text-primary hover:underline">
+              <p className="text-xs text-primary hover:underline pt-1"> 
                 View details <ArrowRight className="inline h-3 w-3" />
-              </span>
+              </p>
             </CardContent>
           </Card>
         ))}
