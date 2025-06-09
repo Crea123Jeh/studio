@@ -10,13 +10,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MessageSquare, Send, Users, Briefcase, Hash, Megaphone, Loader2, PlusCircle, Tag } from "lucide-react"; // Added Tag
+import { MessageSquare, Send, Users, Briefcase, Hash, Megaphone, Loader2, PlusCircle, Tag } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { rtdb } from '@/lib/firebase';
 import { ref, onValue, push, serverTimestamp, query, orderByChild, equalTo, get, off, set } from 'firebase/database';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { useNotification } from '@/contexts/NotificationContext';
 
 interface Message {
   id: string;
@@ -35,14 +36,13 @@ interface Channel {
   iconName?: string; 
 }
 
-// Define available icons and a default
 const availableIcons: Record<string, React.ElementType> = {
   MessageSquare,
   Users,
   Briefcase,
   Hash,
   Megaphone,
-  Tag, // Added Tag as an option
+  Tag,
 };
 const defaultIconName = "MessageSquare";
 
@@ -65,6 +65,7 @@ export default function TeamChatPage() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { user: currentUser, username: currentUsername } = useAuth();
   const { toast } = useToast();
+  const { addAppNotification } = useNotification();
 
   const currentUserAvatar = `https://placehold.co/28x28.png?text=${currentUsername ? currentUsername.charAt(0).toUpperCase() : 'U'}`;
 
@@ -121,7 +122,7 @@ export default function TeamChatPage() {
     });
 
     return () => unsubscribeChannels();
-  }, [toast]); // activeChannelId removed from deps to avoid re-fetch on channel switch if not needed
+  }, [toast]);
 
 
   useEffect(() => {
@@ -176,13 +177,21 @@ export default function TeamChatPage() {
       text: newMessage,
       timestamp: serverTimestamp(), 
     };
+    const currentChannelName = allChannels.find(c => c.id === activeChannelId)?.name || "a channel";
 
     try {
       const channelMessagesRef = ref(rtdb, `channelMessages/${activeChannelId}`);
       await push(channelMessagesRef, messageData);
+      
+      addAppNotification({
+        type: 'chat',
+        message: `New message from ${currentUsername} in #${currentChannelName}: ${newMessage.substring(0, 30)}${newMessage.length > 30 ? '...' : ''}`,
+        link: `/dashboard/chat?channel=${activeChannelId}`,
+        iconName: 'MessageSquare',
+      });
+      // TODO: Backend should generate REAL notifications for other users in the channel
+
       setNewMessage("");
-      // TODO: Trigger backend function to create notifications for new chat message for channel members
-      // e.g., await createNotificationForNewChatMessage({ channelId: activeChannelId, senderName: currentUsername, messagePreview: newMessage.substring(0, 50) });
     } catch (error) {
       console.error("Error sending message: ", error);
       toast({ title: "Send Error", description: "Could not send message. Please try again.", variant: "destructive" });
@@ -215,8 +224,13 @@ export default function TeamChatPage() {
       });
 
       toast({ title: "Channel Created", description: `Channel "${trimmedChannelName}" created successfully.` });
-      // TODO: Trigger backend function to create a notification for new channel creation (optional)
-      // e.g., await createNotificationForNewChannel({ channelId: newChannelNodeRef.key, channelName: trimmedChannelName, createdBy: currentUsername });
+      addAppNotification({
+        type: 'chat', 
+        message: `New channel #${trimmedChannelName} created by ${currentUsername || 'a user'}.`,
+        link: `/dashboard/chat?channel=${newChannelNodeRef.key}`,
+        iconName: newChannelIconName || defaultIconName,
+      });
+      // TODO: Backend should generate REAL notifications for all relevant users
       setIsCreateChannelDialogOpen(false);
       setNewChannelName("");
       setNewChannelIconName(defaultIconName); 

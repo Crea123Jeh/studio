@@ -19,13 +19,14 @@ import { db } from "@/lib/firebase";
 import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, deleteDoc, updateDoc } from "firebase/firestore";
 import { format, isSameDay, startOfDay, getYear, getMonth, getDate, differenceInYears } from "date-fns";
 import { Cake, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListOrdered, Trash2, PartyPopper, User, Users, Edit3, Settings2, Timer, Search } from "lucide-react";
-import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
+import { useAuth } from '@/contexts/AuthContext'; 
+import { useNotification } from '@/contexts/NotificationContext';
 
 interface BirthdayEvent {
   id: string; 
   anchorDate: Date; 
   name: string; 
-  type: "Teacher" | "Student" | string; // Allow string for flexibility from Firestore, normalize later
+  type: "Teacher" | "Student" | string; 
   grade?: string; 
 }
 
@@ -161,7 +162,8 @@ export default function BirthdayCalendarPage() {
   const [searchTerm, setSearchTerm] = useState("");
 
   const { toast } = useToast();
-  const { user, username } = useAuth(); // Get user and username from AuthContext
+  const { user, username } = useAuth(); 
+  const { addAppNotification } = useNotification();
 
   useEffect(() => {
     const birthdaysCollection = collection(db, "birthdayEvents");
@@ -225,13 +227,20 @@ export default function BirthdayCalendarPage() {
         return;
     }
     try {
+      const birthdayToDelete = birthdays.find(b => b.id === birthdayId);
       await deleteDoc(doc(db, "birthdayEvents", birthdayId));
       toast({
         title: "Birthday Deleted",
         description: "The birthday has been successfully deleted.",
       });
-      // TODO: Trigger backend function to create a notification for birthday deletion (optional)
-      // e.g., await createNotificationForBirthdayDelete({ birthdayName: editingBirthday?.name, deletedBy: username });
+       if (birthdayToDelete) {
+        addAppNotification({
+          type: 'birthday',
+          message: `Birthday for ${birthdayToDelete.name} was deleted by ${username || 'a user'}.`,
+          iconName: 'Trash2', // Or a more generic icon
+        });
+      }
+      // TODO: Backend should generate REAL notifications for all relevant users
     } catch (error) {
       console.error("Error deleting birthday: ", error);
       toast({
@@ -390,16 +399,26 @@ export default function BirthdayCalendarPage() {
           title: "Birthday Updated",
           description: `${birthdayName}'s birthday has been updated.`,
         });
-        // TODO: Trigger backend function to create a notification for birthday update
-        // e.g., await createNotificationForBirthdayUpdate({ birthdayId: editingBirthday.id, birthdayName, updatedBy: username });
+        addAppNotification({
+          type: 'birthday',
+          message: `Birthday for ${birthdayName} updated by ${username || 'a user'}.`,
+          link: '/dashboard/birthday-calendar',
+          iconName: 'Cake',
+        });
+        // TODO: Backend should generate REAL notifications for all relevant users
       } else {
         const newDocRef = await addDoc(collection(db, "birthdayEvents"), birthdayData);
         toast({
           title: "Birthday Added",
           description: `${birthdayName}'s birthday has been added.`,
         });
-        // TODO: Trigger backend function to create a notification for new birthday
-        // e.g., await createNotificationForNewBirthday({ birthdayId: newDocRef.id, birthdayName, addedBy: username });
+        addAppNotification({
+          type: 'birthday',
+          message: `New birthday added for ${birthdayName} by ${username || 'a user'}.`,
+          link: '/dashboard/birthday-calendar',
+          iconName: 'Cake',
+        });
+        // TODO: Backend should generate REAL notifications for all relevant users
       }
       resetForm();
       setIsAddEditDialogOpen(false);

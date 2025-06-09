@@ -20,7 +20,8 @@ import Image from "next/image";
 import { Info, Newspaper, TrendingUp, AlertTriangle, Megaphone, Users, Briefcase, PlusCircle, CalendarIcon as LucideCalendarIcon, Loader2 } from "lucide-react";
 import type { LucideProps } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAuth } from '@/contexts/AuthContext'; // Import useAuth
+import { useAuth } from '@/contexts/AuthContext';
+import { useNotification } from '@/contexts/NotificationContext';
 
 interface HappeningItem {
   id: string;
@@ -54,7 +55,7 @@ const happeningIcons: { name: string; IconComponent: React.ElementType<LucidePro
 
 const getIconComponent = (iconName: string): React.ElementType<LucideProps> => {
   const foundIcon = happeningIcons.find(icon => icon.name === iconName);
-  return foundIcon ? foundIcon.IconComponent : Newspaper; // Default to Newspaper if not found
+  return foundIcon ? foundIcon.IconComponent : Newspaper; 
 };
 
 
@@ -64,12 +65,12 @@ export default function InformationPage() {
   const [isLoadingHappenings, setIsLoadingHappenings] = useState(true);
   const [isLoadingTrends, setIsLoadingTrends] = useState(true);
   const { toast } = useToast();
-  const { user, username } = useAuth(); // Get user and username from AuthContext
+  const { user, username } = useAuth(); 
+  const { addAppNotification } = useNotification();
 
   const [isAddHappeningDialogOpen, setIsAddHappeningDialogOpen] = useState(false);
   const [isAddTrendDialogOpen, setIsAddTrendDialogOpen] = useState(false);
   
-  // Form state for adding new happening
   const [newHappeningTitle, setNewHappeningTitle] = useState("");
   const [newHappeningSummary, setNewHappeningSummary] = useState("");
   const [newHappeningSource, setNewHappeningSource] = useState("");
@@ -77,7 +78,6 @@ export default function InformationPage() {
   const [newHappeningIconName, setNewHappeningIconName] = useState(happeningIcons[0].name);
   const [newHappeningDate, setNewHappeningDate] = useState<Date | undefined>(new Date());
 
-  // Form state for adding new trend
   const [newTrendName, setNewTrendName] = useState("");
   const [newTrendDescription, setNewTrendDescription] = useState("");
   const [newTrendImageUrl, setNewTrendImageUrl] = useState("");
@@ -145,8 +145,13 @@ export default function InformationPage() {
     try {
       const newDocRef = await addDoc(collection(db, "informationHubHappenings"), happeningData);
       toast({ title: "Happening Added", description: `"${newHappeningTitle}" has been added.` });
-      // TODO: Trigger backend function to create notifications for new happening
-      // e.g., await createNotificationForNewHappening({ happeningId: newDocRef.id, title: newHappeningTitle, category: newHappeningCategory, addedBy: username });
+      addAppNotification({
+        type: 'info',
+        message: `New happening: "${newHappeningTitle.substring(0,30)}..." added by ${username || 'a user'}.`,
+        link: `/dashboard/information#happening-${newDocRef.id}`,
+        iconName: newHappeningIconName,
+      });
+      // TODO: Backend should generate REAL notifications for all relevant users
       setIsAddHappeningDialogOpen(false);
       resetNewHappeningForm();
     } catch (error) {
@@ -168,7 +173,6 @@ export default function InformationPage() {
       toast({ title: "Missing Information", description: "Please fill in name, description, and image URL for the new trend.", variant: "destructive" });
       return;
     }
-    // Basic URL validation
     try {
       new URL(newTrendImageUrl);
     } catch (_) {
@@ -181,15 +185,20 @@ export default function InformationPage() {
       name: newTrendName,
       description: newTrendDescription,
       imageUrl: newTrendImageUrl,
-      imageHint: newTrendImageHint.trim() || newTrendName.toLowerCase().split(" ").slice(0,2).join(" "), // Default hint if empty
+      imageHint: newTrendImageHint.trim() || newTrendName.toLowerCase().split(" ").slice(0,2).join(" "),
       createdAt: Timestamp.now(),
     };
 
     try {
       const newDocRef = await addDoc(collection(db, "informationHubTrends"), trendData);
       toast({ title: "Trend Added", description: `"${newTrendName}" has been added.` });
-      // TODO: Trigger backend function to create notifications for new trend
-      // e.g., await createNotificationForNewTrend({ trendId: newDocRef.id, trendName: newTrendName, addedBy: username });
+      addAppNotification({
+        type: 'info', 
+        message: `New trend: "${newTrendName.substring(0,30)}..." posted by ${username || 'a user'}.`,
+        link: `/dashboard/information#trend-${newDocRef.id}`,
+        iconName: 'TrendingUp',
+      });
+      // TODO: Backend should generate REAL notifications for all relevant users
       setIsAddTrendDialogOpen(false);
       resetNewTrendForm();
     } catch (error) {
@@ -336,7 +345,7 @@ export default function InformationPage() {
             <CardDescription>Latest updates, articles, and important announcements.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[400px] pr-3"> {/* Added fixed height for scrollability demo */}
+            <ScrollArea className="h-[400px] pr-3"> 
               {isLoadingHappenings ? (
                  <div className="flex justify-center items-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /><p className="ml-2">Loading happenings...</p></div>
               ) : happenings.length > 0 ? (
@@ -344,7 +353,7 @@ export default function InformationPage() {
                   {happenings.map((item) => {
                     const Icon = getIconComponent(item.iconName);
                     return (
-                    <Card key={item.id} className="hover:shadow-md transition-shadow">
+                    <Card key={item.id} id={`happening-${item.id}`} className="hover:shadow-md transition-shadow">
                       <CardHeader className="p-4 pb-2">
                         <div className="flex items-start gap-3">
                           <Icon className={cn("h-5 w-5 flex-shrink-0", item.iconName === "AlertTriangle" ? "text-destructive" : "text-primary")} />
@@ -378,13 +387,13 @@ export default function InformationPage() {
             <CardDescription>Emerging patterns and insights in technology and project management.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[400px] pr-3"> {/* Added fixed height for scrollability demo */}
+            <ScrollArea className="h-[400px] pr-3"> 
             {isLoadingTrends ? (
                 <div className="flex justify-center items-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /><p className="ml-2">Loading trends...</p></div>
             ) : trends.length > 0 ? (
               <div className="space-y-6">
                 {trends.map((trend) => (
-                  <Card key={trend.id} className="overflow-hidden hover:shadow-md transition-shadow">
+                  <Card key={trend.id} id={`trend-${trend.id}`} className="overflow-hidden hover:shadow-md transition-shadow">
                      <Image src={trend.imageUrl || "https://placehold.co/600x200.png"} alt={trend.name} width={600} height={200} className="w-full h-48 object-cover" data-ai-hint={trend.imageHint}/>
                     <CardHeader className="p-4">
                       <CardTitle className="text-md">{trend.name}</CardTitle>

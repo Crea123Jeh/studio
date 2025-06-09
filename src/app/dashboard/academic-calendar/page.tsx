@@ -20,6 +20,8 @@ import { db } from "@/lib/firebase";
 import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, deleteDoc, updateDoc } from "firebase/firestore";
 import { format, isSameDay, startOfDay, isBefore } from "date-fns";
 import { School, Info, PlusCircle, CalendarIcon as LucideCalendarIcon, ListChecks, Trash2, Edit3, ArrowUpDown, ArrowUp, ArrowDown, CalendarClock, BookMarked, Eye } from "lucide-react";
+import { useAuth } from '@/contexts/AuthContext';
+import { useNotification } from '@/contexts/NotificationContext';
 
 interface AcademicEvent {
   id: string; 
@@ -86,6 +88,8 @@ export default function AcademicCalendarPage() {
 
 
   const { toast } = useToast();
+  const { username } = useAuth();
+  const { addAppNotification } = useNotification();
 
   useEffect(() => {
     const eventsCollection = collection(db, "academicEvents");
@@ -150,11 +154,20 @@ export default function AcademicCalendarPage() {
         return;
     }
     try {
+      const eventToDelete = events.find(e => e.id === eventId);
       await deleteDoc(doc(db, "academicEvents", eventId));
       toast({
         title: "Event Deleted",
         description: "The academic event has been successfully deleted.",
       });
+      if (eventToDelete) {
+        addAppNotification({
+          type: 'academic',
+          message: `Academic event "${eventToDelete.title}" deleted by ${username || 'a user'}.`,
+          iconName: 'Trash2',
+        });
+      }
+      // TODO: Backend should generate REAL notifications for all relevant users
     } catch (error) {
       console.error("Error deleting event: ", error);
       toast({
@@ -271,12 +284,26 @@ export default function AcademicCalendarPage() {
           title: "Event Updated",
           description: `"${eventTitle}" has been updated.`,
         });
+        addAppNotification({
+          type: 'academic',
+          message: `Academic event "${eventTitle}" updated by ${username || 'a user'}.`,
+          link: '/dashboard/academic-calendar',
+          iconName: 'School',
+        });
+        // TODO: Backend should generate REAL notifications for all relevant users
       } else {
-        await addDoc(collection(db, "academicEvents"), eventData);
+        const newDocRef = await addDoc(collection(db, "academicEvents"), eventData);
         toast({
           title: "Event Added",
           description: `"${eventTitle}" has been added to the calendar.`,
         });
+        addAppNotification({
+          type: 'academic',
+          message: `New academic event "${eventTitle}" added by ${username || 'a user'}.`,
+          link: '/dashboard/academic-calendar',
+          iconName: 'School',
+        });
+        // TODO: Backend should generate REAL notifications for all relevant users
       }
       resetForm();
       setIsAddEditDialogOpen(false);
@@ -396,8 +423,8 @@ export default function AcademicCalendarPage() {
       </div>
 
       <Card className="shadow-lg">
-        <CardContent className="grid grid-cols-1 gap-y-8 pt-6"> {/* Changed from md:grid-cols-3 to single column */}
-          <div className="min-w-0"> {/* Removed md:col-span-2 */}
+        <CardContent className="grid grid-cols-1 gap-y-8 pt-6"> 
+          <div className="min-w-0"> 
            <Calendar
               mode="single"
               selected={selectedDate}
@@ -424,7 +451,7 @@ export default function AcademicCalendarPage() {
               }}
             />
           </div>
-          <div className="space-y-4"> {/* Removed md:col-span-1. This will now stack below calendar. */}
+          <div className="space-y-4"> 
              <div>
                 <h3 className="text-xl font-semibold mb-3 pb-2 border-b text-foreground">
                     Events for: {selectedDate ? format(selectedDate, "PPP") : "No date selected"}
@@ -569,5 +596,3 @@ export default function AcademicCalendarPage() {
     </div>
   );
 }
-
-    

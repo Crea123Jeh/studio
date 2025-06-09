@@ -30,6 +30,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotification } from '@/contexts/NotificationContext';
 
 const projectStatusOptions = ["Planning", "In Progress", "Completed", "On Hold", "Cancelled"] as const;
 const taskStatusOptions = ["To Do", "In Progress", "Done"] as const;
@@ -143,6 +144,7 @@ export default function ProjectInfoPage() {
 
   const { toast } = useToast();
   const { user: currentUser, username: currentUsername } = useAuth();
+  const { addAppNotification } = useNotification();
 
   const projectForm = useForm<ProjectFormValues>({
     resolver: zodResolver(projectFormSchema),
@@ -288,8 +290,13 @@ export default function ProjectInfoPage() {
         const projectRef = doc(db, "projectsPPM", editingProject.id);
         await updateDoc(projectRef, projectDataToSave);
         toast({ title: "Project Updated", description: `"${values.name}" has been updated.` });
-        // TODO: Trigger backend function to create notifications for project update
-        // e.g., await createNotificationForProjectUpdate({ projectId: editingProject.id, projectName: values.name, updatedBy: currentUsername });
+        addAppNotification({
+          type: 'project',
+          message: `Project "${values.name}" updated by ${currentUsername || 'a user'}.`,
+          link: `/dashboard/project?id=${editingProject.id}`, // Example link
+          iconName: 'Briefcase',
+        });
+        // TODO: Backend should generate real notifications for all relevant users
         if(selectedProject?.id === editingProject.id) {
              const updatedProjectData = {
                 ...selectedProject, 
@@ -304,8 +311,13 @@ export default function ProjectInfoPage() {
         projectDataToSave.createdAt = now;
         const newDocRef = await addDoc(collection(db, "projectsPPM"), projectDataToSave);
         toast({ title: "Project Added", description: `"${values.name}" has been added.` });
-        // TODO: Trigger backend function to create notifications for new project
-        // e.g., await createNotificationForNewProject({ projectId: newDocRef.id, projectName: values.name, createdBy: currentUsername });
+        addAppNotification({
+          type: 'project',
+          message: `New project "${values.name}" created by ${currentUsername || 'a user'}.`,
+          link: `/dashboard/project?id=${newDocRef.id}`, // Example link
+          iconName: 'Briefcase',
+        });
+        // TODO: Backend should generate real notifications for all relevant users
       }
       setIsAddProjectDialogOpen(false);
       setEditingProject(null);
@@ -339,7 +351,7 @@ export default function ProjectInfoPage() {
       const batch = writeBatch(db);
 
       const archivedProjectPayload = {
-        ...selectedProject, // spread existing selected project data
+        ...selectedProject, 
         archivedAt: Timestamp.now(), 
       };
       batch.set(projectToArchiveDocRef, archivedProjectPayload);
@@ -349,7 +361,7 @@ export default function ProjectInfoPage() {
         const taskData = taskDoc.data();
         const archivedTaskRef = doc(db, "archivedProjectsPPM", selectedProject.id, "tasks", taskDoc.id);
         batch.set(archivedTaskRef, taskData);
-        batch.delete(doc(tasksCollectionRef, taskDoc.id)); // Delete original task
+        batch.delete(doc(tasksCollectionRef, taskDoc.id)); 
       });
 
       const updatesSnapshot = await getDocs(updatesCollectionRef);
@@ -357,7 +369,7 @@ export default function ProjectInfoPage() {
         const updateData = updateDocSnapshot.data();
         const archivedUpdateRef = doc(db, "archivedProjectsPPM", selectedProject.id, "updates", updateDocSnapshot.id);
         batch.set(archivedUpdateRef, updateData);
-        batch.delete(doc(updatesCollectionRef, updateDocSnapshot.id)); // Delete original update
+        batch.delete(doc(updatesCollectionRef, updateDocSnapshot.id)); 
       });
 
       batch.delete(originalProjectDocRef);
@@ -365,8 +377,13 @@ export default function ProjectInfoPage() {
       await batch.commit();
 
       toast({ title: "Project Archived", description: `"${selectedProject.name}" and its data have been successfully archived.` });
-      // TODO: Trigger backend function to create notification for project archival
-      // e.g., await createNotificationForProjectArchive({ projectName: selectedProject.name, archivedBy: currentUsername });
+      addAppNotification({
+        type: 'project',
+        message: `Project "${selectedProject.name}" archived by ${currentUsername || 'a user'}.`,
+        link: '/dashboard/archived-projects',
+        iconName: 'ArchiveIcon',
+      });
+      // TODO: Backend should generate real notifications for all relevant users
       setSelectedProject(null);
     } catch (error) {
       console.error("Error archiving project:", error);
@@ -398,8 +415,13 @@ export default function ProjectInfoPage() {
     try {
       const newDocRef = await addDoc(collection(db, "projectsPPM", projectId, "tasks"), taskData);
       toast({ title: "Task Added", description: `Task "${values.title}" added to ${selectedProject.name}.` });
-      // TODO: Trigger backend function to create notifications for new task
-      // e.g., await createNotificationForNewTask({ taskId: newDocRef.id, taskTitle: values.title, projectId: projectId, projectName: selectedProject.name, assignedBy: currentUsername });
+      addAppNotification({
+        type: 'task',
+        message: `New task "${values.title}" added to project "${selectedProject.name}".`,
+        link: `/dashboard/project?id=${projectId}&tab=tasks`, // Example link
+        iconName: 'ListChecks',
+      });
+      // TODO: Backend should generate real notifications for all relevant users
       setIsAddTaskDialogOpen(false);
       taskForm.reset({ title: "", description: "", status: "To Do", dueDate: new Date(), dueTime: "09:00" });
       await updateProjectTimestamp(projectId);
@@ -430,8 +452,13 @@ export default function ProjectInfoPage() {
     try {
       const newDocRef = await addDoc(collection(db, "projectsPPM", projectId, "updates"), updateData);
       toast({ title: "Update Note Added", description: `Update added to ${selectedProject.name}.` });
-      // TODO: Trigger backend function to create notifications for project update
-      // e.g., await createNotificationForProjectUpdateNote({ updateId: newDocRef.id, noteSummary: values.note.substring(0,50), projectId: projectId, projectName: selectedProject.name, author: currentUsername });
+      addAppNotification({
+        type: 'project', // Or a more specific 'update' type if available
+        message: `Update added to project "${selectedProject.name}" by ${currentUsername || 'a user'}.`,
+        link: `/dashboard/project?id=${projectId}&tab=updates`, // Example link
+        iconName: 'MessageCircle',
+      });
+      // TODO: Backend should generate real notifications for all relevant users
       setIsAddUpdateDialogOpen(false);
       updateNoteForm.reset({ note: "", date: new Date(), time: "09:00" });
       await updateProjectTimestamp(projectId);

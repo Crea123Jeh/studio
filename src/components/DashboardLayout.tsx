@@ -28,7 +28,8 @@ import { Skeleton } from './ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, Timestamp, limit } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, Timestamp, limit, doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { NotificationProvider, type NewNotificationPayload } from '@/contexts/NotificationContext';
 
 interface NavItem {
   href: string;
@@ -62,7 +63,7 @@ const bottomNavItems: NavItem[] = [
 
 export interface NotificationItem {
   id: string;
-  type: 'project' | 'task' | 'alert' | 'message' | 'generic' | 'birthday' | 'academic' | 'info' | 'chat' | 'violation' | 'target' | 'asset' | 'lss' | 'sheet5b7s' | 'bot';
+  type: NewNotificationPayload['type'];
   message: string;
   link?: string;
   timestamp: Date;
@@ -76,20 +77,34 @@ interface FirestoreNotificationData {
   link?: string;
   timestamp: Timestamp;
   iconName: string;
-  read?: boolean; // Optional: assuming 'read' status might be stored in Firestore
+  read?: boolean;
 }
 
 const iconMap: Record<string, React.ElementType> = {
   Briefcase, CalendarDays, MessageSquare, Settings, Info, Cake, BookOpen, School,
   History, Package, FileSpreadsheet, RadioTower, Bot, ListChecks, AlertCircle,
   ShieldAlert, Crosshair, LayoutDashboard, Home, UserIcon,
+  project: Briefcase,
+  task: ListChecks, // Example, can be more specific
+  alert: AlertCircle,
+  message: MessageSquare, // For chat
+  generic: Bell,
+  birthday: Cake,
+  academic: School,
+  info: Info, // For Information Hub
+  chat: MessageSquare,
+  violation: ShieldAlert,
+  target: Crosshair,
+  asset: Package,
+  lss: ClipboardList,
+  sheet5b7s: FileSpreadsheet,
+  // bot: Bot - already there
   default: Bell,
 };
 
 const getIconComponent = (iconName: string): React.ElementType => {
   return iconMap[iconName] || iconMap.default;
 };
-
 
 function AppSidebar() {
   const pathname = usePathname();
@@ -317,22 +332,23 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const addNotification = useCallback((notificationData: Omit<NotificationItem, 'id' | 'read' | 'timestamp'>) => {
+  const addNotification = useCallback((payload: NewNotificationPayload) => {
     const newNotification: NotificationItem = {
-      ...notificationData,
+      ...payload,
       id: Date.now().toString() + Math.random().toString(36).substring(2,7),
       timestamp: new Date(),
       read: false,
     };
-    // This function is for adding notifications programmatically from client-side events
-    // if needed, though primary notifications come from Firestore listener.
-    setNotifications(prev => [newNotification, ...prev]
-      .sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime())
-      .slice(0, 30)
+    setNotifications(prev => 
+      [newNotification, ...prev]
+      .sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime()) // Ensure sort by most recent
+      .slice(0, 30) // Keep only the latest 30 notifications
     );
+    // Note: This is a client-side addition. For persistence and multi-user sync,
+    // this notification should also be written to Firestore by a backend function,
+    // which would then be picked up by the listener below.
   }, []);
 
-  // Listener for user-specific notifications from Firestore
   useEffect(() => {
     if (user?.uid) {
       const notificationsRef = collection(db, `userNotifications/${user.uid}/notifications`);
@@ -341,30 +357,33 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const newNotificationsFromSnapshot: NotificationItem[] = [];
         snapshot.docChanges().forEach((change) => {
+          // Only consider 'added' changes to prevent re-adding on 'modified' (like read status change)
           if (change.type === "added") {
             const data = change.doc.data() as FirestoreNotificationData;
-            newNotificationsFromSnapshot.push({
-              id: change.doc.id,
-              type: data.type,
-              message: data.message,
-              link: data.link,
-              timestamp: (data.timestamp as Timestamp).toDate(),
-              read: data.read || false, // Assuming 'read' might be in Firestore
-              iconName: data.iconName,
-            });
+            if (data.timestamp) { // Ensure timestamp exists
+              newNotificationsFromSnapshot.push({
+                id: change.doc.id,
+                type: data.type,
+                message: data.message,
+                link: data.link,
+                timestamp: data.timestamp.toDate(),
+                read: data.read || false,
+                iconName: data.iconName,
+              });
+            } else {
+              console.warn("Notification data missing timestamp:", data);
+            }
           }
-          //TODO: Handle 'modified' and 'removed' changes if needed for full sync
         });
 
         if (newNotificationsFromSnapshot.length > 0) {
           setNotifications(prevNotifications => {
-            // Combine new notifications with existing ones, avoiding duplicates by ID
             const combined = [...newNotificationsFromSnapshot, ...prevNotifications];
             const uniqueNotifications = Array.from(new Map(combined.map(item => [item.id, item])).values());
             
             return uniqueNotifications
               .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-              .slice(0, 30);
+              .slice(0, 30); // Ensure limit is maintained
           });
         }
       }, (error) => {
@@ -375,33 +394,44 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     } else {
       setNotifications([]); 
     }
-  }, [user]); // Dependency: only 'user'. 'notifications' state is managed inside.
+  }, [user]);
 
 
-  const handleMarkAsRead = useCallback((id: string, link?: string) => {
+  const handleMarkAsRead = useCallback(async (id: string, link?: string) => {
     setNotifications(prev =>
       prev.map(n => (n.id === id ? { ...n, read: true } : n))
     );
+    if (user?.uid) {
+      try {
+        await updateDoc(doc(db, `userNotifications/${user.uid}/notifications`, id), { read: true });
+      } catch (error) {
+        console.error("Error marking notification as read in Firestore:", error);
+        // Optionally revert UI change or show error toast
+      }
+    }
     if (link) {
       router.push(link);
     }
-    // TODO: Update 'read' status in Firestore:
-    // if (user?.uid) {
-    //   updateDoc(doc(db, `userNotifications/${user.uid}/notifications`, id), { read: true });
-    // }
   }, [router, user?.uid]);
 
-  const handleMarkAllAsRead = useCallback(() => {
+  const handleMarkAllAsRead = useCallback(async () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    // TODO: Batch update 'read' status in Firestore for all unread notifications.
-    // This usually requires a Cloud Function for efficiency or batching client-side if few.
-    // if (user?.uid) {
-    //   const batch = writeBatch(db);
-    //   notifications.filter(n => !n.read).forEach(n => {
-    //     batch.update(doc(db, `userNotifications/${user.uid}/notifications`, n.id), { read: true });
-    //   });
-    //   batch.commit();
-    // }
+    if (user?.uid) {
+      const batch = writeBatch(db);
+      const unreadNotifications = notifications.filter(n => !n.read);
+      if (unreadNotifications.length > 0) {
+        unreadNotifications.forEach(n => {
+          const notifRef = doc(db, `userNotifications/${user.uid}/notifications`, n.id);
+          batch.update(notifRef, { read: true });
+        });
+        try {
+          await batch.commit();
+        } catch (error) {
+          console.error("Error marking all notifications as read in Firestore:", error);
+          // Optionally revert UI change or show error toast
+        }
+      }
+    }
   }, [notifications, user?.uid]);
 
 
@@ -432,9 +462,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           onMarkAllAsRead={handleMarkAllAsRead}
         />
         <main className="flex-1 p-4 sm:p-6 overflow-auto"> 
-            {React.cloneElement(children as React.ReactElement, { 
-              // addAppNotification // This prop can be passed if child pages need to manually add notifications, though Firestore-driven is preferred.
-            })}
+          <NotificationProvider addAppNotification={addNotification}>
+            {React.cloneElement(children as React.ReactElement)}
+          </NotificationProvider>
         </main>
       </div>
     </SidebarProvider>
