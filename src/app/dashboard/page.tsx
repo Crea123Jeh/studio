@@ -7,36 +7,24 @@ import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Briefcase, CalendarDays, Cake, School, Crosshair, ShieldAlert,
-  Users, ArrowRight, Activity, Info, BookOpen, ListChecks, PlusCircle
+  Users, ArrowRight, Activity, Info, BookOpen, ListChecks, PlusCircle, Package, Loader2
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useEffect, useState } from "react";
+import { db } from "@/lib/firebase";
+import { collection, onSnapshot, query, where, orderBy, Timestamp, limit, getCountFromServer } from "firebase/firestore";
+import { format, formatDistanceToNow, isSameDay, isFuture, startOfDay } from "date-fns";
+import { Skeleton } from "@/components/ui/skeleton"; // For loading states
 
+// Simplified interfaces for dashboard data
+interface DashboardPpmEvent { id: string; title: string; startDateTime: Timestamp; }
+interface DashboardBirthday { id: string; name: string; anchorDate: Timestamp; type: string; grade?: string;}
+interface DashboardAcademicEvent { id: string; title: string; date: Timestamp; }
+interface DashboardActivityLog { id: string; title: string; date: Timestamp; details?: string; source?: string; }
 
-// Mock data for dashboard - in a real app, this would come from API/Firestore hooks
-const mockDashboardData = {
-  upcomingPpmEvents: [
-    { id: "ppm1", title: "Project Alpha Review", date: "Oct 25, 10:00 AM", projectId: "Alpha" },
-    { id: "ppm2", title: "Client Meeting - Zeta Corp", date: "Oct 28, 2:00 PM", projectId: "Zeta" },
-  ],
-  todaysBirthdays: [
-    { id: "bday1", name: "Alice Wonderland", type: "Teacher" },
-    { id: "bday2", name: "Student McStudentFace", type: "Student", grade: "5" },
-  ],
-  upcomingAcademicEvents: [
-    { id: "acad1", title: "Mid-Term Exams Start", date: "Nov 1" },
-    { id: "acad2", title: "School Holiday", date: "Nov 10" },
-  ],
-  activeProjectsCount: 7,
-  inProgressTargetsCount: 3,
-  recentViolationsCount: 1,
-  recentActivities: [
-    { id: "act1", user: "Bob The Builder", action: "updated Project Gamma", time: "1h ago" },
-    { id: "act2", user: "Charlie Brown", action: "added a new target to 'Research Team'", time: "3h ago" },
-  ]
-};
 
 interface FeatureCardProps {
   title: string;
@@ -46,9 +34,10 @@ interface FeatureCardProps {
   value?: string | number;
   valueLabel?: string;
   ctaLabel?: string;
+  isLoading?: boolean;
 }
 
-const FeatureCard: React.FC<FeatureCardProps> = ({ title, description, icon: Icon, link, value, valueLabel, ctaLabel = "View Details" }) => {
+const FeatureCard: React.FC<FeatureCardProps> = ({ title, description, icon: Icon, link, value, valueLabel, ctaLabel = "View Details", isLoading }) => {
   const router = useRouter();
   return (
     <Card className="shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300 ease-in-out flex flex-col">
@@ -60,7 +49,12 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ title, description, icon: Ico
         <CardDescription className="text-xs leading-relaxed min-h-[30px]">{description}</CardDescription>
       </CardHeader>
       <CardContent className="flex-grow">
-        {value !== undefined && valueLabel && (
+        {isLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-1/2" />
+            <Skeleton className="h-4 w-3/4" />
+          </div>
+        ) : value !== undefined && valueLabel && (
           <div className="mb-1">
             <p className="text-3xl font-bold text-foreground">{value}</p>
             <p className="text-xs text-muted-foreground">{valueLabel}</p>
@@ -80,14 +74,191 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ title, description, icon: Ico
 export default function DashboardPage() {
   const { user, username } = useAuth();
   const router = useRouter();
-  const data = mockDashboardData; 
+
+  // State for dashboard data
+  const [upcomingPpmEventsCount, setUpcomingPpmEventsCount] = useState(0);
+  const [todaysBirthdaysCount, setTodaysBirthdaysCount] = useState(0);
+  const [upcomingAcademicEventsCount, setUpcomingAcademicEventsCount] = useState(0);
+  const [activeProjectsCount, setActiveProjectsCount] = useState(0);
+  const [inProgressTargetsCount, setInProgressTargetsCount] = useState(0);
+  const [recentViolationsCount, setRecentViolationsCount] = useState(0);
+  const [totalAssetsValue, setTotalAssetsValue] = useState(0);
+  const [recentActivities, setRecentActivities] = useState<DashboardActivityLog[]>([]);
+
+  // Loading states
+  const [loadingPpmEvents, setLoadingPpmEvents] = useState(true);
+  const [loadingBirthdays, setLoadingBirthdays] = useState(true);
+  const [loadingAcademicEvents, setLoadingAcademicEvents] = useState(true);
+  const [loadingProjects, setLoadingProjects] = useState(true);
+  const [loadingTargets, setLoadingTargets] = useState(true);
+  const [loadingViolations, setLoadingViolations] = useState(true);
+  const [loadingAssets, setLoadingAssets] = useState(true);
+  const [loadingActivities, setLoadingActivities] = useState(true);
+
+  // Fetch Upcoming PPM Calendar Events
+  useEffect(() => {
+    const today = startOfDay(new Date());
+    const q = query(
+      collection(db, "calendarEvents"),
+      where("startDateTime", ">=", Timestamp.fromDate(today))
+    );
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      // For counts, getCountFromServer is more efficient if you don't need the docs
+      const countSnapshot = await getCountFromServer(q);
+      setUpcomingPpmEventsCount(countSnapshot.data().count);
+      setLoadingPpmEvents(false);
+    }, (error) => {
+      console.error("Error fetching PPM events count: ", error);
+      setLoadingPpmEvents(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch Today's Birthdays
+  useEffect(() => {
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentDate = today.getDate();
+
+    const q = collection(db, "birthdayEvents");
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      let count = 0;
+      snapshot.forEach(doc => {
+        const data = doc.data() as { anchorDate: Timestamp };
+        if (data.anchorDate) {
+          const birthday = data.anchorDate.toDate();
+          if (birthday.getMonth() === currentMonth && birthday.getDate() === currentDate) {
+            count++;
+          }
+        }
+      });
+      setTodaysBirthdaysCount(count);
+      setLoadingBirthdays(false);
+    }, (error) => {
+      console.error("Error fetching birthdays count: ", error);
+      setLoadingBirthdays(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch Upcoming Academic Events
+  useEffect(() => {
+    const today = startOfDay(new Date());
+    const q = query(
+      collection(db, "academicEvents"),
+      where("date", ">=", Timestamp.fromDate(today))
+    );
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const countSnapshot = await getCountFromServer(q);
+      setUpcomingAcademicEventsCount(countSnapshot.data().count);
+      setLoadingAcademicEvents(false);
+    }, (error) => {
+      console.error("Error fetching academic events count: ", error);
+      setLoadingAcademicEvents(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch Active Projects Count
+  useEffect(() => {
+    const q = query(
+      collection(db, "projectsPPM"),
+      where("status", "not-in", ["Completed", "Cancelled"])
+    );
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const countSnapshot = await getCountFromServer(q);
+      setActiveProjectsCount(countSnapshot.data().count);
+      setLoadingProjects(false);
+    }, (error) => {
+      console.error("Error fetching active projects count: ", error);
+      setLoadingProjects(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch In Progress Targets Count
+  useEffect(() => {
+    const q = query(
+      collection(db, "targetListItems"),
+      where("status", "==", "In Progress")
+    );
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const countSnapshot = await getCountFromServer(q);
+      setInProgressTargetsCount(countSnapshot.data().count);
+      setLoadingTargets(false);
+    }, (error) => {
+      console.error("Error fetching in-progress targets count: ", error);
+      setLoadingTargets(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch Recent Violations Count (counting all for now)
+  useEffect(() => {
+    const q = collection(db, "studentViolations");
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const countSnapshot = await getCountFromServer(q);
+      setRecentViolationsCount(countSnapshot.data().count);
+      setLoadingViolations(false);
+    }, (error) => {
+      console.error("Error fetching violations count: ", error);
+      setLoadingViolations(false);
+    });
+    return () => unsubscribe();
+  }, []);
+  
+  // Fetch Total Assets Value
+  useEffect(() => {
+    const q = collection(db, "assetItems");
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      let totalValue = 0;
+      snapshot.forEach(doc => {
+        const data = doc.data() as { amount: number };
+        if (data.amount && typeof data.amount === 'number') {
+          totalValue += data.amount;
+        }
+      });
+      setTotalAssetsValue(totalValue);
+      setLoadingAssets(false);
+    }, (error) => {
+      console.error("Error fetching total assets value: ", error);
+      setLoadingAssets(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch Recent Activities
+  useEffect(() => {
+    const q = query(collection(db, "activityLogEntries"), orderBy("date", "desc"), limit(5));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const activities = snapshot.docs.map(doc => ({
+        id: doc.id,
+        title: doc.data().title || "No title",
+        date: doc.data().date as Timestamp,
+        details: doc.data().details,
+        source: doc.data().source,
+        // Assuming 'authorName' or similar might be logged for user actions
+      } as DashboardActivityLog));
+      setRecentActivities(activities);
+      setLoadingActivities(false);
+    }, (error) => {
+      console.error("Error fetching recent activities: ", error);
+      setLoadingActivities(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
 
   const summaryMetrics = [
-    { title: "Active Projects", value: data.activeProjectsCount, icon: Briefcase, link: "/dashboard/project", iconColor: "text-primary" },
-    { title: "Targets In Progress", value: data.inProgressTargetsCount, icon: Crosshair, link: "/dashboard/target-list", iconColor: "text-primary" },
-    { title: "Recent Violations", value: data.recentViolationsCount, icon: ShieldAlert, link: "/dashboard/violations", iconColor: "text-primary" },
-    { title: "Today's Birthdays", value: data.todaysBirthdays.length, icon: Cake, link: "/dashboard/birthday-calendar", iconColor: "text-primary" },
+    { title: "Active Projects", value: activeProjectsCount, icon: Briefcase, link: "/dashboard/project", iconColor: "text-primary", isLoading: loadingProjects },
+    { title: "Targets In Progress", value: inProgressTargetsCount, icon: Crosshair, link: "/dashboard/target-list", iconColor: "text-primary", isLoading: loadingTargets },
+    { title: "Total Violations", value: recentViolationsCount, icon: ShieldAlert, link: "/dashboard/violations", iconColor: "text-primary", isLoading: loadingViolations },
+    { title: "Today's Birthdays", value: todaysBirthdaysCount, icon: Cake, link: "/dashboard/birthday-calendar", iconColor: "text-primary", isLoading: loadingBirthdays },
   ];
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
+  };
 
   return (
     <div className="space-y-8">
@@ -133,7 +304,11 @@ export default function DashboardPage() {
               <metric.icon className={cn("h-5 w-5", metric.iconColor)} />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">{metric.value}</div>
+              {metric.isLoading ? (
+                <Skeleton className="h-8 w-16" />
+              ) : (
+                <div className="text-3xl font-bold text-foreground">{metric.value}</div>
+              )}
               <span className="text-xs text-primary hover:underline">
                 View details <ArrowRight className="inline h-3 w-3" />
               </span>
@@ -150,24 +325,36 @@ export default function DashboardPage() {
             description="Upcoming deadlines, meetings, and milestones."
             icon={CalendarDays}
             link="/dashboard/calendar"
-            value={data.upcomingPpmEvents.length}
+            value={upcomingPpmEventsCount}
             valueLabel="Upcoming Events"
+            isLoading={loadingPpmEvents}
           />
           <FeatureCard
             title="Birthday Calendar"
             description="Don't miss any colleague or student birthdays."
             icon={Cake}
             link="/dashboard/birthday-calendar"
-            value={data.todaysBirthdays.length}
+            value={todaysBirthdaysCount}
             valueLabel="Birthdays Today"
+            isLoading={loadingBirthdays}
           />
           <FeatureCard
             title="Academic Calendar"
             description="Stay on top of school events, exams, and holidays."
             icon={School}
             link="/dashboard/academic-calendar"
-            value={data.upcomingAcademicEvents.length}
+            value={upcomingAcademicEventsCount}
             valueLabel="Upcoming Academic Events"
+            isLoading={loadingAcademicEvents}
+          />
+          <FeatureCard
+            title="Total Assets"
+            description="Current total value of recorded assets."
+            icon={Package}
+            link="/dashboard/total-assets"
+            value={formatCurrency(totalAssetsValue)}
+            valueLabel="Total Value (IDR)"
+            isLoading={loadingAssets}
           />
           <FeatureCard
             title="Information Hub"
@@ -183,13 +370,6 @@ export default function DashboardPage() {
             link="/dashboard/knowledge"
             ctaLabel="Learn More"
           />
-          <FeatureCard
-            title="Quick Add Event"
-            description="Quickly add an event to your PPM Calendar."
-            icon={PlusCircle}
-            link="/dashboard/calendar" // Ideally opens add dialog
-            ctaLabel="Add PPM Event"
-          />
         </div>
       </div>
       
@@ -200,18 +380,31 @@ export default function DashboardPage() {
             <CardDescription>Latest updates across your projects and tasks.</CardDescription>
           </CardHeader>
           <CardContent>
-            {data.recentActivities.length > 0 ? (
+            {loadingActivities ? (
+              <div className="space-y-3">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="flex items-center space-x-3 p-2.5">
+                    <Skeleton className="h-8 w-8 rounded-full" />
+                    <div className="space-y-1">
+                      <Skeleton className="h-4 w-48" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : recentActivities.length > 0 ? (
               <ul className="space-y-3">
-                {data.recentActivities.map((item) => (
+                {recentActivities.map((item) => (
                   <li key={item.id} className="flex items-center space-x-3 p-2.5 hover:bg-muted/70 rounded-md transition-colors duration-150">
                     <div className="p-1.5 bg-accent/30 rounded-full">
                       <Users className="h-4 w-4 text-accent" />
                     </div>
                     <div>
-                      <p className="text-sm">
-                        <span className="font-semibold text-foreground">{item.user}</span> {item.action}
+                      <p className="text-sm text-foreground">
+                        {item.title}
+                        {item.source && <span className="text-xs text-muted-foreground"> (via {item.source})</span>}
                       </p>
-                      <p className="text-xs text-muted-foreground">{item.time}</p>
+                      <p className="text-xs text-muted-foreground">{formatDistanceToNow(item.date.toDate(), { addSuffix: true })}</p>
                     </div>
                   </li>
                 ))}
@@ -248,5 +441,4 @@ export default function DashboardPage() {
     </div>
   );
 }
-
     
