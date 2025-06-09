@@ -66,7 +66,8 @@ export default function Sheet5B7SPage() {
   const [teacherSubject, setTeacherSubject] = useState("");
   const [teacherEmail, setTeacherEmail] = useState("");
   const [teacherPassword, setTeacherPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [showFormPassword, setShowFormPassword] = useState(false);
+  const [visiblePasswordId, setVisiblePasswordId] = useState<string | null>(null);
 
 
   // --- Students State ---
@@ -130,7 +131,7 @@ export default function Sheet5B7SPage() {
 
   // --- Form Reset Callbacks ---
   const resetTeacherForm = useCallback(() => {
-    setTeacherName(""); setTeacherSubject(""); setTeacherEmail(""); setTeacherPassword(""); setEditingTeacher(null); setShowPassword(false);
+    setTeacherName(""); setTeacherSubject(""); setTeacherEmail(""); setTeacherPassword(""); setEditingTeacher(null); setShowFormPassword(false);
   }, []);
   const resetStudentForm = useCallback(() => {
     setStudentName(""); setStudentGrade(""); setStudentNotes(""); setEditingStudent(null);
@@ -147,13 +148,9 @@ export default function Sheet5B7SPage() {
       setTeacherSubject(teacher.subject || "");
       setTeacherEmail(teacher.email || "");
       setTeacherPassword(teacher.password || "");
-      setShowPassword(false);
+      setShowFormPassword(false);
     } else {
-      if (teacher) { // Teacher object provided but ID is invalid
-        console.error("Attempted to open edit dialog for teacher with invalid ID:", teacher);
-        toast({ title: "Error", description: "Cannot edit teacher: invalid teacher data provided.", variant: "destructive" });
-      }
-      resetTeacherForm(); // This sets editingTeacher to null
+      resetTeacherForm();
     }
     setIsTeacherDialogOpen(true);
   };
@@ -165,10 +162,6 @@ export default function Sheet5B7SPage() {
       setStudentGrade(student.grade || "");
       setStudentNotes(student.notes || "");
     } else {
-      if (student) {
-        console.error("Attempted to open edit dialog for student with invalid ID:", student);
-        toast({ title: "Error", description: "Cannot edit student: invalid student data provided.", variant: "destructive" });
-      }
       resetStudentForm();
     }
     setIsStudentDialogOpen(true);
@@ -182,10 +175,6 @@ export default function Sheet5B7SPage() {
       setDriveLinkDescription(link.description || "");
       setDriveLinkCategory(link.category || driveLinkCategories[0]);
     } else {
-      if (link) {
-        console.error("Attempted to open edit dialog for drive link with invalid ID:", link);
-        toast({ title: "Error", description: "Cannot edit drive link: invalid link data provided.", variant: "destructive" });
-      }
       resetDriveLinkForm();
     }
     setIsDriveLinkDialogOpen(true);
@@ -197,22 +186,19 @@ export default function Sheet5B7SPage() {
     if (!teacherName) { toast({ title: "Missing Name", description: "Teacher name is required.", variant: "destructive" }); return; }
     const now = Timestamp.now();
     
+    const dataToSave: Partial<Omit<TeacherEntry, 'id' | 'createdAt'>> & { name: string; createdAt?: Timestamp; lastUpdatedAt: Timestamp } = {
+        name: teacherName,
+        subject: teacherSubject || "",
+        email: teacherEmail || "",
+        password: teacherPassword || "", // Save empty string if not provided
+        lastUpdatedAt: now,
+    };
+
     try {
       if (editingTeacher && typeof editingTeacher.id === 'string' && editingTeacher.id.length > 0) {
-        const dataToUpdate: Partial<Omit<TeacherEntry, 'id' | 'createdAt'>> = {
-            name: teacherName,
-            subject: teacherSubject || "",
-            email: teacherEmail || "",
-            password: teacherPassword || "",
-            lastUpdatedAt: now,
-        };
-        await updateDoc(doc(db, "sheet5B7STeachers", editingTeacher.id), dataToUpdate);
+        await updateDoc(doc(db, "sheet5B7STeachers", editingTeacher.id), dataToSave);
         toast({ title: "Teacher Updated" });
-      } else if (editingTeacher) { // Should not be reached if openTeacherDialog validation works
-        console.error("UPDATE ATTEMPT FAILED: editingTeacher.id is invalid. editingTeacher object:", editingTeacher);
-        toast({ title: "Update Error", description: "Cannot update teacher: Invalid or missing teacher ID in the editing context.", variant: "destructive" });
-      }
-      else { // Add new teacher
+      } else { 
         const newTeacherData: Omit<TeacherEntry, 'id'> = {
             name: teacherName,
             subject: teacherSubject || "",
@@ -236,7 +222,7 @@ export default function Sheet5B7SPage() {
     e.preventDefault();
     if (!studentName) { toast({ title: "Missing Name", description: "Student name is required.", variant: "destructive" }); return; }
     const now = Timestamp.now();
-    const studentDataToSave = { 
+    const studentDataToSave: Partial<Omit<StudentEntry, 'id' | 'createdAt'>> & { name: string; createdAt?: Timestamp; lastUpdatedAt: Timestamp } = { 
         name: studentName, 
         grade: studentGrade || "", 
         notes: studentNotes || "", 
@@ -246,11 +232,9 @@ export default function Sheet5B7SPage() {
       if (editingStudent && typeof editingStudent.id === 'string' && editingStudent.id.length > 0) {
         await updateDoc(doc(db, "sheet5B7SStudents", editingStudent.id), studentDataToSave);
         toast({ title: "Student Updated" });
-      } else if (editingStudent) {
-        console.error("UPDATE ATTEMPT FAILED: editingStudent.id is invalid. editingStudent object:", editingStudent);
-        toast({ title: "Update Error", description: "Cannot update student: Invalid or missing student ID.", variant: "destructive" });
       } else {
-        await addDoc(collection(db, "sheet5B7SStudents"), { ...studentDataToSave, createdAt: now });
+        studentDataToSave.createdAt = now;
+        await addDoc(collection(db, "sheet5B7SStudents"), studentDataToSave as Omit<StudentEntry, 'id'>);
         toast({ title: "Student Added" });
       }
       setIsStudentDialogOpen(false); resetStudentForm();
@@ -265,7 +249,7 @@ export default function Sheet5B7SPage() {
     if (!driveLinkTitle || !driveLinkUrl) { toast({ title: "Missing Fields", description: "Title and URL are required.", variant: "destructive" }); return; }
     try { new URL(driveLinkUrl); } catch (_) { toast({ title: "Invalid URL", variant: "destructive" }); return; }
     const now = Timestamp.now();
-    const driveLinkDataToSave = { 
+    const driveLinkDataToSave: Partial<Omit<DriveLinkEntry, 'id' | 'createdAt'>> & { title: string; url: string; createdAt?: Timestamp; lastUpdatedAt: Timestamp} = { 
         title: driveLinkTitle, 
         url: driveLinkUrl, 
         description: driveLinkDescription || "", 
@@ -276,12 +260,10 @@ export default function Sheet5B7SPage() {
       if (editingDriveLink && typeof editingDriveLink.id === 'string' && editingDriveLink.id.length > 0) {
         await updateDoc(doc(db, "sheet5B7SDriveLinks", editingDriveLink.id), driveLinkDataToSave);
         toast({ title: "Drive Link Updated" });
-      } else if (editingDriveLink) {
-        console.error("UPDATE ATTEMPT FAILED: editingDriveLink.id is invalid. editingDriveLink object:", editingDriveLink);
-        toast({ title: "Update Error", description: "Cannot update link: Invalid or missing link ID.", variant: "destructive" });
       }
       else {
-        await addDoc(collection(db, "sheet5B7SDriveLinks"), { ...driveLinkDataToSave, createdAt: now });
+        driveLinkDataToSave.createdAt = now;
+        await addDoc(collection(db, "sheet5B7SDriveLinks"), driveLinkDataToSave as Omit<DriveLinkEntry, 'id'>);
         toast({ title: "Drive Link Added" });
       }
       setIsDriveLinkDialogOpen(false); resetDriveLinkForm();
@@ -417,7 +399,38 @@ export default function Sheet5B7SPage() {
                         <TableCell className="font-medium">{teacher.name}</TableCell>
                         <TableCell>{teacher.subject || "N/A"}</TableCell>
                         <TableCell>{teacher.email || "N/A"}</TableCell>
-                        <TableCell>{teacher.password ? '••••••••' : "N/A"}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-between min-w-[100px]">
+                            <span>
+                              {visiblePasswordId === teacher.id
+                                ? (teacher.password || "") 
+                                : (teacher.password && teacher.password.length > 0 ? '••••••••' : "N/A")}
+                            </span>
+                            {teacher.password && teacher.password.length > 0 && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 ml-2"
+                                onClick={() =>
+                                  setVisiblePasswordId(
+                                    visiblePasswordId === teacher.id ? null : teacher.id
+                                  )
+                                }
+                              >
+                                {visiblePasswordId === teacher.id ? (
+                                  <EyeOff className="h-4 w-4" />
+                                ) : (
+                                  <Eye className="h-4 w-4" />
+                                )}
+                                <span className="sr-only">
+                                  {visiblePasswordId === teacher.id
+                                    ? "Hide password"
+                                    : "Show password"}
+                                </span>
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell>{format(teacher.createdAt.toDate(), "PP")}</TableCell>
                         <TableCell>{formatDistanceToNow(teacher.lastUpdatedAt.toDate(), { addSuffix: true })}</TableCell>
                         <TableCell className="text-right">
@@ -505,7 +518,7 @@ export default function Sheet5B7SPage() {
               <div className="relative">
                 <Input
                   id="teacher-password"
-                  type={showPassword ? "text" : "password"}
+                  type={showFormPassword ? "text" : "password"}
                   value={teacherPassword ?? ""}
                   onChange={e => setTeacherPassword(e.target.value)}
                 />
@@ -514,11 +527,11 @@ export default function Sheet5B7SPage() {
                   variant="ghost"
                   size="icon"
                   className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() => setShowFormPassword(!showFormPassword)}
                   tabIndex={-1} 
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  <span className="sr-only">{showPassword ? "Hide password" : "Show password"}</span>
+                  {showFormPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  <span className="sr-only">{showFormPassword ? "Hide password" : "Show password"}</span>
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-1">Note: For prototype purposes only. Do not use real passwords.</p>
