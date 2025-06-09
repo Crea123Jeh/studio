@@ -9,7 +9,7 @@ import {
   LayoutDashboard, UserCircle, Briefcase, CalendarDays, MessageSquare, LogOut, Settings,
   ChevronDown, PanelLeft, Building, Info, Cake, BookOpen, School, History, Package,
   FileSpreadsheet, RadioTower, Bot, Bell, ListChecks, AlertCircle, CheckCircle2, Circle,
-  ShieldAlert, Crosshair, Archive as ArchiveIcon, ClipboardList, Home, User as UserIcon // Added Home & UserIcon
+  ShieldAlert, Crosshair, Archive as ArchiveIcon, ClipboardList, Home, User as UserIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -27,8 +27,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from './ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { db } from '@/lib/firebase'; // Import db
-import { collection, query, orderBy, onSnapshot, Timestamp, limit } from 'firebase/firestore'; // Firestore imports
+import { db } from '@/lib/firebase';
+import { collection, query, orderBy, onSnapshot, Timestamp, limit } from 'firebase/firestore';
 
 interface NavItem {
   href: string;
@@ -65,26 +65,25 @@ export interface NotificationItem {
   type: 'project' | 'task' | 'alert' | 'message' | 'generic' | 'birthday' | 'academic' | 'info' | 'chat' | 'violation' | 'target' | 'asset' | 'lss' | 'sheet5b7s' | 'bot';
   message: string;
   link?: string;
-  timestamp: Date; // Changed from Timestamp to Date for easier handling in state
+  timestamp: Date;
   read: boolean;
-  iconName: string; // Store icon name as string, resolve to component later
+  iconName: string;
 }
 
-// Firestore data structure for notifications (conceptual)
 interface FirestoreNotificationData {
   type: NotificationItem['type'];
   message: string;
   link?: string;
-  timestamp: Timestamp; // Firestore Timestamp
+  timestamp: Timestamp;
   iconName: string;
-  // any other fields your backend might send
+  read?: boolean; // Optional: assuming 'read' status might be stored in Firestore
 }
 
 const iconMap: Record<string, React.ElementType> = {
   Briefcase, CalendarDays, MessageSquare, Settings, Info, Cake, BookOpen, School,
   History, Package, FileSpreadsheet, RadioTower, Bot, ListChecks, AlertCircle,
   ShieldAlert, Crosshair, LayoutDashboard, Home, UserIcon,
-  default: Bell, // Default icon if no match
+  default: Bell,
 };
 
 const getIconComponent = (iconName: string): React.ElementType => {
@@ -260,11 +259,6 @@ function Header({ notifications, unreadCount, onMarkAsRead, onMarkAllAsRead }: H
               <CheckCircle2 className="mr-2 h-4 w-4" />
               Mark all as read
             </DropdownMenuItem>
-            {/* <DropdownMenuItem onClick={() => {
-              // console.log("View all notifications clicked");
-            }} className="cursor-pointer"> 
-              View all notifications (UI Placeholder)
-            </DropdownMenuItem> */}
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -317,67 +311,71 @@ function Header({ notifications, unreadCount, onMarkAsRead, onMarkAllAsRead }: H
 
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
-  const { user, loading, username } = useAuth(); // Added username here
+  const { user, loading } = useAuth();
   const router = useRouter();
   
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const addNotification = useCallback((notificationData: Omit<NotificationItem, 'id' | 'read'>) => {
+  const addNotification = useCallback((notificationData: Omit<NotificationItem, 'id' | 'read' | 'timestamp'>) => {
     const newNotification: NotificationItem = {
       ...notificationData,
       id: Date.now().toString() + Math.random().toString(36).substring(2,7),
+      timestamp: new Date(),
       read: false,
     };
-    setNotifications(prev => [newNotification, ...prev.slice(0, 29)]);
+    // This function is for adding notifications programmatically from client-side events
+    // if needed, though primary notifications come from Firestore listener.
+    setNotifications(prev => [newNotification, ...prev]
+      .sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime())
+      .slice(0, 30)
+    );
   }, []);
 
   // Listener for user-specific notifications from Firestore
   useEffect(() => {
     if (user?.uid) {
       const notificationsRef = collection(db, `userNotifications/${user.uid}/notifications`);
-      // Query for the latest (e.g., 10) notifications, ordered by timestamp
-      const q = query(notificationsRef, orderBy("timestamp", "desc"), limit(10));
+      const q = query(notificationsRef, orderBy("timestamp", "desc"), limit(30));
 
       const unsubscribe = onSnapshot(q, (snapshot) => {
-        const newNotifications: NotificationItem[] = [];
+        const newNotificationsFromSnapshot: NotificationItem[] = [];
         snapshot.docChanges().forEach((change) => {
           if (change.type === "added") {
             const data = change.doc.data() as FirestoreNotificationData;
-            // Check if this notification ID already exists to prevent duplicates if listener re-runs
-            if (!notifications.some(n => n.id === change.doc.id)) {
-              newNotifications.push({
-                id: change.doc.id,
-                type: data.type,
-                message: data.message,
-                link: data.link,
-                timestamp: (data.timestamp as Timestamp).toDate(), // Convert Firestore Timestamp to JS Date
-                read: false, // New notifications are unread
-                iconName: data.iconName,
-              });
-            }
+            newNotificationsFromSnapshot.push({
+              id: change.doc.id,
+              type: data.type,
+              message: data.message,
+              link: data.link,
+              timestamp: (data.timestamp as Timestamp).toDate(),
+              read: data.read || false, // Assuming 'read' might be in Firestore
+              iconName: data.iconName,
+            });
           }
+          //TODO: Handle 'modified' and 'removed' changes if needed for full sync
         });
 
-        if (newNotifications.length > 0) {
-          // Add new notifications to the beginning of the list, maintaining sort by actual timestamp
-          setNotifications(prev => 
-            [...newNotifications, ...prev]
-            .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()) // Sort by JS Date timestamp
-            .slice(0, 30) // Keep max 30 notifications
-          );
+        if (newNotificationsFromSnapshot.length > 0) {
+          setNotifications(prevNotifications => {
+            // Combine new notifications with existing ones, avoiding duplicates by ID
+            const combined = [...newNotificationsFromSnapshot, ...prevNotifications];
+            const uniqueNotifications = Array.from(new Map(combined.map(item => [item.id, item])).values());
+            
+            return uniqueNotifications
+              .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+              .slice(0, 30);
+          });
         }
       }, (error) => {
         console.error("Error fetching real-time notifications:", error);
-        // Optionally, inform the user via toast, but be careful not to spam if there are connection issues
-        // toast({ title: "Notification Error", description: "Could not fetch real-time notifications.", variant: "destructive" });
       });
 
-      return () => unsubscribe(); // Cleanup listener on component unmount or user change
+      return () => unsubscribe();
     } else {
-      setNotifications([]); // Clear notifications if user logs out
+      setNotifications([]); 
     }
-  }, [user, notifications]); // Added notifications to dependencies to avoid re-adding existing ones
+  }, [user]); // Dependency: only 'user'. 'notifications' state is managed inside.
 
 
   const handleMarkAsRead = useCallback((id: string, link?: string) => {
@@ -387,16 +385,24 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     if (link) {
       router.push(link);
     }
-    // TODO: In a real app, you would also update the 'read' status of this notification
-    // in the `userNotifications/{userId}/notifications/{notificationId}` document in Firestore.
-    // Example: await updateDoc(doc(db, `userNotifications/${user.uid}/notifications`, id), { read: true });
-  }, [router]);
+    // TODO: Update 'read' status in Firestore:
+    // if (user?.uid) {
+    //   updateDoc(doc(db, `userNotifications/${user.uid}/notifications`, id), { read: true });
+    // }
+  }, [router, user?.uid]);
 
   const handleMarkAllAsRead = useCallback(() => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    // TODO: In a real app, you would update all unread notifications for this user in Firestore.
-    // This might involve a batch write or a Cloud Function.
-  }, []);
+    // TODO: Batch update 'read' status in Firestore for all unread notifications.
+    // This usually requires a Cloud Function for efficiency or batching client-side if few.
+    // if (user?.uid) {
+    //   const batch = writeBatch(db);
+    //   notifications.filter(n => !n.read).forEach(n => {
+    //     batch.update(doc(db, `userNotifications/${user.uid}/notifications`, n.id), { read: true });
+    //   });
+    //   batch.commit();
+    // }
+  }, [notifications, user?.uid]);
 
 
   useEffect(() => {
@@ -426,22 +432,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           onMarkAllAsRead={handleMarkAllAsRead}
         />
         <main className="flex-1 p-4 sm:p-6 overflow-auto"> 
-            {/* 
-              To make other pages trigger notifications:
-              1. Ensure the page has access to `user.uid` and `username`.
-              2. After a data-saving operation (e.g., adding a project), you would typically call a 
-                 Cloud Function. e.g., functions.httpsCallable('createProjectNotification')({ projectId: '...', ... });
-              3. That Cloud Function would then write the notification to:
-                 `userNotifications/{relevantUserId}/notifications/{newNotificationId}`
-              4. The listener in *this* DashboardLayout component will then pick it up.
-            */}
             {React.cloneElement(children as React.ReactElement, { 
-              // This is a conceptual way to pass addNotification down. 
-              // For a cleaner approach across many nested components, React Context is better.
-              // However, direct "addNotification" calls from child pages are less ideal for
-              // a true real-time system where the backend should be the source of truth for notifications.
-              // For now, this line is commented out as direct child-to-parent calls for this aren't the final pattern.
-              // addAppNotification: addNotification 
+              // addAppNotification // This prop can be passed if child pages need to manually add notifications, though Firestore-driven is preferred.
             })}
         </main>
       </div>
