@@ -32,7 +32,8 @@ import {
   Circle,
   ShieldAlert,
   Crosshair,
-  Archive as ArchiveIcon // Added ArchiveIcon
+  Archive as ArchiveIcon,
+  Network // Added Network icon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -83,6 +84,7 @@ const mainNavItems: NavItem[] = [
   { href: '/dashboard/chat', label: 'Team Chat', icon: MessageSquare },
   { href: '/dashboard/information', label: 'Information', icon: Info },
   { href: '/dashboard/knowledge', label: 'Knowledge Hub', icon: BookOpen },
+  { href: '/dashboard/lss', label: 'LSS', icon: Network }, // Added LSS
   { href: '/dashboard/total-assets', label: 'Total Assets', icon: Package },
   { href: '/dashboard/sheet-5b7s', label: 'Sheet 5B7S', icon: FileSpreadsheet },
   { href: '/dashboard/ppm-radio', label: 'PPM Radio', icon: RadioTower },
@@ -376,3 +378,4 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     </SidebarProvider>
   );
 }
+
