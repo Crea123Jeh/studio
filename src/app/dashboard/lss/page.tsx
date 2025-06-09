@@ -66,7 +66,7 @@ export default function LatihanSoalSigmaPage() {
     "Unavailable": "Unavailable (Not Passed)",
     "Grabbing": "Grabbing",
     "Passed_NotYetDeleted": "Not Yet Deleted",
-    "Passed_ToBeDeleted": "Marked for Deletion"
+    "Passed_ToBeDeleted": "Item Deleted"
   };
 
   useEffect(() => {
