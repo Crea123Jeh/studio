@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, onSnapshot, query, orderBy, Timestamp } from "firebase/firestore";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface KnowledgeItem {
   id: string;
@@ -159,7 +160,6 @@ export default function KnowledgeHubPage() {
 
       <Card className="shadow-lg">
         <CardHeader>
-          {/* Removed the "Learning Feed" CardTitle here */}
           <CardDescription>
             Latest videos and tutorials relevant to project management, methodologies, and tools.
           </CardDescription>
@@ -169,10 +169,16 @@ export default function KnowledgeHubPage() {
             {isLoading ? (
               <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2 text-muted-foreground">Loading learning feed...</p></div>
             ) : knowledgeFeed.length > 0 ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-6"> {/* Changed to single column for card layout */}
                 {knowledgeFeed.map((item) => (
-                  <Card key={item.id} className="overflow-hidden hover:shadow-xl transition-shadow duration-200 ease-in-out flex flex-col">
-                    <div className="aspect-video bg-muted">
+                  <Card 
+                    key={item.id} 
+                    className={cn(
+                        "overflow-hidden hover:shadow-xl transition-shadow duration-200 ease-in-out",
+                        "flex flex-col md:flex-row" 
+                    )}
+                  >
+                    <div className="md:w-2/5 lg:w-1/3 aspect-video bg-muted shrink-0"> {/* Video container takes up portion of width on md+ */}
                       <iframe
                         className="w-full h-full"
                         src={`https://www.youtube.com/embed/${item.videoId}`}
@@ -183,8 +189,8 @@ export default function KnowledgeHubPage() {
                         loading="lazy"
                       ></iframe>
                     </div>
-                    <div className="p-4 flex flex-col flex-grow">
-                      <CardTitle className="text-lg leading-tight mb-1.5">{item.title}</CardTitle>
+                    <div className="p-4 flex flex-col flex-grow"> {/* Details container */}
+                      <CardTitle className="text-lg leading-tight mb-1.5 text-foreground">{item.title}</CardTitle>
                       <p className="text-sm text-muted-foreground line-clamp-3 mb-2 flex-grow">{item.description}</p>
                       <div className="flex justify-between items-center mt-auto pt-2 border-t">
                         <Badge variant="secondary">{item.category}</Badge>
