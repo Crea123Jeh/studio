@@ -237,7 +237,7 @@ export default function InformationPage() {
             <CardDescription>Latest updates, articles, and important announcements.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[calc(100vh-350px)] pr-3">
+            <ScrollArea className="pr-3"> {/* Removed h-[calc(100vh-350px)] */}
               {isLoadingHappenings ? (
                  <div className="flex justify-center items-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /><p className="ml-2">Loading happenings...</p></div>
               ) : happenings.length > 0 ? (
@@ -279,7 +279,7 @@ export default function InformationPage() {
             <CardDescription>Emerging patterns and insights in technology and project management.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[calc(100vh-350px)] pr-3">
+            <ScrollArea className="pr-3"> {/* Removed h-[calc(100vh-350px)] */}
             {isLoadingTrends ? (
                 <div className="flex justify-center items-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /><p className="ml-2">Loading trends...</p></div>
             ) : trends.length > 0 ? (
