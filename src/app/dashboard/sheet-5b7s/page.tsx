@@ -141,9 +141,9 @@ export default function Sheet5B7SPage() {
   // --- Add/Edit Dialog Openers ---
   const openTeacherDialog = (teacher: TeacherEntry | null = null) => {
     if (teacher) {
-      setEditingTeacher(teacher); 
-      setTeacherName(teacher.name); 
-      setTeacherSubject(teacher.subject || ""); 
+      setEditingTeacher(teacher);
+      setTeacherName(teacher.name || "");
+      setTeacherSubject(teacher.subject || "");
       setTeacherEmail(teacher.email || "");
       setTeacherPassword(teacher.password || "");
     } else {
@@ -154,7 +154,10 @@ export default function Sheet5B7SPage() {
 
   const openStudentDialog = (student: StudentEntry | null = null) => {
     if (student) {
-      setEditingStudent(student); setStudentName(student.name); setStudentGrade(student.grade || ""); setStudentNotes(student.notes || "");
+      setEditingStudent(student);
+      setStudentName(student.name || "");
+      setStudentGrade(student.grade || "");
+      setStudentNotes(student.notes || "");
     } else {
       resetStudentForm();
     }
@@ -163,7 +166,11 @@ export default function Sheet5B7SPage() {
 
   const openDriveLinkDialog = (link: DriveLinkEntry | null = null) => {
     if (link) {
-      setEditingDriveLink(link); setDriveLinkTitle(link.title); setDriveLinkUrl(link.url); setDriveLinkDescription(link.description || ""); setDriveLinkCategory(link.category || driveLinkCategories[0]);
+      setEditingDriveLink(link);
+      setDriveLinkTitle(link.title || "");
+      setDriveLinkUrl(link.url || "");
+      setDriveLinkDescription(link.description || "");
+      setDriveLinkCategory(link.category || driveLinkCategories[0]);
     } else {
       resetDriveLinkForm();
     }
@@ -175,12 +182,12 @@ export default function Sheet5B7SPage() {
     e.preventDefault();
     if (!teacherName) { toast({ title: "Missing Name", description: "Teacher name is required.", variant: "destructive" }); return; }
     const now = Timestamp.now();
-    const data: Partial<TeacherEntry> = { 
-        name: teacherName, 
-        subject: teacherSubject, 
+    const data: Partial<TeacherEntry> = {
+        name: teacherName,
+        subject: teacherSubject,
         email: teacherEmail,
         password: teacherPassword, // Store password as is - REMEMBER SECURITY WARNING
-        lastUpdatedAt: now 
+        lastUpdatedAt: now
     };
     try {
       if (editingTeacher) {
@@ -476,20 +483,20 @@ export default function Sheet5B7SPage() {
           </form>
         </DialogContent>
       </Dialog>
-      
+
       {/* Delete Confirmation Dialogs (generic structure, specific state variable used) */}
       <AlertDialog open={!!teacherToDelete || !!studentToDelete || !!driveLinkToDelete} onOpenChange={(isOpen) => { if (!isOpen) { setTeacherToDelete(null); setStudentToDelete(null); setDriveLinkToDelete(null); }}}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the entry: 
+              This action cannot be undone. This will permanently delete the entry:
               <span className="font-semibold"> {teacherToDelete?.name || studentToDelete?.name || driveLinkToDelete?.title}</span>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => { setTeacherToDelete(null); setStudentToDelete(null); setDriveLinkToDelete(null); }}>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={() => {
                 if (teacherToDelete) handleDelete("sheet5B7STeachers", teacherToDelete.id, teacherToDelete.name, () => setTeacherToDelete(null));
                 else if (studentToDelete) handleDelete("sheet5B7SStudents", studentToDelete.id, studentToDelete.name, () => setStudentToDelete(null));
