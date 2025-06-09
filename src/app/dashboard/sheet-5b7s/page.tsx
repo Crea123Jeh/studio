@@ -39,13 +39,12 @@ interface StudentEntry extends BaseEntry {
   grade?: string;
   email?: string; 
   password?: string; 
-  notes?: string;
 }
 
 interface DriveLinkEntry extends BaseEntry {
   title: string;
   url: string;
-  description?: string;
+  email?: string; // Changed from description
   category?: string;
 }
 
@@ -88,7 +87,7 @@ const driveLinkSortOptionsList: { value: DriveLinkSortOption; label: string }[] 
   { value: "alphabetical", label: "Title (A-Z)" },
 ];
 
-const driveLinkCategories = ["Lesson Plan", "Homework", "Resource", "Meeting Notes", "Archive", "Other"];
+const driveLinkCategories = ["Kurikulum", "Students Stuff", "Teacher Stuff", "School Events", "CM", "Other"];
 
 export default function Sheet5B7SPage() {
   const { toast } = useToast();
@@ -120,7 +119,6 @@ export default function Sheet5B7SPage() {
   const [studentGrade, setStudentGrade] = useState("");
   const [studentEmail, setStudentEmail] = useState("");
   const [studentPassword, setStudentPassword] = useState("");
-  const [studentNotes, setStudentNotes] = useState("");
   const [showStudentFormPassword, setShowStudentFormPassword] = useState(false);
   const [visibleStudentPasswordId, setVisibleStudentPasswordId] = useState<string | null>(null);
 
@@ -135,7 +133,7 @@ export default function Sheet5B7SPage() {
   const [driveLinkSortOrder, setDriveLinkSortOrder] = useState<DriveLinkSortOption>("newest");
   const [driveLinkTitle, setDriveLinkTitle] = useState("");
   const [driveLinkUrl, setDriveLinkUrl] = useState("");
-  const [driveLinkDescription, setDriveLinkDescription] = useState("");
+  const [driveLinkEmail, setDriveLinkEmail] = useState(""); // Changed from driveLinkDescription
   const [driveLinkCategory, setDriveLinkCategory] = useState(driveLinkCategories[0]);
 
   // --- Firestore Effects ---
@@ -175,10 +173,10 @@ export default function Sheet5B7SPage() {
     setTeacherName(""); setTeacherSubject(""); setTeacherEmail(""); setTeacherPassword(""); setEditingTeacher(null); setShowTeacherFormPassword(false);
   }, []);
   const resetStudentForm = useCallback(() => {
-    setStudentName(""); setStudentGrade(""); setStudentEmail(""); setStudentPassword(""); setStudentNotes(""); setEditingStudent(null); setShowStudentFormPassword(false);
+    setStudentName(""); setStudentGrade(""); setStudentEmail(""); setStudentPassword(""); setEditingStudent(null); setShowStudentFormPassword(false);
   }, []);
   const resetDriveLinkForm = useCallback(() => {
-    setDriveLinkTitle(""); setDriveLinkUrl(""); setDriveLinkDescription(""); setDriveLinkCategory(driveLinkCategories[0]); setEditingDriveLink(null);
+    setDriveLinkTitle(""); setDriveLinkUrl(""); setDriveLinkEmail(""); setDriveLinkCategory(driveLinkCategories[0]); setEditingDriveLink(null);
   }, []);
 
   // --- Add/Edit Dialog Openers ---
@@ -203,7 +201,6 @@ export default function Sheet5B7SPage() {
       setStudentGrade(student.grade || "");
       setStudentEmail(student.email || "");
       setStudentPassword(student.password || "");
-      setStudentNotes(student.notes || "");
       setShowStudentFormPassword(false);
     } else {
       resetStudentForm();
@@ -216,7 +213,7 @@ export default function Sheet5B7SPage() {
       setEditingDriveLink(link);
       setDriveLinkTitle(link.title || "");
       setDriveLinkUrl(link.url || "");
-      setDriveLinkDescription(link.description || "");
+      setDriveLinkEmail(link.email || ""); // Changed from description
       setDriveLinkCategory(link.category || driveLinkCategories[0]);
     } else {
       resetDriveLinkForm();
@@ -230,7 +227,7 @@ export default function Sheet5B7SPage() {
     if (!teacherName) { toast({ title: "Missing Name", description: "Teacher name is required.", variant: "destructive" }); return; }
     const now = Timestamp.now();
     
-    const dataToSave: Partial<Omit<TeacherEntry, 'id' | 'createdAt'>> & { name: string; lastUpdatedAt: Timestamp } = {
+    const dataToUpdate: Omit<TeacherEntry, 'id' | 'createdAt'> = {
         name: teacherName,
         subject: teacherSubject || "",
         email: teacherEmail || "",
@@ -240,16 +237,12 @@ export default function Sheet5B7SPage() {
 
     try {
       if (editingTeacher && typeof editingTeacher.id === 'string' && editingTeacher.id.length > 0) {
-        await updateDoc(doc(db, "sheet5B7STeachers", editingTeacher.id), dataToSave);
+        await updateDoc(doc(db, "sheet5B7STeachers", editingTeacher.id), dataToUpdate);
         toast({ title: "Teacher Updated" });
       } else { 
         const newTeacherData: Omit<TeacherEntry, 'id'> = {
-            name: teacherName,
-            subject: teacherSubject || "",
-            email: teacherEmail || "",
-            password: teacherPassword || "",
+            ...dataToUpdate,
             createdAt: now,
-            lastUpdatedAt: now,
         };
         await addDoc(collection(db, "sheet5B7STeachers"), newTeacherData);
         toast({ title: "Teacher Added" });
@@ -266,27 +259,21 @@ export default function Sheet5B7SPage() {
     e.preventDefault();
     if (!studentName) { toast({ title: "Missing Name", description: "Student name is required.", variant: "destructive" }); return; }
     const now = Timestamp.now();
-    const studentDataToSave: Partial<Omit<StudentEntry, 'id' | 'createdAt'>> & { name: string; lastUpdatedAt: Timestamp } = { 
+    const studentDataToUpdate: Omit<StudentEntry, 'id' | 'createdAt'> = { 
         name: studentName, 
         grade: studentGrade || "", 
         email: studentEmail || "",
         password: studentPassword || "",
-        notes: studentNotes || "", 
         lastUpdatedAt: now 
     };
     try {
       if (editingStudent && typeof editingStudent.id === 'string' && editingStudent.id.length > 0) {
-        await updateDoc(doc(db, "sheet5B7SStudents", editingStudent.id), studentDataToSave);
+        await updateDoc(doc(db, "sheet5B7SStudents", editingStudent.id), studentDataToUpdate);
         toast({ title: "Student Updated" });
       } else {
         const newStudentData: Omit<StudentEntry, 'id'> = {
-            name: studentName,
-            grade: studentGrade || "",
-            email: studentEmail || "",
-            password: studentPassword || "",
-            notes: studentNotes || "",
+            ...studentDataToUpdate,
             createdAt: now,
-            lastUpdatedAt: now,
         };
         await addDoc(collection(db, "sheet5B7SStudents"), newStudentData);
         toast({ title: "Student Added" });
@@ -303,26 +290,22 @@ export default function Sheet5B7SPage() {
     if (!driveLinkTitle || !driveLinkUrl) { toast({ title: "Missing Fields", description: "Title and URL are required.", variant: "destructive" }); return; }
     try { new URL(driveLinkUrl); } catch (_) { toast({ title: "Invalid URL", variant: "destructive" }); return; }
     const now = Timestamp.now();
-    const driveLinkDataToSave: Partial<Omit<DriveLinkEntry, 'id' | 'createdAt'>> & { title: string; url: string; lastUpdatedAt: Timestamp} = { 
+    const driveLinkDataToUpdate: Omit<DriveLinkEntry, 'id' | 'createdAt'> = { 
         title: driveLinkTitle, 
         url: driveLinkUrl, 
-        description: driveLinkDescription || "", 
+        email: driveLinkEmail || "", // Changed from description
         category: driveLinkCategory || driveLinkCategories[0], 
         lastUpdatedAt: now 
     };
     try {
       if (editingDriveLink && typeof editingDriveLink.id === 'string' && editingDriveLink.id.length > 0) {
-        await updateDoc(doc(db, "sheet5B7SDriveLinks", editingDriveLink.id), driveLinkDataToSave);
+        await updateDoc(doc(db, "sheet5B7SDriveLinks", editingDriveLink.id), driveLinkDataToUpdate);
         toast({ title: "Drive Link Updated" });
       }
       else {
         const newDriveLinkData: Omit<DriveLinkEntry, 'id'> = {
-            title: driveLinkTitle,
-            url: driveLinkUrl,
-            description: driveLinkDescription || "",
-            category: driveLinkCategory || driveLinkCategories[0],
+            ...driveLinkDataToUpdate,
             createdAt: now,
-            lastUpdatedAt: now,
         };
         await addDoc(collection(db, "sheet5B7SDriveLinks"), newDriveLinkData);
         toast({ title: "Drive Link Added" });
@@ -373,8 +356,7 @@ export default function Sheet5B7SPage() {
         processed = processed.filter(item =>
             (item.name || "").toLowerCase().includes(lowerSearch) ||
             (item.grade || "").toLowerCase().includes(lowerSearch) ||
-            (item.email || "").toLowerCase().includes(lowerSearch) ||
-            (item.notes || "").toLowerCase().includes(lowerSearch)
+            (item.email || "").toLowerCase().includes(lowerSearch)
         );
     }
     processed.sort((a, b) => {
@@ -402,7 +384,7 @@ export default function Sheet5B7SPage() {
       const lowerSearch = driveLinkSearchTerm.toLowerCase();
       processed = processed.filter(item => 
         (item.title || "").toLowerCase().includes(lowerSearch) ||
-        (item.description || "").toLowerCase().includes(lowerSearch) ||
+        (item.email || "").toLowerCase().includes(lowerSearch) || // Changed from description
         (item.category || "").toLowerCase().includes(lowerSearch)
       );
     }
@@ -495,7 +477,7 @@ export default function Sheet5B7SPage() {
                   <TableBody>
                     {getProcessedTeachers.map((teacher) => (
                       <TableRow key={teacher.id}>
-                        <TableCell className="font-medium">{teacher.name}</TableCell>
+                        <TableCell className="font-medium">{teacher.name ?? "N/A"}</TableCell>
                         <TableCell>{teacher.subject || "N/A"}</TableCell>
                         <TableCell>{teacher.email || "N/A"}</TableCell>
                         <TableCell>
@@ -530,8 +512,8 @@ export default function Sheet5B7SPage() {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell>{format(teacher.createdAt.toDate(), "PP")}</TableCell>
-                        <TableCell>{formatDistanceToNow(teacher.lastUpdatedAt.toDate(), { addSuffix: true })}</TableCell>
+                        <TableCell>{teacher.createdAt ? format(teacher.createdAt.toDate(), "PP") : "N/A"}</TableCell>
+                        <TableCell>{teacher.lastUpdatedAt ? formatDistanceToNow(teacher.lastUpdatedAt.toDate(), { addSuffix: true }) : "N/A"}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" onClick={() => openTeacherDialog(teacher)}><Edit3 className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" onClick={() => setTeacherToDelete(teacher)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
@@ -557,7 +539,6 @@ export default function Sheet5B7SPage() {
                     <TableHead>Grade</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Password</TableHead>
-                    <TableHead>Notes</TableHead>
                     <TableHead>Added</TableHead>
                     <TableHead>Last Updated</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -565,7 +546,7 @@ export default function Sheet5B7SPage() {
                   <TableBody>
                     {getProcessedStudents.map((student) => (
                       <TableRow key={student.id}>
-                        <TableCell className="font-medium">{student.name}</TableCell>
+                        <TableCell className="font-medium">{student.name ?? "N/A"}</TableCell>
                         <TableCell>{student.grade || "N/A"}</TableCell>
                         <TableCell>{student.email || "N/A"}</TableCell>
                         <TableCell>
@@ -600,9 +581,8 @@ export default function Sheet5B7SPage() {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="truncate max-w-xs">{student.notes || "N/A"}</TableCell>
-                        <TableCell>{format(student.createdAt.toDate(), "PP")}</TableCell>
-                        <TableCell>{formatDistanceToNow(student.lastUpdatedAt.toDate(), { addSuffix: true })}</TableCell>
+                        <TableCell>{student.createdAt ? format(student.createdAt.toDate(), "PP") : "N/A"}</TableCell>
+                        <TableCell>{student.lastUpdatedAt ? formatDistanceToNow(student.lastUpdatedAt.toDate(), { addSuffix: true }) : "N/A"}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" onClick={() => openStudentDialog(student)}><Edit3 className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" onClick={() => setStudentToDelete(student)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
@@ -623,15 +603,24 @@ export default function Sheet5B7SPage() {
             <CardContent>
               {isLoadingDriveLinks ? renderLoading("Loading drive links...") : getProcessedDriveLinks.length === 0 ? renderEmptyState(driveLinkSearchTerm ? "No links match your search." : "No drive links added yet.") : (
                 <Table>
-                  <TableHeader><TableRow><TableHead>Title</TableHead><TableHead>URL</TableHead><TableHead>Category</TableHead><TableHead>Added</TableHead><TableHead>Last Updated</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow>
+                    <TableHead>Title</TableHead>
+                    <TableHead>URL</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Added</TableHead>
+                    <TableHead>Last Updated</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow></TableHeader>
                   <TableBody>
                     {getProcessedDriveLinks.map((link) => (
                       <TableRow key={link.id}>
-                        <TableCell className="font-medium">{link.title}</TableCell>
+                        <TableCell className="font-medium">{link.title ?? "N/A"}</TableCell>
                         <TableCell><a href={link.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate max-w-xs block">{link.url}</a></TableCell>
                         <TableCell>{link.category || "N/A"}</TableCell>
-                        <TableCell>{format(link.createdAt.toDate(), "PP")}</TableCell>
-                        <TableCell>{formatDistanceToNow(link.lastUpdatedAt.toDate(), { addSuffix: true })}</TableCell>
+                        <TableCell>{link.email || "N/A"}</TableCell>
+                        <TableCell>{link.createdAt ? format(link.createdAt.toDate(), "PP") : "N/A"}</TableCell>
+                        <TableCell>{link.lastUpdatedAt ? formatDistanceToNow(link.lastUpdatedAt.toDate(), { addSuffix: true }) : "N/A"}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" onClick={() => openDriveLinkDialog(link)}><Edit3 className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" onClick={() => setDriveLinkToDelete(link)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
@@ -718,7 +707,6 @@ export default function Sheet5B7SPage() {
                     </Button>
                   </div>
                 </div>
-                <div><Label htmlFor="student-notes">Notes</Label><Textarea id="student-notes" value={studentNotes ?? ""} onChange={e => setStudentNotes(e.target.value)} /></div>
               </div>
             </ScrollArea>
             <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose><Button type="submit">Save</Button></DialogFooter>
@@ -741,7 +729,7 @@ export default function Sheet5B7SPage() {
                     <SelectContent>{driveLinkCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <div><Label htmlFor="drive-description">Description</Label><Textarea id="drive-description" value={driveLinkDescription ?? ""} onChange={e => setDriveLinkDescription(e.target.value)} /></div>
+                <div><Label htmlFor="drive-email">Email (Source)</Label><Input id="drive-email" type="email" value={driveLinkEmail ?? ""} onChange={e => setDriveLinkEmail(e.target.value)} placeholder="email@example.com"/></div>
               </div>
             </ScrollArea>
             <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose><Button type="submit">Save</Button></DialogFooter>
@@ -778,4 +766,3 @@ export default function Sheet5B7SPage() {
     </div>
   );
 }
-
