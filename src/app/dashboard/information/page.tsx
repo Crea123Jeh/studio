@@ -65,6 +65,7 @@ export default function InformationPage() {
   const { toast } = useToast();
 
   const [isAddHappeningDialogOpen, setIsAddHappeningDialogOpen] = useState(false);
+  const [isAddTrendDialogOpen, setIsAddTrendDialogOpen] = useState(false);
   
   // Form state for adding new happening
   const [newHappeningTitle, setNewHappeningTitle] = useState("");
@@ -73,6 +74,13 @@ export default function InformationPage() {
   const [newHappeningCategory, setNewHappeningCategory] = useState(happeningCategories[0]);
   const [newHappeningIconName, setNewHappeningIconName] = useState(happeningIcons[0].name);
   const [newHappeningDate, setNewHappeningDate] = useState<Date | undefined>(new Date());
+
+  // Form state for adding new trend
+  const [newTrendName, setNewTrendName] = useState("");
+  const [newTrendDescription, setNewTrendDescription] = useState("");
+  const [newTrendImageUrl, setNewTrendImageUrl] = useState("");
+  const [newTrendImageHint, setNewTrendImageHint] = useState("");
+
 
   useEffect(() => {
     setIsLoadingHappenings(true);
@@ -93,7 +101,6 @@ export default function InformationPage() {
   useEffect(() => {
     setIsLoadingTrends(true);
     const trendsCol = collection(db, "informationHubTrends");
-    // Example: If you want to order trends by when they were added
     const qTrends = query(trendsCol, orderBy("createdAt", "desc")); 
     const unsubscribeTrends = onSnapshot(qTrends, (snapshot) => {
       setTrends(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TrendItem)));
@@ -144,6 +151,47 @@ export default function InformationPage() {
     }
   };
 
+  const resetNewTrendForm = () => {
+    setNewTrendName("");
+    setNewTrendDescription("");
+    setNewTrendImageUrl("");
+    setNewTrendImageHint("");
+  };
+
+  const handleSaveTrend = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!newTrendName || !newTrendDescription || !newTrendImageUrl) {
+      toast({ title: "Missing Information", description: "Please fill in name, description, and image URL for the new trend.", variant: "destructive" });
+      return;
+    }
+    // Basic URL validation
+    try {
+      new URL(newTrendImageUrl);
+    } catch (_) {
+      toast({ title: "Invalid URL", description: "Please enter a valid image URL.", variant: "destructive" });
+      return;
+    }
+
+
+    const trendData = {
+      name: newTrendName,
+      description: newTrendDescription,
+      imageUrl: newTrendImageUrl,
+      imageHint: newTrendImageHint.trim() || newTrendName.toLowerCase().split(" ").slice(0,2).join(" "), // Default hint if empty
+      createdAt: Timestamp.now(),
+    };
+
+    try {
+      await addDoc(collection(db, "informationHubTrends"), trendData);
+      toast({ title: "Trend Added", description: `"${newTrendName}" has been added.` });
+      setIsAddTrendDialogOpen(false);
+      resetNewTrendForm();
+    } catch (error) {
+      console.error("Error saving trend: ", error);
+      toast({ title: "Save Error", description: "Could not save the new trend.", variant: "destructive" });
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -152,76 +200,121 @@ export default function InformationPage() {
             <Info className="h-7 w-7 text-primary" />
             <h1 className="text-3xl font-bold font-headline tracking-tight">Information Hub</h1>
         </div>
-        <Dialog open={isAddHappeningDialogOpen} onOpenChange={(isOpen) => {
-            setIsAddHappeningDialogOpen(isOpen);
-            if (!isOpen) resetNewHappeningForm();
-        }}>
-            <DialogTrigger asChild>
-                <Button variant="outline">
-                    <PlusCircle className="mr-2 h-4 w-4"/> Record New Happening
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                    <DialogTitle>Record New Happening</DialogTitle>
-                    <DialogDescription>Enter the details for the new information item.</DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleSaveHappening}>
-                  <ScrollArea className="max-h-[70vh] p-1">
-                    <div className="grid gap-4 py-4 pr-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="happening-title" className="text-right">Title</Label>
-                            <Input id="happening-title" value={newHappeningTitle} onChange={(e) => setNewHappeningTitle(e.target.value)} className="col-span-3" required/>
+        <div className="flex flex-wrap gap-2">
+            <Dialog open={isAddHappeningDialogOpen} onOpenChange={(isOpen) => {
+                setIsAddHappeningDialogOpen(isOpen);
+                if (!isOpen) resetNewHappeningForm();
+            }}>
+                <DialogTrigger asChild>
+                    <Button variant="outline">
+                        <PlusCircle className="mr-2 h-4 w-4"/> Record New Happening
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Record New Happening</DialogTitle>
+                        <DialogDescription>Enter the details for the new information item.</DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleSaveHappening}>
+                    <ScrollArea className="max-h-[70vh] p-1">
+                        <div className="grid gap-4 py-4 pr-4">
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="happening-title" className="text-right">Title</Label>
+                                <Input id="happening-title" value={newHappeningTitle} onChange={(e) => setNewHappeningTitle(e.target.value)} className="col-span-3" required/>
+                            </div>
+                            <div className="grid grid-cols-4 items-start gap-4">
+                                <Label htmlFor="happening-summary" className="text-right pt-2">Summary</Label>
+                                <Textarea id="happening-summary" value={newHappeningSummary} onChange={(e) => setNewHappeningSummary(e.target.value)} className="col-span-3" rows={3} required/>
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="happening-source" className="text-right">Source</Label>
+                                <Input id="happening-source" value={newHappeningSource} onChange={(e) => setNewHappeningSource(e.target.value)} className="col-span-3" required/>
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="happening-category" className="text-right">Category</Label>
+                                <Select value={newHappeningCategory} onValueChange={setNewHappeningCategory}>
+                                    <SelectTrigger className="col-span-3" id="happening-category"><SelectValue /></SelectTrigger>
+                                    <SelectContent>{happeningCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}</SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="happening-icon" className="text-right">Icon</Label>
+                                <Select value={newHappeningIconName} onValueChange={setNewHappeningIconName}>
+                                    <SelectTrigger className="col-span-3" id="happening-icon"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {happeningIcons.map(({ name, IconComponent }) => (
+                                            <SelectItem key={name} value={name}>
+                                                <div className="flex items-center gap-2"> <IconComponent className="h-4 w-4"/> {name} </div>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="happening-date" className="text-right">Date</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="outline" className={cn("col-span-3 justify-start text-left font-normal", !newHappeningDate && "text-muted-foreground")}>
+                                            <LucideCalendarIcon className="mr-2 h-4 w-4" />
+                                            {newHappeningDate ? format(newHappeningDate, "PPP") : <span>Pick a date</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={newHappeningDate} onSelect={setNewHappeningDate} initialFocus /></PopoverContent>
+                                </Popover>
+                            </div>
                         </div>
-                        <div className="grid grid-cols-4 items-start gap-4">
-                            <Label htmlFor="happening-summary" className="text-right pt-2">Summary</Label>
-                            <Textarea id="happening-summary" value={newHappeningSummary} onChange={(e) => setNewHappeningSummary(e.target.value)} className="col-span-3" rows={3} required/>
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="happening-source" className="text-right">Source</Label>
-                            <Input id="happening-source" value={newHappeningSource} onChange={(e) => setNewHappeningSource(e.target.value)} className="col-span-3" required/>
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="happening-category" className="text-right">Category</Label>
-                            <Select value={newHappeningCategory} onValueChange={setNewHappeningCategory}>
-                                <SelectTrigger className="col-span-3" id="happening-category"><SelectValue /></SelectTrigger>
-                                <SelectContent>{happeningCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}</SelectContent>
-                            </Select>
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="happening-icon" className="text-right">Icon</Label>
-                            <Select value={newHappeningIconName} onValueChange={setNewHappeningIconName}>
-                                <SelectTrigger className="col-span-3" id="happening-icon"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    {happeningIcons.map(({ name, IconComponent }) => (
-                                        <SelectItem key={name} value={name}>
-                                            <div className="flex items-center gap-2"> <IconComponent className="h-4 w-4"/> {name} </div>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="happening-date" className="text-right">Date</Label>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button variant="outline" className={cn("col-span-3 justify-start text-left font-normal", !newHappeningDate && "text-muted-foreground")}>
-                                        <LucideCalendarIcon className="mr-2 h-4 w-4" />
-                                        {newHappeningDate ? format(newHappeningDate, "PPP") : <span>Pick a date</span>}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={newHappeningDate} onSelect={setNewHappeningDate} initialFocus /></PopoverContent>
-                            </Popover>
-                        </div>
-                    </div>
-                  </ScrollArea>
-                  <DialogFooter className="mt-4 pt-4 border-t">
-                      <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
-                      <Button type="submit">Save Happening</Button>
-                  </DialogFooter>
-                </form>
-            </DialogContent>
-        </Dialog>
+                    </ScrollArea>
+                    <DialogFooter className="mt-4 pt-4 border-t">
+                        <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
+                        <Button type="submit">Save Happening</Button>
+                    </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isAddTrendDialogOpen} onOpenChange={(isOpen) => {
+                setIsAddTrendDialogOpen(isOpen);
+                if (!isOpen) resetNewTrendForm();
+            }}>
+                <DialogTrigger asChild>
+                    <Button variant="outline">
+                        <PlusCircle className="mr-2 h-4 w-4"/> Add New Trend
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Add New Trend</DialogTitle>
+                        <DialogDescription>Share an emerging trend by providing its details and an image URL.</DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleSaveTrend}>
+                        <ScrollArea className="max-h-[70vh] p-1">
+                            <div className="grid gap-4 py-4 pr-4">
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="trend-name" className="text-right">Trend Name</Label>
+                                    <Input id="trend-name" value={newTrendName} onChange={(e) => setNewTrendName(e.target.value)} className="col-span-3" required placeholder="e.g., AI in Project Management"/>
+                                </div>
+                                <div className="grid grid-cols-4 items-start gap-4">
+                                    <Label htmlFor="trend-description" className="text-right pt-2">Description</Label>
+                                    <Textarea id="trend-description" value={newTrendDescription} onChange={(e) => setNewTrendDescription(e.target.value)} className="col-span-3" rows={3} required placeholder="Explain the trend..."/>
+                                </div>
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="trend-imageUrl" className="text-right">Image URL</Label>
+                                    <Input id="trend-imageUrl" value={newTrendImageUrl} onChange={(e) => setNewTrendImageUrl(e.target.value)} className="col-span-3" required placeholder="https://example.com/image.png"/>
+                                </div>
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="trend-imageHint" className="text-right">Image Hint</Label>
+                                    <Input id="trend-imageHint" value={newTrendImageHint} onChange={(e) => setNewTrendImageHint(e.target.value)} className="col-span-3" placeholder="e.g., technology abstract (max 2 words)"/>
+                                </div>
+                            </div>
+                        </ScrollArea>
+                        <DialogFooter className="mt-4 pt-4 border-t">
+                            <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
+                            <Button type="submit">Save Trend</Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+        </div>
       </div>
       <p className="text-muted-foreground text-md">
         Stay updated with the latest news, announcements, and emerging trends relevant to your work and industry.
@@ -237,7 +330,7 @@ export default function InformationPage() {
             <CardDescription>Latest updates, articles, and important announcements.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="pr-3"> {/* Removed h-[calc(100vh-350px)] */}
+            <ScrollArea className="pr-3">
               {isLoadingHappenings ? (
                  <div className="flex justify-center items-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /><p className="ml-2">Loading happenings...</p></div>
               ) : happenings.length > 0 ? (
@@ -279,7 +372,7 @@ export default function InformationPage() {
             <CardDescription>Emerging patterns and insights in technology and project management.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="pr-3"> {/* Removed h-[calc(100vh-350px)] */}
+            <ScrollArea className="pr-3">
             {isLoadingTrends ? (
                 <div className="flex justify-center items-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /><p className="ml-2">Loading trends...</p></div>
             ) : trends.length > 0 ? (
@@ -306,5 +399,4 @@ export default function InformationPage() {
     </div>
   );
 }
-
     
