@@ -12,8 +12,8 @@ import { Label } from "@/components/ui/label";
 import { MessageSquare, Send, Users, CornerDownLeft, Briefcase, Loader2, PlusCircle } from "lucide-react";
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import { rtdb } from '@/lib/firebase'; // Changed from db to rtdb
-import { ref, onValue, push, serverTimestamp, query, orderByChild, equalTo, get, off } from 'firebase/database'; // RTDB imports
+import { rtdb } from '@/lib/firebase';
+import { ref, onValue, push, serverTimestamp, query, orderByChild, equalTo, get, off, set } from 'firebase/database'; // Added set
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
@@ -23,15 +23,16 @@ interface Message {
   username: string;
   avatar: string;
   text: string;
-  timestamp: number; // RTDB timestamp is a number (milliseconds since epoch)
+  timestamp: number; 
 }
 
 interface Channel {
   id: string;
   name: string;
-  icon: React.ElementType; // Keep for UI consistency, though user-created ones might use a default
+  icon: React.ElementType; 
   createdBy?: string;
   createdAt?: number;
+  iconName?: string; // To store the icon identifier if needed
 }
 
 const defaultChannelIcon = MessageSquare;
@@ -55,7 +56,6 @@ export default function TeamChatPage() {
 
   const currentUserAvatar = `https://placehold.co/28x28.png?text=${currentUsername ? currentUsername.charAt(0).toUpperCase() : 'U'}`;
 
-  // Fetch Channels from RTDB
   useEffect(() => {
     setIsLoadingChannels(true);
     const channelsRef = ref(rtdb, 'chatChannelsList');
@@ -64,70 +64,56 @@ export default function TeamChatPage() {
       const fetchedChannels: Channel[] = [];
       if (channelsData) {
         for (const id in channelsData) {
-          fetchedChannels.push({ 
-            id, 
-            name: channelsData[id].name, 
-            icon: defaultChannelIcon, // Use default icon for all RTDB channels for now
-            createdBy: channelsData[id].createdBy,
-            createdAt: channelsData[id].createdAt,
-          });
+          // Assuming channelsData[id] is the channel object itself
+          if (channelsData[id] && typeof channelsData[id].name === 'string') {
+            fetchedChannels.push({ 
+              id, 
+              name: channelsData[id].name, 
+              icon: defaultChannelIcon, // Or map channelsData[id].iconName to an icon component
+              createdBy: channelsData[id].createdBy,
+              createdAt: channelsData[id].createdAt,
+              iconName: channelsData[id].iconName,
+            });
+          } else {
+            console.warn("Malformed channel data for ID:", id, channelsData[id]);
+          }
         }
       }
       
-      // Ensure "General" channel exists if no channels are found
       if (fetchedChannels.length === 0) {
-        const generalChannelRef = push(channelsRef);
-        const generalChannelData = {
-            name: "General",
-            createdBy: "system",
-            createdAt: serverTimestamp(),
-            iconName: "MessageSquare"
-        };
-        // Use set instead of push for a specific key if generalChannelRef.key is the intended ID
-        // push(ref(rtdb, `chatChannelsList/${generalChannelRef.key}`), generalChannelData) // This creates a sub-push
-        // Correct way for a known key, but here generalChannelRef.key is ALREADY the key.
-        // So we should just set the data at generalChannelRef directly
-        // However, the onValue listener will handle the initial creation if done properly.
-        // For simplicity, let's ensure it's created IF it doesn't exist.
-        // The `onValue` will re-trigger and populate `allChannels`.
-        
-        // If `channelsData` was null or empty initially, create the "General" channel
         if (!channelsData || Object.keys(channelsData).length === 0) {
-            const generalKey = "general_default_channel"; // Use a predictable key or a pushed key
+            const generalKey = "general_default_channel"; 
             const generalChannelRefNew = ref(rtdb, `chatChannelsList/${generalKey}`);
             get(generalChannelRefNew).then((snap) => {
                 if (!snap.exists()) {
-                    push(ref(rtdb, `chatChannelsList/${generalKey}`),{
+                    set(generalChannelRefNew, { // Use set here
                         name: "General",
                         createdBy: "system",
                         createdAt: serverTimestamp(),
-                        iconName: "MessageSquare" // if you intend to use this
-                    }).catch(err => console.error("Failed to create default general channel", err));
+                        iconName: "MessageSquare" 
+                    }).catch(err => console.error("Failed to create default general channel with set", err));
                 }
             });
         }
-
       } else {
         setAllChannels(fetchedChannels);
         if (!activeChannelId && fetchedChannels.length > 0) {
-          setActiveChannelId(fetchedChannels[0].id); // Default to first channel
+          setActiveChannelId(fetchedChannels[0].id); 
         } else if (activeChannelId && !fetchedChannels.some(c => c.id === activeChannelId)) {
-          // If current active channel was deleted, reset to first available
           setActiveChannelId(fetchedChannels.length > 0 ? fetchedChannels[0].id : null);
         }
       }
       setIsLoadingChannels(false);
     }, (error) => {
       console.error("Error fetching channels: ", error);
-      toast({ title: "Error", description: "Could not fetch channels.", variant: "destructive" });
+      toast({ title: "Error", description: "Could not fetch channels. Check Realtime Database rules.", variant: "destructive" });
       setIsLoadingChannels(false);
     });
 
     return () => unsubscribeChannels();
-  }, [toast]); // Removed activeChannelId dependency as it's handled inside
+  }, [toast]);
 
 
-  // Fetch Messages for Active Channel from RTDB
   useEffect(() => {
     if (!activeChannelId || !currentUser) {
       setMessages([]);
@@ -153,7 +139,13 @@ export default function TeamChatPage() {
       setIsLoadingMessages(false);
     });
 
-    return () => off(messagesRef); // Detach listener for the specific channel path
+    return () => {
+      // Detach the listener for the specific channel path
+      // `off(messagesRef)` might need the event type if it was specified with `on`
+      // For `onValue`, just the ref is typically fine, or `off(messagesRef, 'value', callbackFunction)`
+      // Simpler to just detach all listeners on the ref if it's the only one.
+      off(messagesRef);
+    };
 
   }, [activeChannelId, currentUser, toast]);
 
@@ -176,7 +168,7 @@ export default function TeamChatPage() {
       username: currentUsername,
       avatar: currentUserAvatar,
       text: newMessage,
-      timestamp: serverTimestamp(), // RTDB server timestamp
+      timestamp: serverTimestamp(), 
     };
 
     try {
@@ -197,28 +189,32 @@ export default function TeamChatPage() {
       toast({ title: "Authentication Error", description: "You must be logged in to create a channel.", variant: "destructive" });
       return;
     }
-    if (newChannelName.trim() === "") {
-      toast({ title: "Validation Error", description: "Channel name cannot be empty or consist only of spaces.", variant: "destructive" });
+    const trimmedChannelName = newChannelName.trim();
+    if (trimmedChannelName === "") {
+      toast({ title: "Validation Error", description: "Channel name cannot be empty.", variant: "destructive" });
       return;
     }
 
     try {
-      const channelsRef = ref(rtdb, 'chatChannelsList');
-      const newChannelRef = push(channelsRef); // Generate a unique key for the new channel
-      await push(ref(rtdb, `chatChannelsList/${newChannelRef.key}`), {
-        name: newChannelName.trim(), // Save trimmed name
+      const channelsListRef = ref(rtdb, 'chatChannelsList');
+      const newChannelNodeRef = push(channelsListRef); // Generates a unique ID for the new channel node
+
+      await set(newChannelNodeRef, { // Use set() to place the data directly at the generated ID
+        name: trimmedChannelName,
         createdBy: currentUser.uid,
         createdAt: serverTimestamp(),
-        iconName: "MessageSquare" // default icon
+        iconName: "MessageSquare" // default icon identifier
       });
 
-      toast({ title: "Channel Created", description: `Channel "${newChannelName.trim()}" created successfully.` });
+      toast({ title: "Channel Created", description: `Channel "${trimmedChannelName}" created successfully.` });
       setIsCreateChannelDialogOpen(false);
       setNewChannelName("");
-      setActiveChannelId(newChannelRef.key); 
+      if (newChannelNodeRef.key) {
+        setActiveChannelId(newChannelNodeRef.key); 
+      }
     } catch (error) {
       console.error("Error creating channel: ", error);
-      toast({ title: "Creation Error", description: "Could not create channel.", variant: "destructive" });
+      toast({ title: "Creation Error", description: `Could not create channel. ${error instanceof Error ? error.message : 'Unknown error'}`, variant: "destructive" });
     }
   };
 
@@ -269,7 +265,7 @@ export default function TeamChatPage() {
             </DialogContent>
           </Dialog>
         </CardHeader>
-        <CardContent className="p-0 pt-1 flex-grow">
+        <CardContent className="p-0 pt-1 flex-grow"> {/* Changed from pt-px to pt-1 */}
           <ScrollArea className="h-full">
             {isLoadingChannels ? (
                 <div className="p-3 text-center text-muted-foreground">Loading channels...</div>
@@ -374,4 +370,3 @@ export default function TeamChatPage() {
     </div>
   );
 }
-
