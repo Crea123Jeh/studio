@@ -101,7 +101,7 @@ export default function Sheet5B7SPage() {
     setIsLoadingTeachers(true);
     const q = query(collection(db, "sheet5B7STeachers"), orderBy("lastUpdatedAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setTeachers(snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as TeacherEntry)));
+      setTeachers(snapshot.docs.map(docSnap => ({ ...docSnap.data(), id: docSnap.id } as TeacherEntry)));
       setIsLoadingTeachers(false);
     }, (err) => { toast({ title: "Error", description: "Could not fetch teachers.", variant: "destructive" }); setIsLoadingTeachers(false); });
     return () => unsubscribe();
@@ -111,7 +111,7 @@ export default function Sheet5B7SPage() {
     setIsLoadingStudents(true);
     const q = query(collection(db, "sheet5B7SStudents"), orderBy("lastUpdatedAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setStudents(snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as StudentEntry)));
+      setStudents(snapshot.docs.map(docSnap => ({ ...docSnap.data(), id: docSnap.id } as StudentEntry)));
       setIsLoadingStudents(false);
     }, (err) => { toast({ title: "Error", description: "Could not fetch students.", variant: "destructive" }); setIsLoadingStudents(false); });
     return () => unsubscribe();
@@ -121,7 +121,7 @@ export default function Sheet5B7SPage() {
     setIsLoadingDriveLinks(true);
     const q = query(collection(db, "sheet5B7SDriveLinks"), orderBy("lastUpdatedAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setDriveLinks(snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as DriveLinkEntry)));
+      setDriveLinks(snapshot.docs.map(docSnap => ({ ...docSnap.data(), id: docSnap.id } as DriveLinkEntry)));
       setIsLoadingDriveLinks(false);
     }, (err) => { toast({ title: "Error", description: "Could not fetch drive links.", variant: "destructive" }); setIsLoadingDriveLinks(false); });
     return () => unsubscribe();
@@ -185,7 +185,7 @@ export default function Sheet5B7SPage() {
     const now = Timestamp.now();
     
     try {
-      if (editingTeacher) {
+      if (editingTeacher && typeof editingTeacher.id === 'string' && editingTeacher.id.length > 0) {
         const dataToUpdate: Partial<Omit<TeacherEntry, 'id' | 'createdAt'>> = {
             name: teacherName,
             subject: teacherSubject || "",
@@ -195,7 +195,14 @@ export default function Sheet5B7SPage() {
         };
         await updateDoc(doc(db, "sheet5B7STeachers", editingTeacher.id), dataToUpdate);
         toast({ title: "Teacher Updated" });
-      } else {
+      } else if (editingTeacher) {
+        console.error("Attempted to update teacher but editingTeacher.id is invalid:", editingTeacher);
+        toast({ title: "Update Error", description: "Cannot update teacher: Invalid teacher ID.", variant: "destructive" });
+        setIsTeacherDialogOpen(false); 
+        resetTeacherForm();
+        return;
+      }
+      else {
         const newTeacherData: Omit<TeacherEntry, 'id'> = {
             name: teacherName,
             subject: teacherSubject || "",
