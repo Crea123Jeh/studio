@@ -89,8 +89,8 @@ const formatLargeNumberWithSuffix = (num: number, precision = 1): string => {
   if (found) {
     const formatted = (num / found.threshold).toFixed(precision);
     // Remove .0 from the end if precision is 1 and it's a whole number (e.g., 10.0B becomes 10B)
-    const finalValue = precision > 0 && formatted.endsWith(`.${'0'.repeat(precision)}`) 
-      ? formatted.slice(0, -(precision + 1)) 
+    const finalValue = precision > 0 && formatted.endsWith(`.${'0'.repeat(precision)}`)
+      ? formatted.slice(0, -(precision + 1))
       : formatted;
     return `Rp ${finalValue}${found.suffix}`;
   }
@@ -233,7 +233,7 @@ export default function DashboardPage() {
     });
     return () => unsubscribe();
   }, []);
-  
+
   // Fetch Total Assets Value
   useEffect(() => {
     const q = collection(db, "assetItems");
@@ -284,7 +284,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <Card className="shadow-lg bg-gradient-to-br from-secondary to-card border-border">
+      <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 ease-in-out bg-gradient-to-br from-secondary to-card border-border">
         <CardContent className="p-6 flex flex-col gap-4">
           <div className="flex justify-between items-start">
             <div>
@@ -299,15 +299,15 @@ export default function DashboardPage() {
             </Avatar>
           </div>
           <div className="flex flex-wrap gap-2 mt-2">
-            <Button 
+            <Button
               onClick={() => router.push('/dashboard/project')}
               className="hover:scale-105 hover:shadow-md active:scale-95 transition-transform duration-150"
             >
               <Briefcase className="mr-2 h-4 w-4" />
               View Projects
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => router.push('/dashboard/target-list')}
               className="hover:scale-105 hover:shadow-md active:scale-95 transition-transform duration-150"
             >
@@ -320,7 +320,7 @@ export default function DashboardPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {summaryMetrics.map((metric) => (
-          <Card key={metric.title} className="shadow-md hover:shadow-lg hover:ring-2 hover:ring-primary/30 transition-all duration-200 cursor-pointer" onClick={() => router.push(metric.link)}>
+          <Card key={metric.title} className="shadow-md hover:shadow-lg hover:ring-2 hover:ring-primary/30 hover:scale-[1.01] transition-all duration-200 cursor-pointer" onClick={() => router.push(metric.link)}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">{metric.title}</CardTitle>
               <metric.icon className={cn("h-5 w-5", metric.iconColor)} />
@@ -394,9 +394,9 @@ export default function DashboardPage() {
           />
         </div>
       </div>
-      
+
       <div className="grid gap-6 md:grid-cols-2">
-         <Card className="shadow-md">
+         <Card className="shadow-md hover:shadow-lg transition-shadow duration-200 ease-in-out">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl"><Activity className="h-6 w-6 text-primary" />Recent Activity</CardTitle>
             <CardDescription>Latest updates across your projects and tasks.</CardDescription>
@@ -437,7 +437,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-md">
+        <Card className="shadow-md hover:shadow-lg transition-shadow duration-200 ease-in-out">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl"><ListChecks className="h-6 w-6 text-primary" />Quick Links</CardTitle>
             <CardDescription>Navigate to other important areas quickly.</CardDescription>
@@ -453,7 +453,7 @@ export default function DashboardPage() {
                 {href: "/dashboard/settings", label: "App Settings"},
               ]
             ).map(link => (
-                 <Button key={link.href} variant="outline" size="sm" className="justify-start text-left hover:bg-accent/80 whitespace-normal h-auto py-2 px-3" asChild>
+                 <Button key={link.href} variant="outline" size="sm" className="justify-start text-left hover:bg-accent/80 hover:shadow-md hover:scale-105 active:scale-95 transition-transform duration-150 whitespace-normal h-auto py-2 px-3" asChild>
                     <Link href={link.href}> <ArrowRight className="mr-2 h-3.5 w-3.5 text-muted-foreground shrink-0"/> {link.label}</Link>
                 </Button>
             ))}
