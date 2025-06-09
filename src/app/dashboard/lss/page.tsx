@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ClipboardList, Info, Edit3, PlusCircle, Trash2, Loader2 } from "lucide-react";
+import { ClipboardList, Info, Edit3, PlusCircle, Trash2, Loader2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -27,8 +27,8 @@ const latihanSoalStatusOptions: LatihanSoalStatus[] = ["Available", "Unavailable
 
 interface LatihanSoalItem {
   id: string;
-  classSubject: string; // Renamed from questionName
-  teacher: string; // Renamed from description
+  classSubject: string; 
+  teacher: string; 
   status: LatihanSoalStatus;
   hasPassed: boolean;
   lastEdited: Timestamp;
@@ -37,16 +37,20 @@ interface LatihanSoalItem {
   editedByUserName?: string;
 }
 
+type SortableLSSKeys = 'classSubject' | 'teacher' | 'status' | 'lastEdited' | 'hasPassed';
+
+
 export default function LatihanSoalSigmaPage() {
   const [items, setItems] = useState<LatihanSoalItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormDialogOpen, setIsFormDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<LatihanSoalItem | null>(null);
   const [itemToDelete, setItemToDelete] = useState<LatihanSoalItem | null>(null);
+  const [sortConfig, setSortConfig] = useState<{ key: SortableLSSKeys; direction: 'ascending' | 'descending' }>({ key: 'lastEdited', direction: 'descending' });
 
   // Form state
-  const [formClassSubject, setFormClassSubject] = useState(""); // Renamed
-  const [formTeacher, setFormTeacher] = useState(""); // Renamed
+  const [formClassSubject, setFormClassSubject] = useState(""); 
+  const [formTeacher, setFormTeacher] = useState(""); 
   const [formStatus, setFormStatus] = useState<LatihanSoalStatus>("Available");
   const [formHasPassed, setFormHasPassed] = useState(false);
 
@@ -56,6 +60,7 @@ export default function LatihanSoalSigmaPage() {
   useEffect(() => {
     setIsLoading(true);
     const itemsCollectionRef = collection(db, "latihanSoalSigmaItems");
+    // Initial query order, might be overridden by client-side sortConfig
     const q = query(itemsCollectionRef, orderBy("lastEdited", "desc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -112,7 +117,7 @@ export default function LatihanSoalSigmaPage() {
       currentStatus = "Unavailable";
     }
 
-    const itemData = {
+    const itemData: Omit<LatihanSoalItem, 'id' | 'createdAt'> & { createdAt?: Timestamp } = {
       classSubject: formClassSubject,
       teacher: formTeacher,
       status: currentStatus,
@@ -125,7 +130,7 @@ export default function LatihanSoalSigmaPage() {
     try {
       if (editingItem) {
         const itemRef = doc(db, "latihanSoalSigmaItems", editingItem.id);
-        await updateDoc(itemRef, itemData);
+        await updateDoc(itemRef, itemData as Partial<LatihanSoalItem>);
         toast({ title: "Item Updated", description: `"${formClassSubject}" has been updated.` });
       } else {
         await addDoc(collection(db, "latihanSoalSigmaItems"), { ...itemData, createdAt: now });
@@ -172,6 +177,44 @@ export default function LatihanSoalSigmaPage() {
     }
   }, [formHasPassed]);
 
+  const requestSort = (key: SortableLSSKeys) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIcon = (key: SortableLSSKeys) => {
+    if (!sortConfig || sortConfig.key !== key) {
+      return <ArrowUpDown className="ml-1 h-3 w-3 opacity-40" />;
+    }
+    return sortConfig.direction === 'ascending' ? <ArrowUp className="ml-1 h-3 w-3" /> : <ArrowDown className="ml-1 h-3 w-3" />;
+  };
+
+  const sortedItems = useMemo(() => {
+    let sortableItems = [...items];
+    if (sortConfig) {
+      sortableItems.sort((a, b) => {
+        const aVal = a[sortConfig.key];
+        const bVal = b[sortConfig.key];
+        let comparison = 0;
+
+        if (aVal instanceof Timestamp && bVal instanceof Timestamp) {
+          comparison = aVal.toDate().getTime() - bVal.toDate().getTime();
+        } else if (typeof aVal === 'boolean' && typeof bVal === 'boolean') {
+          // true sorts before false for 'ascending', so if aVal is true and bVal false, aVal comes first (-1)
+          comparison = aVal === bVal ? 0 : aVal ? -1 : 1;
+        } else if (typeof aVal === 'string' && typeof bVal === 'string') {
+          comparison = aVal.localeCompare(bVal);
+        }
+        
+        return sortConfig.direction === 'ascending' ? comparison : -comparison;
+      });
+    }
+    return sortableItems;
+  }, [items, sortConfig]);
+
 
   if (isLoading) {
     return <div className="flex justify-center items-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">Loading Latihan Soal Sigma...</p></div>;
@@ -190,22 +233,32 @@ export default function LatihanSoalSigmaPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-foreground">Daftar Soal Sigma</CardTitle>
-          <CardDescription>Monitor and manage practice questions for Sigma training.</CardDescription>
+          <CardDescription>Monitor and manage practice questions for Sigma training. Click headers to sort.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Class Subject</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="hidden md:table-cell">Teacher</TableHead>
-                <TableHead>Last Edited</TableHead>
-                <TableHead>Has Passed?</TableHead>
+                <TableHead onClick={() => requestSort('classSubject')} className="cursor-pointer hover:bg-muted/50">
+                  <div className="flex items-center">Class Subject {getSortIcon('classSubject')}</div>
+                </TableHead>
+                <TableHead onClick={() => requestSort('status')} className="cursor-pointer hover:bg-muted/50">
+                   <div className="flex items-center">Status {getSortIcon('status')}</div>
+                </TableHead>
+                <TableHead onClick={() => requestSort('teacher')} className="cursor-pointer hover:bg-muted/50 hidden md:table-cell">
+                  <div className="flex items-center">Teacher {getSortIcon('teacher')}</div>
+                </TableHead>
+                <TableHead onClick={() => requestSort('lastEdited')} className="cursor-pointer hover:bg-muted/50">
+                   <div className="flex items-center">Last Edited {getSortIcon('lastEdited')}</div>
+                </TableHead>
+                <TableHead onClick={() => requestSort('hasPassed')} className="cursor-pointer hover:bg-muted/50">
+                  <div className="flex items-center">Has Passed? {getSortIcon('hasPassed')}</div>
+                </TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {items.map((item) => (
+              {sortedItems.map((item) => (
                 <TableRow key={item.id} className="hover:bg-muted/50 transition-colors">
                   <TableCell className="font-medium text-foreground">{item.classSubject}</TableCell>
                   <TableCell>
@@ -215,7 +268,7 @@ export default function LatihanSoalSigmaPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground max-w-xs truncate hidden md:table-cell">{item.teacher}</TableCell>
-                  <TableCell>{formatDistanceToNow(item.lastEdited.toDate(), { addSuffix: true })}</TableCell>
+                  <TableCell>{formatDistanceToNow(item.lastEdited.toDate(), { addSuffix: true })} by {item.editedByUserName || "N/A"}</TableCell>
                   <TableCell>{item.hasPassed ? "Yes" : "No"}</TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-primary hover:bg-primary/10" title="Edit Item" onClick={() => handleOpenFormDialog(item)}>
@@ -229,7 +282,7 @@ export default function LatihanSoalSigmaPage() {
               ))}
             </TableBody>
           </Table>
-          {items.length === 0 && !isLoading && (
+          {sortedItems.length === 0 && !isLoading && (
              <div className="text-center py-10 text-muted-foreground">
                 <ClipboardList className="mx-auto h-12 w-12 mb-3" />
                 <p>No Latihan Soal Sigma items found. Add one to get started!</p>
@@ -308,3 +361,4 @@ export default function LatihanSoalSigmaPage() {
   );
 }
 
+    
