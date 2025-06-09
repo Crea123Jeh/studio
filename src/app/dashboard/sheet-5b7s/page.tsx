@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, updateDoc, deleteDoc } from "firebase/firestore";
-import { formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { FileSpreadsheet, PlusCircle, Edit3, Trash2, User, Users, Link as LinkIcon, Search, ListFilter, Loader2 } from "lucide-react";
 
 // --- Data Interfaces ---
@@ -29,8 +29,9 @@ interface BaseEntry {
 
 interface TeacherEntry extends BaseEntry {
   name: string;
-  subject?: string;
-  contactInfo?: string;
+  subject?: string; // Represents "Teaching"
+  email?: string;
+  password?: string; // SECURITY WARNING: Storing plain text passwords is not recommended
 }
 
 interface StudentEntry extends BaseEntry {
@@ -63,7 +64,9 @@ export default function Sheet5B7SPage() {
   // Teacher Form State
   const [teacherName, setTeacherName] = useState("");
   const [teacherSubject, setTeacherSubject] = useState("");
-  const [teacherContact, setTeacherContact] = useState("");
+  const [teacherEmail, setTeacherEmail] = useState("");
+  const [teacherPassword, setTeacherPassword] = useState("");
+
 
   // --- Students State ---
   const [students, setStudents] = useState<StudentEntry[]>([]);
@@ -126,7 +129,7 @@ export default function Sheet5B7SPage() {
 
   // --- Form Reset Callbacks ---
   const resetTeacherForm = useCallback(() => {
-    setTeacherName(""); setTeacherSubject(""); setTeacherContact(""); setEditingTeacher(null);
+    setTeacherName(""); setTeacherSubject(""); setTeacherEmail(""); setTeacherPassword(""); setEditingTeacher(null);
   }, []);
   const resetStudentForm = useCallback(() => {
     setStudentName(""); setStudentGrade(""); setStudentNotes(""); setEditingStudent(null);
@@ -138,7 +141,11 @@ export default function Sheet5B7SPage() {
   // --- Add/Edit Dialog Openers ---
   const openTeacherDialog = (teacher: TeacherEntry | null = null) => {
     if (teacher) {
-      setEditingTeacher(teacher); setTeacherName(teacher.name); setTeacherSubject(teacher.subject || ""); setTeacherContact(teacher.contactInfo || "");
+      setEditingTeacher(teacher); 
+      setTeacherName(teacher.name); 
+      setTeacherSubject(teacher.subject || ""); 
+      setTeacherEmail(teacher.email || "");
+      setTeacherPassword(teacher.password || "");
     } else {
       resetTeacherForm();
     }
@@ -168,7 +175,13 @@ export default function Sheet5B7SPage() {
     e.preventDefault();
     if (!teacherName) { toast({ title: "Missing Name", description: "Teacher name is required.", variant: "destructive" }); return; }
     const now = Timestamp.now();
-    const data = { name: teacherName, subject: teacherSubject, contactInfo: teacherContact, lastUpdatedAt: now };
+    const data: Partial<TeacherEntry> = { 
+        name: teacherName, 
+        subject: teacherSubject, 
+        email: teacherEmail,
+        password: teacherPassword, // Store password as is - REMEMBER SECURITY WARNING
+        lastUpdatedAt: now 
+    };
     try {
       if (editingTeacher) {
         await updateDoc(doc(db, "sheet5B7STeachers", editingTeacher.id), data);
@@ -238,12 +251,20 @@ export default function Sheet5B7SPage() {
     let processed = [...items];
     if (searchTerm) {
       const lowerSearch = searchTerm.toLowerCase();
-      processed = processed.filter(item => (item[nameKey] as string)?.toLowerCase().includes(lowerSearch));
+      processed = processed.filter(item => {
+        const mainFieldValue = (item[nameKey] as string)?.toLowerCase() || "";
+        let matches = mainFieldValue.includes(lowerSearch);
+        if (item.hasOwnProperty('subject') && (item as TeacherEntry).subject?.toLowerCase().includes(lowerSearch)) matches = true;
+        if (item.hasOwnProperty('email') && (item as TeacherEntry).email?.toLowerCase().includes(lowerSearch)) matches = true;
+        if (item.hasOwnProperty('grade') && (item as StudentEntry).grade?.toLowerCase().includes(lowerSearch)) matches = true;
+        if (item.hasOwnProperty('category') && (item as DriveLinkEntry).category?.toLowerCase().includes(lowerSearch)) matches = true;
+        return matches;
+      });
     }
     processed.sort((a, b) => {
-      if (sortOrder === "alphabetical") return (a[nameKey] as string)?.localeCompare(b[nameKey] as string) || 0;
-      const timeA = a.lastUpdatedAt.toMillis();
-      const timeB = b.lastUpdatedAt.toMillis();
+      if (sortOrder === "alphabetical") return (a[nameKey] as string)?.localeCompare(b[nameKey]as string) || 0;
+      const timeA = a.createdAt.toMillis(); // Sort by createdAt for "oldest/newest added"
+      const timeB = b.createdAt.toMillis();
       return sortOrder === "newest" ? timeB - timeA : timeA - timeB;
     });
     return processed;
@@ -286,8 +307,8 @@ export default function Sheet5B7SPage() {
           <SelectValue placeholder="Sort by..." />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="newest">Newest First</SelectItem>
-          <SelectItem value="oldest">Oldest First</SelectItem>
+          <SelectItem value="newest">Newest Added</SelectItem>
+          <SelectItem value="oldest">Oldest Added</SelectItem>
           <SelectItem value="alphabetical">Alphabetical</SelectItem>
         </SelectContent>
       </Select>
@@ -319,13 +340,23 @@ export default function Sheet5B7SPage() {
             <CardContent>
               {isLoadingTeachers ? renderLoading("Loading teachers...") : filteredTeachers.length === 0 ? renderEmptyState(teacherSearchTerm ? "No teachers match your search." : "No teachers added yet.") : (
                 <Table>
-                  <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Subject</TableHead><TableHead>Contact</TableHead><TableHead>Last Updated</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Teaching (Subject)</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Password</TableHead>
+                    <TableHead>Added</TableHead>
+                    <TableHead>Last Updated</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow></TableHeader>
                   <TableBody>
                     {filteredTeachers.map((teacher) => (
                       <TableRow key={teacher.id}>
                         <TableCell className="font-medium">{teacher.name}</TableCell>
                         <TableCell>{teacher.subject || "N/A"}</TableCell>
-                        <TableCell>{teacher.contactInfo || "N/A"}</TableCell>
+                        <TableCell>{teacher.email || "N/A"}</TableCell>
+                        <TableCell>{teacher.password ? '••••••••' : "N/A"}</TableCell>
+                        <TableCell>{format(teacher.createdAt.toDate(), "PP")}</TableCell>
                         <TableCell>{formatDistanceToNow(teacher.lastUpdatedAt.toDate(), { addSuffix: true })}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" onClick={() => openTeacherDialog(teacher)}><Edit3 className="h-4 w-4" /></Button>
@@ -347,13 +378,14 @@ export default function Sheet5B7SPage() {
             <CardContent>
               {isLoadingStudents ? renderLoading("Loading students...") : filteredStudents.length === 0 ? renderEmptyState(studentSearchTerm ? "No students match your search." : "No students added yet.") : (
                 <Table>
-                  <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Grade</TableHead><TableHead>Notes</TableHead><TableHead>Last Updated</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Grade</TableHead><TableHead>Notes</TableHead><TableHead>Added</TableHead><TableHead>Last Updated</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {filteredStudents.map((student) => (
                       <TableRow key={student.id}>
                         <TableCell className="font-medium">{student.name}</TableCell>
                         <TableCell>{student.grade || "N/A"}</TableCell>
                         <TableCell className="truncate max-w-xs">{student.notes || "N/A"}</TableCell>
+                        <TableCell>{format(student.createdAt.toDate(), "PP")}</TableCell>
                         <TableCell>{formatDistanceToNow(student.lastUpdatedAt.toDate(), { addSuffix: true })}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" onClick={() => openStudentDialog(student)}><Edit3 className="h-4 w-4" /></Button>
@@ -375,13 +407,14 @@ export default function Sheet5B7SPage() {
             <CardContent>
               {isLoadingDriveLinks ? renderLoading("Loading drive links...") : filteredDriveLinks.length === 0 ? renderEmptyState(driveLinkSearchTerm ? "No links match your search." : "No drive links added yet.") : (
                 <Table>
-                  <TableHeader><TableRow><TableHead>Title</TableHead><TableHead>URL</TableHead><TableHead>Category</TableHead><TableHead>Last Updated</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow><TableHead>Title</TableHead><TableHead>URL</TableHead><TableHead>Category</TableHead><TableHead>Added</TableHead><TableHead>Last Updated</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {filteredDriveLinks.map((link) => (
                       <TableRow key={link.id}>
                         <TableCell className="font-medium">{link.title}</TableCell>
                         <TableCell><a href={link.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate max-w-xs block">{link.url}</a></TableCell>
                         <TableCell>{link.category || "N/A"}</TableCell>
+                        <TableCell>{format(link.createdAt.toDate(), "PP")}</TableCell>
                         <TableCell>{formatDistanceToNow(link.lastUpdatedAt.toDate(), { addSuffix: true })}</TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" onClick={() => openDriveLinkDialog(link)}><Edit3 className="h-4 w-4" /></Button>
@@ -403,8 +436,10 @@ export default function Sheet5B7SPage() {
           <DialogHeader><DialogTitle>{editingTeacher ? "Edit Teacher" : "Add New Teacher"}</DialogTitle></DialogHeader>
           <form onSubmit={handleSaveTeacher} className="space-y-4 py-2">
             <div><Label htmlFor="teacher-name">Name</Label><Input id="teacher-name" value={teacherName} onChange={e => setTeacherName(e.target.value)} required /></div>
-            <div><Label htmlFor="teacher-subject">Subject</Label><Input id="teacher-subject" value={teacherSubject} onChange={e => setTeacherSubject(e.target.value)} /></div>
-            <div><Label htmlFor="teacher-contact">Contact Info</Label><Input id="teacher-contact" value={teacherContact} onChange={e => setTeacherContact(e.target.value)} /></div>
+            <div><Label htmlFor="teacher-subject">Teaching (Subject)</Label><Input id="teacher-subject" value={teacherSubject} onChange={e => setTeacherSubject(e.target.value)} /></div>
+            <div><Label htmlFor="teacher-email">Email</Label><Input id="teacher-email" type="email" value={teacherEmail} onChange={e => setTeacherEmail(e.target.value)} /></div>
+            <div><Label htmlFor="teacher-password">Password</Label><Input id="teacher-password" type="password" value={teacherPassword} onChange={e => setTeacherPassword(e.target.value)} />
+            <p className="text-xs text-muted-foreground mt-1">Note: Passwords are not stored securely in this prototype. Do not use real passwords.</p></div>
             <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose><Button type="submit">Save</Button></DialogFooter>
           </form>
         </DialogContent>
