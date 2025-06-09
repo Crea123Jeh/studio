@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { RadioTower } from "lucide-react";
 
 // New Spotify Playlist URL provided by user
-const spotifyPlaylistUrl = "https://open.spotify.com/playlist/7vTZEzNyiocYAzkqHVnnWX";
+const spotifyPlaylistUrl = "https://open.spotify.com/playlist/7vTZEzNyiocYAzkqHVnnWX?si=e51e121258d54392&pt=b578e1ae14a0eda7938e59906de1e694";
 // Extract playlist ID from the URL
 const playlistId = spotifyPlaylistUrl.substring(spotifyPlaylistUrl.lastIndexOf('/') + 1).split('?')[0];
 // Construct the embed URL
@@ -51,3 +51,4 @@ export default function PpmRadioPage() {
     </div>
   );
 }
+
