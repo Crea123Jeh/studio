@@ -37,6 +37,8 @@ interface TeacherEntry extends BaseEntry {
 interface StudentEntry extends BaseEntry {
   name: string;
   grade?: string;
+  email?: string; 
+  password?: string; 
   notes?: string;
 }
 
@@ -47,7 +49,45 @@ interface DriveLinkEntry extends BaseEntry {
   category?: string;
 }
 
-type SortOption = "newest" | "oldest" | "alphabetical";
+type TeacherSortOption = "newest" | "oldest" | "alphabetical";
+const teacherSortOptionsList: { value: TeacherSortOption; label: string }[] = [
+  { value: "newest", label: "Newest Added" },
+  { value: "oldest", label: "Oldest Added" },
+  { value: "alphabetical", label: "Name (A-Z)" },
+];
+
+type StudentSortOption =
+  | "createdAt_desc"
+  | "createdAt_asc"
+  | "name_asc"
+  | "name_desc"
+  | "email_asc"
+  | "email_desc"
+  | "grade_asc"
+  | "grade_desc"
+  | "lastUpdated_desc"
+  | "lastUpdated_asc";
+
+const studentSortOptionsList: { value: StudentSortOption; label: string }[] = [
+  { value: "createdAt_desc", label: "Newest Added" },
+  { value: "createdAt_asc", label: "Oldest Added" },
+  { value: "name_asc", label: "Name (A-Z)" },
+  { value: "name_desc", label: "Name (Z-A)" },
+  { value: "email_asc", label: "Email (A-Z)" },
+  { value: "email_desc", label: "Email (Z-A)" },
+  { value: "grade_asc", label: "Grade (A-Z)" },
+  { value: "grade_desc", label: "Grade (Z-A)" },
+  { value: "lastUpdated_desc", label: "Last Updated (Newest)" },
+  { value: "lastUpdated_asc", label: "Last Updated (Oldest)" },
+];
+
+type DriveLinkSortOption = "newest" | "oldest" | "alphabetical";
+const driveLinkSortOptionsList: { value: DriveLinkSortOption; label: string }[] = [
+  { value: "newest", label: "Newest Added" },
+  { value: "oldest", label: "Oldest Added" },
+  { value: "alphabetical", label: "Title (A-Z)" },
+];
+
 const driveLinkCategories = ["Lesson Plan", "Homework", "Resource", "Meeting Notes", "Archive", "Other"];
 
 export default function Sheet5B7SPage() {
@@ -60,15 +100,13 @@ export default function Sheet5B7SPage() {
   const [editingTeacher, setEditingTeacher] = useState<TeacherEntry | null>(null);
   const [teacherToDelete, setTeacherToDelete] = useState<TeacherEntry | null>(null);
   const [teacherSearchTerm, setTeacherSearchTerm] = useState("");
-  const [teacherSortOrder, setTeacherSortOrder] = useState<SortOption>("newest");
-  // Teacher Form State
+  const [teacherSortOrder, setTeacherSortOrder] = useState<TeacherSortOption>("newest");
   const [teacherName, setTeacherName] = useState("");
   const [teacherSubject, setTeacherSubject] = useState("");
   const [teacherEmail, setTeacherEmail] = useState("");
   const [teacherPassword, setTeacherPassword] = useState("");
-  const [showFormPassword, setShowFormPassword] = useState(false);
-  const [visiblePasswordId, setVisiblePasswordId] = useState<string | null>(null);
-
+  const [showTeacherFormPassword, setShowTeacherFormPassword] = useState(false);
+  const [visibleTeacherPasswordId, setVisibleTeacherPasswordId] = useState<string | null>(null);
 
   // --- Students State ---
   const [students, setStudents] = useState<StudentEntry[]>([]);
@@ -77,11 +115,15 @@ export default function Sheet5B7SPage() {
   const [editingStudent, setEditingStudent] = useState<StudentEntry | null>(null);
   const [studentToDelete, setStudentToDelete] = useState<StudentEntry | null>(null);
   const [studentSearchTerm, setStudentSearchTerm] = useState("");
-  const [studentSortOrder, setStudentSortOrder] = useState<SortOption>("newest");
-  // Student Form State
+  const [studentSortOrder, setStudentSortOrder] = useState<StudentSortOption>("createdAt_desc");
   const [studentName, setStudentName] = useState("");
   const [studentGrade, setStudentGrade] = useState("");
+  const [studentEmail, setStudentEmail] = useState("");
+  const [studentPassword, setStudentPassword] = useState("");
   const [studentNotes, setStudentNotes] = useState("");
+  const [showStudentFormPassword, setShowStudentFormPassword] = useState(false);
+  const [visibleStudentPasswordId, setVisibleStudentPasswordId] = useState<string | null>(null);
+
 
   // --- Drive Links State ---
   const [driveLinks, setDriveLinks] = useState<DriveLinkEntry[]>([]);
@@ -90,8 +132,7 @@ export default function Sheet5B7SPage() {
   const [editingDriveLink, setEditingDriveLink] = useState<DriveLinkEntry | null>(null);
   const [driveLinkToDelete, setDriveLinkToDelete] = useState<DriveLinkEntry | null>(null);
   const [driveLinkSearchTerm, setDriveLinkSearchTerm] = useState("");
-  const [driveLinkSortOrder, setDriveLinkSortOrder] = useState<SortOption>("newest");
-  // Drive Link Form State
+  const [driveLinkSortOrder, setDriveLinkSortOrder] = useState<DriveLinkSortOption>("newest");
   const [driveLinkTitle, setDriveLinkTitle] = useState("");
   const [driveLinkUrl, setDriveLinkUrl] = useState("");
   const [driveLinkDescription, setDriveLinkDescription] = useState("");
@@ -131,10 +172,10 @@ export default function Sheet5B7SPage() {
 
   // --- Form Reset Callbacks ---
   const resetTeacherForm = useCallback(() => {
-    setTeacherName(""); setTeacherSubject(""); setTeacherEmail(""); setTeacherPassword(""); setEditingTeacher(null); setShowFormPassword(false);
+    setTeacherName(""); setTeacherSubject(""); setTeacherEmail(""); setTeacherPassword(""); setEditingTeacher(null); setShowTeacherFormPassword(false);
   }, []);
   const resetStudentForm = useCallback(() => {
-    setStudentName(""); setStudentGrade(""); setStudentNotes(""); setEditingStudent(null);
+    setStudentName(""); setStudentGrade(""); setStudentEmail(""); setStudentPassword(""); setStudentNotes(""); setEditingStudent(null); setShowStudentFormPassword(false);
   }, []);
   const resetDriveLinkForm = useCallback(() => {
     setDriveLinkTitle(""); setDriveLinkUrl(""); setDriveLinkDescription(""); setDriveLinkCategory(driveLinkCategories[0]); setEditingDriveLink(null);
@@ -148,7 +189,7 @@ export default function Sheet5B7SPage() {
       setTeacherSubject(teacher.subject || "");
       setTeacherEmail(teacher.email || "");
       setTeacherPassword(teacher.password || "");
-      setShowFormPassword(false);
+      setShowTeacherFormPassword(false);
     } else {
       resetTeacherForm();
     }
@@ -160,7 +201,10 @@ export default function Sheet5B7SPage() {
       setEditingStudent(student);
       setStudentName(student.name || "");
       setStudentGrade(student.grade || "");
+      setStudentEmail(student.email || "");
+      setStudentPassword(student.password || "");
       setStudentNotes(student.notes || "");
+      setShowStudentFormPassword(false);
     } else {
       resetStudentForm();
     }
@@ -186,11 +230,11 @@ export default function Sheet5B7SPage() {
     if (!teacherName) { toast({ title: "Missing Name", description: "Teacher name is required.", variant: "destructive" }); return; }
     const now = Timestamp.now();
     
-    const dataToSave: Partial<Omit<TeacherEntry, 'id' | 'createdAt'>> & { name: string; createdAt?: Timestamp; lastUpdatedAt: Timestamp } = {
+    const dataToSave: Partial<Omit<TeacherEntry, 'id' | 'createdAt'>> & { name: string; lastUpdatedAt: Timestamp } = {
         name: teacherName,
         subject: teacherSubject || "",
         email: teacherEmail || "",
-        password: teacherPassword || "", // Save empty string if not provided
+        password: teacherPassword || "",
         lastUpdatedAt: now,
     };
 
@@ -222,9 +266,11 @@ export default function Sheet5B7SPage() {
     e.preventDefault();
     if (!studentName) { toast({ title: "Missing Name", description: "Student name is required.", variant: "destructive" }); return; }
     const now = Timestamp.now();
-    const studentDataToSave: Partial<Omit<StudentEntry, 'id' | 'createdAt'>> & { name: string; createdAt?: Timestamp; lastUpdatedAt: Timestamp } = { 
+    const studentDataToSave: Partial<Omit<StudentEntry, 'id' | 'createdAt'>> & { name: string; lastUpdatedAt: Timestamp } = { 
         name: studentName, 
         grade: studentGrade || "", 
+        email: studentEmail || "",
+        password: studentPassword || "",
         notes: studentNotes || "", 
         lastUpdatedAt: now 
     };
@@ -233,8 +279,16 @@ export default function Sheet5B7SPage() {
         await updateDoc(doc(db, "sheet5B7SStudents", editingStudent.id), studentDataToSave);
         toast({ title: "Student Updated" });
       } else {
-        studentDataToSave.createdAt = now;
-        await addDoc(collection(db, "sheet5B7SStudents"), studentDataToSave as Omit<StudentEntry, 'id'>);
+        const newStudentData: Omit<StudentEntry, 'id'> = {
+            name: studentName,
+            grade: studentGrade || "",
+            email: studentEmail || "",
+            password: studentPassword || "",
+            notes: studentNotes || "",
+            createdAt: now,
+            lastUpdatedAt: now,
+        };
+        await addDoc(collection(db, "sheet5B7SStudents"), newStudentData);
         toast({ title: "Student Added" });
       }
       setIsStudentDialogOpen(false); resetStudentForm();
@@ -249,7 +303,7 @@ export default function Sheet5B7SPage() {
     if (!driveLinkTitle || !driveLinkUrl) { toast({ title: "Missing Fields", description: "Title and URL are required.", variant: "destructive" }); return; }
     try { new URL(driveLinkUrl); } catch (_) { toast({ title: "Invalid URL", variant: "destructive" }); return; }
     const now = Timestamp.now();
-    const driveLinkDataToSave: Partial<Omit<DriveLinkEntry, 'id' | 'createdAt'>> & { title: string; url: string; createdAt?: Timestamp; lastUpdatedAt: Timestamp} = { 
+    const driveLinkDataToSave: Partial<Omit<DriveLinkEntry, 'id' | 'createdAt'>> & { title: string; url: string; lastUpdatedAt: Timestamp} = { 
         title: driveLinkTitle, 
         url: driveLinkUrl, 
         description: driveLinkDescription || "", 
@@ -262,8 +316,15 @@ export default function Sheet5B7SPage() {
         toast({ title: "Drive Link Updated" });
       }
       else {
-        driveLinkDataToSave.createdAt = now;
-        await addDoc(collection(db, "sheet5B7SDriveLinks"), driveLinkDataToSave as Omit<DriveLinkEntry, 'id'>);
+        const newDriveLinkData: Omit<DriveLinkEntry, 'id'> = {
+            title: driveLinkTitle,
+            url: driveLinkUrl,
+            description: driveLinkDescription || "",
+            category: driveLinkCategory || driveLinkCategories[0],
+            createdAt: now,
+            lastUpdatedAt: now,
+        };
+        await addDoc(collection(db, "sheet5B7SDriveLinks"), newDriveLinkData);
         toast({ title: "Drive Link Added" });
       }
       setIsDriveLinkDialogOpen(false); resetDriveLinkForm();
@@ -286,37 +347,74 @@ export default function Sheet5B7SPage() {
   };
 
   // --- Filtered and Sorted Data ---
-  const getProcessedData = <T extends BaseEntry & { name?: string; title?: string }>(
-    items: T[],
-    searchTerm: string,
-    sortOrder: SortOption,
-    nameKey: 'name' | 'title' = 'name'
-  ): T[] => {
-    let processed = [...items];
-    if (searchTerm) {
-      const lowerSearch = searchTerm.toLowerCase();
-      processed = processed.filter(item => {
-        const mainFieldValue = (item[nameKey] as string)?.toLowerCase() || "";
-        let matches = mainFieldValue.includes(lowerSearch);
-        if (item.hasOwnProperty('subject') && (item as TeacherEntry).subject?.toLowerCase().includes(lowerSearch)) matches = true;
-        if (item.hasOwnProperty('email') && (item as TeacherEntry).email?.toLowerCase().includes(lowerSearch)) matches = true;
-        if (item.hasOwnProperty('grade') && (item as StudentEntry).grade?.toLowerCase().includes(lowerSearch)) matches = true;
-        if (item.hasOwnProperty('category') && (item as DriveLinkEntry).category?.toLowerCase().includes(lowerSearch)) matches = true;
-        return matches;
-      });
+  const getProcessedTeachers = useMemo(() => {
+    let processed = [...teachers];
+    if (teacherSearchTerm) {
+      const lowerSearch = teacherSearchTerm.toLowerCase();
+      processed = processed.filter(item => 
+        (item.name || "").toLowerCase().includes(lowerSearch) ||
+        (item.subject || "").toLowerCase().includes(lowerSearch) ||
+        (item.email || "").toLowerCase().includes(lowerSearch)
+      );
     }
     processed.sort((a, b) => {
-      if (sortOrder === "alphabetical") return (a[nameKey] as string)?.localeCompare(b[nameKey]as string) || 0;
+      if (teacherSortOrder === "alphabetical") return (a.name || "").localeCompare(b.name || "");
       const timeA = a.createdAt.toMillis(); 
       const timeB = b.createdAt.toMillis();
-      return sortOrder === "newest" ? timeB - timeA : timeA - timeB;
+      return teacherSortOrder === "newest" ? timeB - timeA : timeA - timeB;
     });
     return processed;
-  };
+  }, [teachers, teacherSearchTerm, teacherSortOrder]);
 
-  const filteredTeachers = useMemo(() => getProcessedData(teachers, teacherSearchTerm, teacherSortOrder, 'name'), [teachers, teacherSearchTerm, teacherSortOrder]);
-  const filteredStudents = useMemo(() => getProcessedData(students, studentSearchTerm, studentSortOrder, 'name'), [students, studentSearchTerm, studentSortOrder]);
-  const filteredDriveLinks = useMemo(() => getProcessedData(driveLinks, driveLinkSearchTerm, driveLinkSortOrder, 'title'), [driveLinks, driveLinkSearchTerm, driveLinkSortOrder]);
+  const getProcessedStudents = useMemo(() => {
+    let processed = [...students];
+    if (studentSearchTerm) {
+        const lowerSearch = studentSearchTerm.toLowerCase();
+        processed = processed.filter(item =>
+            (item.name || "").toLowerCase().includes(lowerSearch) ||
+            (item.grade || "").toLowerCase().includes(lowerSearch) ||
+            (item.email || "").toLowerCase().includes(lowerSearch) ||
+            (item.notes || "").toLowerCase().includes(lowerSearch)
+        );
+    }
+    processed.sort((a, b) => {
+        switch (studentSortOrder) {
+            case "name_asc": return (a.name || "").localeCompare(b.name || "");
+            case "name_desc": return (b.name || "").localeCompare(a.name || "");
+            case "email_asc": return (a.email || "").localeCompare(b.email || "");
+            case "email_desc": return (b.email || "").localeCompare(a.email || "");
+            case "grade_asc": return (a.grade || "").localeCompare(b.grade || "");
+            case "grade_desc": return (b.grade || "").localeCompare(a.grade || "");
+            case "lastUpdated_desc": return b.lastUpdatedAt.toMillis() - a.lastUpdatedAt.toMillis();
+            case "lastUpdated_asc": return a.lastUpdatedAt.toMillis() - b.lastUpdatedAt.toMillis();
+            case "createdAt_asc": return a.createdAt.toMillis() - b.createdAt.toMillis();
+            case "createdAt_desc":
+            default:
+                return b.createdAt.toMillis() - a.createdAt.toMillis();
+        }
+    });
+    return processed;
+  }, [students, studentSearchTerm, studentSortOrder]);
+
+  const getProcessedDriveLinks = useMemo(() => {
+    let processed = [...driveLinks];
+    if (driveLinkSearchTerm) {
+      const lowerSearch = driveLinkSearchTerm.toLowerCase();
+      processed = processed.filter(item => 
+        (item.title || "").toLowerCase().includes(lowerSearch) ||
+        (item.description || "").toLowerCase().includes(lowerSearch) ||
+        (item.category || "").toLowerCase().includes(lowerSearch)
+      );
+    }
+    processed.sort((a, b) => {
+      if (driveLinkSortOrder === "alphabetical") return (a.title || "").localeCompare(b.title || "");
+      const timeA = a.createdAt.toMillis();
+      const timeB = b.createdAt.toMillis();
+      return driveLinkSortOrder === "newest" ? timeB - timeA : timeA - timeB;
+    });
+    return processed;
+  }, [driveLinks, driveLinkSearchTerm, driveLinkSortOrder]);
+
 
   const renderLoading = (text: string) => (
     <div className="flex justify-center items-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /><p className="ml-2 text-muted-foreground">{text}</p></div>
@@ -330,8 +428,9 @@ export default function Sheet5B7SPage() {
     itemType: string,
     searchTerm: string,
     setSearchTerm: (term: string) => void,
-    sortOrder: SortOption,
-    setSortOrder: (order: SortOption) => void,
+    currentSortOrder: string,
+    setSortOrder: (order: string) => void,
+    sortOptions: { value: string; label: string }[],
     onAdd: () => void
   ) => (
     <div className="flex flex-col md:flex-row gap-4 mb-4 items-center">
@@ -345,15 +444,15 @@ export default function Sheet5B7SPage() {
           className="pl-8 w-full"
         />
       </div>
-      <Select value={sortOrder} onValueChange={(value) => setSortOrder(value as SortOption)}>
-        <SelectTrigger className="w-full md:w-[180px]">
+      <Select value={currentSortOrder} onValueChange={(value) => setSortOrder(value)}>
+        <SelectTrigger className="w-full md:w-[220px]">
           <ListFilter className="h-4 w-4 mr-2"/>
           <SelectValue placeholder="Sort by..." />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="newest">Newest Added</SelectItem>
-          <SelectItem value="oldest">Oldest Added</SelectItem>
-          <SelectItem value="alphabetical">Alphabetical</SelectItem>
+          {sortOptions.map(opt => (
+            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+          ))}
         </SelectContent>
       </Select>
       <Button onClick={onAdd} className="w-full md:w-auto">
@@ -380,9 +479,9 @@ export default function Sheet5B7SPage() {
         {/* Teachers Tab */}
         <TabsContent value="teachers" className="mt-4">
           <Card>
-            <CardHeader>{renderSortAndSearch("Teacher", teacherSearchTerm, setTeacherSearchTerm, teacherSortOrder, setTeacherSortOrder, openTeacherDialog)}</CardHeader>
+            <CardHeader>{renderSortAndSearch("Teacher", teacherSearchTerm, setTeacherSearchTerm, teacherSortOrder, setTeacherSortOrder as (order: string) => void, teacherSortOptionsList, openTeacherDialog)}</CardHeader>
             <CardContent>
-              {isLoadingTeachers ? renderLoading("Loading teachers...") : filteredTeachers.length === 0 ? renderEmptyState(teacherSearchTerm ? "No teachers match your search." : "No teachers added yet.") : (
+              {isLoadingTeachers ? renderLoading("Loading teachers...") : getProcessedTeachers.length === 0 ? renderEmptyState(teacherSearchTerm ? "No teachers match your search." : "No teachers added yet.") : (
                 <Table>
                   <TableHeader><TableRow>
                     <TableHead>Name</TableHead>
@@ -394,7 +493,7 @@ export default function Sheet5B7SPage() {
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow></TableHeader>
                   <TableBody>
-                    {filteredTeachers.map((teacher) => (
+                    {getProcessedTeachers.map((teacher) => (
                       <TableRow key={teacher.id}>
                         <TableCell className="font-medium">{teacher.name}</TableCell>
                         <TableCell>{teacher.subject || "N/A"}</TableCell>
@@ -402,7 +501,7 @@ export default function Sheet5B7SPage() {
                         <TableCell>
                           <div className="flex items-center justify-between min-w-[100px]">
                             <span>
-                              {visiblePasswordId === teacher.id
+                              {visibleTeacherPasswordId === teacher.id
                                 ? (teacher.password || "") 
                                 : (teacher.password && teacher.password.length > 0 ? '••••••••' : "N/A")}
                             </span>
@@ -412,18 +511,18 @@ export default function Sheet5B7SPage() {
                                 size="icon"
                                 className="h-7 w-7 ml-2"
                                 onClick={() =>
-                                  setVisiblePasswordId(
-                                    visiblePasswordId === teacher.id ? null : teacher.id
+                                  setVisibleTeacherPasswordId(
+                                    visibleTeacherPasswordId === teacher.id ? null : teacher.id
                                   )
                                 }
                               >
-                                {visiblePasswordId === teacher.id ? (
+                                {visibleTeacherPasswordId === teacher.id ? (
                                   <EyeOff className="h-4 w-4" />
                                 ) : (
                                   <Eye className="h-4 w-4" />
                                 )}
                                 <span className="sr-only">
-                                  {visiblePasswordId === teacher.id
+                                  {visibleTeacherPasswordId === teacher.id
                                     ? "Hide password"
                                     : "Show password"}
                                 </span>
@@ -449,16 +548,58 @@ export default function Sheet5B7SPage() {
         {/* Students Tab */}
         <TabsContent value="students" className="mt-4">
           <Card>
-            <CardHeader>{renderSortAndSearch("Student", studentSearchTerm, setStudentSearchTerm, studentSortOrder, setStudentSortOrder, openStudentDialog)}</CardHeader>
+            <CardHeader>{renderSortAndSearch("Student", studentSearchTerm, setStudentSearchTerm, studentSortOrder, setStudentSortOrder as (order: string) => void, studentSortOptionsList, openStudentDialog)}</CardHeader>
             <CardContent>
-              {isLoadingStudents ? renderLoading("Loading students...") : filteredStudents.length === 0 ? renderEmptyState(studentSearchTerm ? "No students match your search." : "No students added yet.") : (
+              {isLoadingStudents ? renderLoading("Loading students...") : getProcessedStudents.length === 0 ? renderEmptyState(studentSearchTerm ? "No students match your search." : "No students added yet.") : (
                 <Table>
-                  <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Grade</TableHead><TableHead>Notes</TableHead><TableHead>Added</TableHead><TableHead>Last Updated</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Grade</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Password</TableHead>
+                    <TableHead>Notes</TableHead>
+                    <TableHead>Added</TableHead>
+                    <TableHead>Last Updated</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow></TableHeader>
                   <TableBody>
-                    {filteredStudents.map((student) => (
+                    {getProcessedStudents.map((student) => (
                       <TableRow key={student.id}>
                         <TableCell className="font-medium">{student.name}</TableCell>
                         <TableCell>{student.grade || "N/A"}</TableCell>
+                        <TableCell>{student.email || "N/A"}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-between min-w-[100px]">
+                            <span>
+                              {visibleStudentPasswordId === student.id
+                                ? (student.password || "") 
+                                : (student.password && student.password.length > 0 ? '••••••••' : "N/A")}
+                            </span>
+                            {student.password && student.password.length > 0 && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 ml-2"
+                                onClick={() =>
+                                  setVisibleStudentPasswordId(
+                                    visibleStudentPasswordId === student.id ? null : student.id
+                                  )
+                                }
+                              >
+                                {visibleStudentPasswordId === student.id ? (
+                                  <EyeOff className="h-4 w-4" />
+                                ) : (
+                                  <Eye className="h-4 w-4" />
+                                )}
+                                <span className="sr-only">
+                                  {visibleStudentPasswordId === student.id
+                                    ? "Hide password"
+                                    : "Show password"}
+                                </span>
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="truncate max-w-xs">{student.notes || "N/A"}</TableCell>
                         <TableCell>{format(student.createdAt.toDate(), "PP")}</TableCell>
                         <TableCell>{formatDistanceToNow(student.lastUpdatedAt.toDate(), { addSuffix: true })}</TableCell>
@@ -478,13 +619,13 @@ export default function Sheet5B7SPage() {
         {/* Drive Links Tab */}
         <TabsContent value="driveLinks" className="mt-4">
           <Card>
-            <CardHeader>{renderSortAndSearch("Drive Link", driveLinkSearchTerm, setDriveLinkSearchTerm, driveLinkSortOrder, setDriveLinkSortOrder, openDriveLinkDialog)}</CardHeader>
+            <CardHeader>{renderSortAndSearch("Drive Link", driveLinkSearchTerm, setDriveLinkSearchTerm, driveLinkSortOrder, setDriveLinkSortOrder as (order: string) => void, driveLinkSortOptionsList, openDriveLinkDialog)}</CardHeader>
             <CardContent>
-              {isLoadingDriveLinks ? renderLoading("Loading drive links...") : filteredDriveLinks.length === 0 ? renderEmptyState(driveLinkSearchTerm ? "No links match your search." : "No drive links added yet.") : (
+              {isLoadingDriveLinks ? renderLoading("Loading drive links...") : getProcessedDriveLinks.length === 0 ? renderEmptyState(driveLinkSearchTerm ? "No links match your search." : "No drive links added yet.") : (
                 <Table>
                   <TableHeader><TableRow><TableHead>Title</TableHead><TableHead>URL</TableHead><TableHead>Category</TableHead><TableHead>Added</TableHead><TableHead>Last Updated</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
                   <TableBody>
-                    {filteredDriveLinks.map((link) => (
+                    {getProcessedDriveLinks.map((link) => (
                       <TableRow key={link.id}>
                         <TableCell className="font-medium">{link.title}</TableCell>
                         <TableCell><a href={link.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate max-w-xs block">{link.url}</a></TableCell>
@@ -510,32 +651,36 @@ export default function Sheet5B7SPage() {
         <DialogContent>
           <DialogHeader><DialogTitle>{editingTeacher ? "Edit Teacher" : "Add New Teacher"}</DialogTitle></DialogHeader>
           <form onSubmit={handleSaveTeacher} className="space-y-4 py-2">
-            <div><Label htmlFor="teacher-name">Name</Label><Input id="teacher-name" value={teacherName ?? ""} onChange={e => setTeacherName(e.target.value)} required /></div>
-            <div><Label htmlFor="teacher-subject">Teaching (Subject)</Label><Input id="teacher-subject" value={teacherSubject ?? ""} onChange={e => setTeacherSubject(e.target.value)} /></div>
-            <div><Label htmlFor="teacher-email">Email</Label><Input id="teacher-email" type="email" value={teacherEmail ?? ""} onChange={e => setTeacherEmail(e.target.value)} /></div>
-            <div>
-              <Label htmlFor="teacher-password">Password</Label>
-              <div className="relative">
-                <Input
-                  id="teacher-password"
-                  type={showFormPassword ? "text" : "password"}
-                  value={teacherPassword ?? ""}
-                  onChange={e => setTeacherPassword(e.target.value)}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  onClick={() => setShowFormPassword(!showFormPassword)}
-                  tabIndex={-1} 
-                >
-                  {showFormPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  <span className="sr-only">{showFormPassword ? "Hide password" : "Show password"}</span>
-                </Button>
+            <ScrollArea className="max-h-[70vh] pr-2">
+              <div className="space-y-4 p-1">
+                <div><Label htmlFor="teacher-name">Name</Label><Input id="teacher-name" value={teacherName ?? ""} onChange={e => setTeacherName(e.target.value)} required /></div>
+                <div><Label htmlFor="teacher-subject">Teaching (Subject)</Label><Input id="teacher-subject" value={teacherSubject ?? ""} onChange={e => setTeacherSubject(e.target.value)} /></div>
+                <div><Label htmlFor="teacher-email">Email</Label><Input id="teacher-email" type="email" value={teacherEmail ?? ""} onChange={e => setTeacherEmail(e.target.value)} /></div>
+                <div>
+                  <Label htmlFor="teacher-password">Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="teacher-password"
+                      type={showTeacherFormPassword ? "text" : "password"}
+                      value={teacherPassword ?? ""}
+                      onChange={e => setTeacherPassword(e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowTeacherFormPassword(!showTeacherFormPassword)}
+                      tabIndex={-1} 
+                    >
+                      {showTeacherFormPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      <span className="sr-only">{showTeacherFormPassword ? "Hide password" : "Show password"}</span>
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Note: For prototype purposes only. Do not use real passwords.</p>
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Note: For prototype purposes only. Do not use real passwords.</p>
-            </div>
+            </ScrollArea>
             <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose><Button type="submit">Save</Button></DialogFooter>
           </form>
         </DialogContent>
@@ -546,9 +691,36 @@ export default function Sheet5B7SPage() {
         <DialogContent>
           <DialogHeader><DialogTitle>{editingStudent ? "Edit Student" : "Add New Student"}</DialogTitle></DialogHeader>
           <form onSubmit={handleSaveStudent} className="space-y-4 py-2">
-            <div><Label htmlFor="student-name">Name</Label><Input id="student-name" value={studentName ?? ""} onChange={e => setStudentName(e.target.value)} required /></div>
-            <div><Label htmlFor="student-grade">Grade</Label><Input id="student-grade" value={studentGrade ?? ""} onChange={e => setStudentGrade(e.target.value)} /></div>
-            <div><Label htmlFor="student-notes">Notes</Label><Textarea id="student-notes" value={studentNotes ?? ""} onChange={e => setStudentNotes(e.target.value)} /></div>
+            <ScrollArea className="max-h-[70vh] pr-2">
+              <div className="space-y-4 p-1">
+                <div><Label htmlFor="student-name">Name</Label><Input id="student-name" value={studentName ?? ""} onChange={e => setStudentName(e.target.value)} required /></div>
+                <div><Label htmlFor="student-grade">Grade</Label><Input id="student-grade" value={studentGrade ?? ""} onChange={e => setStudentGrade(e.target.value)} /></div>
+                <div><Label htmlFor="student-email">Email</Label><Input id="student-email" type="email" value={studentEmail ?? ""} onChange={e => setStudentEmail(e.target.value)} /></div>
+                <div>
+                  <Label htmlFor="student-password">Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="student-password"
+                      type={showStudentFormPassword ? "text" : "password"}
+                      value={studentPassword ?? ""}
+                      onChange={e => setStudentPassword(e.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowStudentFormPassword(!showStudentFormPassword)}
+                      tabIndex={-1} 
+                    >
+                      {showStudentFormPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      <span className="sr-only">{showStudentFormPassword ? "Hide password" : "Show password"}</span>
+                    </Button>
+                  </div>
+                </div>
+                <div><Label htmlFor="student-notes">Notes</Label><Textarea id="student-notes" value={studentNotes ?? ""} onChange={e => setStudentNotes(e.target.value)} /></div>
+              </div>
+            </ScrollArea>
             <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose><Button type="submit">Save</Button></DialogFooter>
           </form>
         </DialogContent>
@@ -559,15 +731,19 @@ export default function Sheet5B7SPage() {
         <DialogContent>
           <DialogHeader><DialogTitle>{editingDriveLink ? "Edit Drive Link" : "Add New Drive Link"}</DialogTitle></DialogHeader>
           <form onSubmit={handleSaveDriveLink} className="space-y-4 py-2">
-            <div><Label htmlFor="drive-title">Title</Label><Input id="drive-title" value={driveLinkTitle ?? ""} onChange={e => setDriveLinkTitle(e.target.value)} required /></div>
-            <div><Label htmlFor="drive-url">URL</Label><Input id="drive-url" type="url" value={driveLinkUrl ?? ""} onChange={e => setDriveLinkUrl(e.target.value)} required placeholder="https://example.com" /></div>
-            <div><Label htmlFor="drive-category">Category</Label>
-              <Select value={driveLinkCategory} onValueChange={(val) => setDriveLinkCategory(val)}>
-                <SelectTrigger><SelectValue placeholder="Select category..." /></SelectTrigger>
-                <SelectContent>{driveLinkCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div><Label htmlFor="drive-description">Description</Label><Textarea id="drive-description" value={driveLinkDescription ?? ""} onChange={e => setDriveLinkDescription(e.target.value)} /></div>
+            <ScrollArea className="max-h-[70vh] pr-2">
+              <div className="space-y-4 p-1">
+                <div><Label htmlFor="drive-title">Title</Label><Input id="drive-title" value={driveLinkTitle ?? ""} onChange={e => setDriveLinkTitle(e.target.value)} required /></div>
+                <div><Label htmlFor="drive-url">URL</Label><Input id="drive-url" type="url" value={driveLinkUrl ?? ""} onChange={e => setDriveLinkUrl(e.target.value)} required placeholder="https://example.com" /></div>
+                <div><Label htmlFor="drive-category">Category</Label>
+                  <Select value={driveLinkCategory} onValueChange={(val) => setDriveLinkCategory(val)}>
+                    <SelectTrigger><SelectValue placeholder="Select category..." /></SelectTrigger>
+                    <SelectContent>{driveLinkCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div><Label htmlFor="drive-description">Description</Label><Textarea id="drive-description" value={driveLinkDescription ?? ""} onChange={e => setDriveLinkDescription(e.target.value)} /></div>
+              </div>
+            </ScrollArea>
             <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose><Button type="submit">Save</Button></DialogFooter>
           </form>
         </DialogContent>
