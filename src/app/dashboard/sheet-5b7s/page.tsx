@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import { format, formatDistanceToNow } from "date-fns";
-import { FileSpreadsheet, PlusCircle, Edit3, Trash2, User, Users, Link as LinkIcon, Search, ListFilter, Loader2 } from "lucide-react";
+import { FileSpreadsheet, PlusCircle, Edit3, Trash2, User, Users, Link as LinkIcon, Search, ListFilter, Loader2, Eye, EyeOff } from "lucide-react";
 
 // --- Data Interfaces ---
 interface BaseEntry {
@@ -66,6 +66,7 @@ export default function Sheet5B7SPage() {
   const [teacherSubject, setTeacherSubject] = useState("");
   const [teacherEmail, setTeacherEmail] = useState("");
   const [teacherPassword, setTeacherPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
 
   // --- Students State ---
@@ -129,7 +130,7 @@ export default function Sheet5B7SPage() {
 
   // --- Form Reset Callbacks ---
   const resetTeacherForm = useCallback(() => {
-    setTeacherName(""); setTeacherSubject(""); setTeacherEmail(""); setTeacherPassword(""); setEditingTeacher(null);
+    setTeacherName(""); setTeacherSubject(""); setTeacherEmail(""); setTeacherPassword(""); setEditingTeacher(null); setShowPassword(false);
   }, []);
   const resetStudentForm = useCallback(() => {
     setStudentName(""); setStudentGrade(""); setStudentNotes(""); setEditingStudent(null);
@@ -182,30 +183,47 @@ export default function Sheet5B7SPage() {
     e.preventDefault();
     if (!teacherName) { toast({ title: "Missing Name", description: "Teacher name is required.", variant: "destructive" }); return; }
     const now = Timestamp.now();
-    const data: Partial<TeacherEntry> = {
-        name: teacherName,
-        subject: teacherSubject,
-        email: teacherEmail,
-        password: teacherPassword, 
-        lastUpdatedAt: now
-    };
+    
     try {
       if (editingTeacher) {
-        await updateDoc(doc(db, "sheet5B7STeachers", editingTeacher.id), data);
+        const dataToUpdate: Partial<Omit<TeacherEntry, 'id' | 'createdAt'>> = {
+            name: teacherName,
+            subject: teacherSubject || "",
+            email: teacherEmail || "",
+            password: teacherPassword || "",
+            lastUpdatedAt: now,
+        };
+        await updateDoc(doc(db, "sheet5B7STeachers", editingTeacher.id), dataToUpdate);
         toast({ title: "Teacher Updated" });
       } else {
-        await addDoc(collection(db, "sheet5B7STeachers"), { ...data, createdAt: now });
+        const newTeacherData: Omit<TeacherEntry, 'id'> = {
+            name: teacherName,
+            subject: teacherSubject || "",
+            email: teacherEmail || "",
+            password: teacherPassword || "",
+            createdAt: now,
+            lastUpdatedAt: now,
+        };
+        await addDoc(collection(db, "sheet5B7STeachers"), newTeacherData);
         toast({ title: "Teacher Added" });
       }
       setIsTeacherDialogOpen(false); resetTeacherForm();
-    } catch (err) { toast({ title: "Save Error", description: "Could not save teacher.", variant: "destructive" }); }
+    } catch (err) { 
+        console.error("Error saving teacher:", err);
+        toast({ title: "Save Error", description: `Could not save teacher. ${err instanceof Error ? err.message : 'Unknown error'}`, variant: "destructive" }); 
+    }
   };
 
   const handleSaveStudent = async (e: FormEvent) => {
     e.preventDefault();
     if (!studentName) { toast({ title: "Missing Name", description: "Student name is required.", variant: "destructive" }); return; }
     const now = Timestamp.now();
-    const data = { name: studentName, grade: studentGrade, notes: studentNotes, lastUpdatedAt: now };
+    const data = { 
+        name: studentName, 
+        grade: studentGrade || "", 
+        notes: studentNotes || "", 
+        lastUpdatedAt: now 
+    };
     try {
       if (editingStudent) {
         await updateDoc(doc(db, "sheet5B7SStudents", editingStudent.id), data);
@@ -223,7 +241,13 @@ export default function Sheet5B7SPage() {
     if (!driveLinkTitle || !driveLinkUrl) { toast({ title: "Missing Fields", description: "Title and URL are required.", variant: "destructive" }); return; }
     try { new URL(driveLinkUrl); } catch (_) { toast({ title: "Invalid URL", variant: "destructive" }); return; }
     const now = Timestamp.now();
-    const data = { title: driveLinkTitle, url: driveLinkUrl, description: driveLinkDescription, category: driveLinkCategory, lastUpdatedAt: now };
+    const data = { 
+        title: driveLinkTitle, 
+        url: driveLinkUrl, 
+        description: driveLinkDescription || "", 
+        category: driveLinkCategory || driveLinkCategories[0], 
+        lastUpdatedAt: now 
+    };
     try {
       if (editingDriveLink) {
         await updateDoc(doc(db, "sheet5B7SDriveLinks", editingDriveLink.id), data);
@@ -445,8 +469,29 @@ export default function Sheet5B7SPage() {
             <div><Label htmlFor="teacher-name">Name</Label><Input id="teacher-name" value={teacherName ?? ""} onChange={e => setTeacherName(e.target.value)} required /></div>
             <div><Label htmlFor="teacher-subject">Teaching (Subject)</Label><Input id="teacher-subject" value={teacherSubject ?? ""} onChange={e => setTeacherSubject(e.target.value)} /></div>
             <div><Label htmlFor="teacher-email">Email</Label><Input id="teacher-email" type="email" value={teacherEmail ?? ""} onChange={e => setTeacherEmail(e.target.value)} /></div>
-            <div><Label htmlFor="teacher-password">Password</Label><Input id="teacher-password" type="password" value={teacherPassword ?? ""} onChange={e => setTeacherPassword(e.target.value)} />
-            <p className="text-xs text-muted-foreground mt-1">Note: Passwords are not stored securely in this prototype. Do not use real passwords.</p></div>
+            <div>
+              <Label htmlFor="teacher-password">Password</Label>
+              <div className="relative">
+                <Input
+                  id="teacher-password"
+                  type={showPassword ? "text" : "password"}
+                  value={teacherPassword ?? ""}
+                  onChange={e => setTeacherPassword(e.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowPassword(!showPassword)}
+                  tabIndex={-1} 
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  <span className="sr-only">{showPassword ? "Hide password" : "Show password"}</span>
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Note: For prototype purposes only. Do not use real passwords.</p>
+            </div>
             <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose><Button type="submit">Save</Button></DialogFooter>
           </form>
         </DialogContent>
@@ -484,7 +529,7 @@ export default function Sheet5B7SPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialogs (generic structure, specific state variable used) */}
+      {/* Delete Confirmation Dialogs */}
       <AlertDialog open={!!teacherToDelete || !!studentToDelete || !!driveLinkToDelete} onOpenChange={(isOpen) => { if (!isOpen) { setTeacherToDelete(null); setStudentToDelete(null); setDriveLinkToDelete(null); }}}>
         <AlertDialogContent>
           <AlertDialogHeader>
