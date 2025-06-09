@@ -141,38 +141,51 @@ export default function Sheet5B7SPage() {
 
   // --- Add/Edit Dialog Openers ---
   const openTeacherDialog = (teacher: TeacherEntry | null = null) => {
-    if (teacher) {
+    if (teacher && typeof teacher.id === 'string' && teacher.id.length > 0) {
       setEditingTeacher(teacher);
       setTeacherName(teacher.name || "");
       setTeacherSubject(teacher.subject || "");
       setTeacherEmail(teacher.email || "");
       setTeacherPassword(teacher.password || "");
+      setShowPassword(false);
     } else {
-      resetTeacherForm();
+      if (teacher) { // Teacher object provided but ID is invalid
+        console.error("Attempted to open edit dialog for teacher with invalid ID:", teacher);
+        toast({ title: "Error", description: "Cannot edit teacher: invalid teacher data provided.", variant: "destructive" });
+      }
+      resetTeacherForm(); // This sets editingTeacher to null
     }
     setIsTeacherDialogOpen(true);
   };
 
   const openStudentDialog = (student: StudentEntry | null = null) => {
-    if (student) {
+    if (student && typeof student.id === 'string' && student.id.length > 0) {
       setEditingStudent(student);
       setStudentName(student.name || "");
       setStudentGrade(student.grade || "");
       setStudentNotes(student.notes || "");
     } else {
+      if (student) {
+        console.error("Attempted to open edit dialog for student with invalid ID:", student);
+        toast({ title: "Error", description: "Cannot edit student: invalid student data provided.", variant: "destructive" });
+      }
       resetStudentForm();
     }
     setIsStudentDialogOpen(true);
   };
 
   const openDriveLinkDialog = (link: DriveLinkEntry | null = null) => {
-    if (link) {
+     if (link && typeof link.id === 'string' && link.id.length > 0) {
       setEditingDriveLink(link);
       setDriveLinkTitle(link.title || "");
       setDriveLinkUrl(link.url || "");
       setDriveLinkDescription(link.description || "");
       setDriveLinkCategory(link.category || driveLinkCategories[0]);
     } else {
+      if (link) {
+        console.error("Attempted to open edit dialog for drive link with invalid ID:", link);
+        toast({ title: "Error", description: "Cannot edit drive link: invalid link data provided.", variant: "destructive" });
+      }
       resetDriveLinkForm();
     }
     setIsDriveLinkDialogOpen(true);
@@ -195,14 +208,11 @@ export default function Sheet5B7SPage() {
         };
         await updateDoc(doc(db, "sheet5B7STeachers", editingTeacher.id), dataToUpdate);
         toast({ title: "Teacher Updated" });
-      } else if (editingTeacher) {
-        console.error("Attempted to update teacher but editingTeacher.id is invalid:", editingTeacher);
-        toast({ title: "Update Error", description: "Cannot update teacher: Invalid teacher ID.", variant: "destructive" });
-        setIsTeacherDialogOpen(false); 
-        resetTeacherForm();
-        return;
+      } else if (editingTeacher) { // Should not be reached if openTeacherDialog validation works
+        console.error("UPDATE ATTEMPT FAILED: editingTeacher.id is invalid. editingTeacher object:", editingTeacher);
+        toast({ title: "Update Error", description: "Cannot update teacher: Invalid or missing teacher ID in the editing context.", variant: "destructive" });
       }
-      else {
+      else { // Add new teacher
         const newTeacherData: Omit<TeacherEntry, 'id'> = {
             name: teacherName,
             subject: teacherSubject || "",
@@ -214,7 +224,8 @@ export default function Sheet5B7SPage() {
         await addDoc(collection(db, "sheet5B7STeachers"), newTeacherData);
         toast({ title: "Teacher Added" });
       }
-      setIsTeacherDialogOpen(false); resetTeacherForm();
+      setIsTeacherDialogOpen(false); 
+      resetTeacherForm();
     } catch (err) { 
         console.error("Error saving teacher:", err);
         toast({ title: "Save Error", description: `Could not save teacher. ${err instanceof Error ? err.message : 'Unknown error'}`, variant: "destructive" }); 
@@ -225,22 +236,28 @@ export default function Sheet5B7SPage() {
     e.preventDefault();
     if (!studentName) { toast({ title: "Missing Name", description: "Student name is required.", variant: "destructive" }); return; }
     const now = Timestamp.now();
-    const data = { 
+    const studentDataToSave = { 
         name: studentName, 
         grade: studentGrade || "", 
         notes: studentNotes || "", 
         lastUpdatedAt: now 
     };
     try {
-      if (editingStudent) {
-        await updateDoc(doc(db, "sheet5B7SStudents", editingStudent.id), data);
+      if (editingStudent && typeof editingStudent.id === 'string' && editingStudent.id.length > 0) {
+        await updateDoc(doc(db, "sheet5B7SStudents", editingStudent.id), studentDataToSave);
         toast({ title: "Student Updated" });
+      } else if (editingStudent) {
+        console.error("UPDATE ATTEMPT FAILED: editingStudent.id is invalid. editingStudent object:", editingStudent);
+        toast({ title: "Update Error", description: "Cannot update student: Invalid or missing student ID.", variant: "destructive" });
       } else {
-        await addDoc(collection(db, "sheet5B7SStudents"), { ...data, createdAt: now });
+        await addDoc(collection(db, "sheet5B7SStudents"), { ...studentDataToSave, createdAt: now });
         toast({ title: "Student Added" });
       }
       setIsStudentDialogOpen(false); resetStudentForm();
-    } catch (err) { toast({ title: "Save Error", description: "Could not save student.", variant: "destructive" }); }
+    } catch (err) { 
+        console.error("Error saving student:", err);
+        toast({ title: "Save Error", description: `Could not save student. ${err instanceof Error ? err.message : 'Unknown error'}`, variant: "destructive" }); 
+    }
   };
 
   const handleSaveDriveLink = async (e: FormEvent) => {
@@ -248,7 +265,7 @@ export default function Sheet5B7SPage() {
     if (!driveLinkTitle || !driveLinkUrl) { toast({ title: "Missing Fields", description: "Title and URL are required.", variant: "destructive" }); return; }
     try { new URL(driveLinkUrl); } catch (_) { toast({ title: "Invalid URL", variant: "destructive" }); return; }
     const now = Timestamp.now();
-    const data = { 
+    const driveLinkDataToSave = { 
         title: driveLinkTitle, 
         url: driveLinkUrl, 
         description: driveLinkDescription || "", 
@@ -256,15 +273,22 @@ export default function Sheet5B7SPage() {
         lastUpdatedAt: now 
     };
     try {
-      if (editingDriveLink) {
-        await updateDoc(doc(db, "sheet5B7SDriveLinks", editingDriveLink.id), data);
+      if (editingDriveLink && typeof editingDriveLink.id === 'string' && editingDriveLink.id.length > 0) {
+        await updateDoc(doc(db, "sheet5B7SDriveLinks", editingDriveLink.id), driveLinkDataToSave);
         toast({ title: "Drive Link Updated" });
-      } else {
-        await addDoc(collection(db, "sheet5B7SDriveLinks"), { ...data, createdAt: now });
+      } else if (editingDriveLink) {
+        console.error("UPDATE ATTEMPT FAILED: editingDriveLink.id is invalid. editingDriveLink object:", editingDriveLink);
+        toast({ title: "Update Error", description: "Cannot update link: Invalid or missing link ID.", variant: "destructive" });
+      }
+      else {
+        await addDoc(collection(db, "sheet5B7SDriveLinks"), { ...driveLinkDataToSave, createdAt: now });
         toast({ title: "Drive Link Added" });
       }
       setIsDriveLinkDialogOpen(false); resetDriveLinkForm();
-    } catch (err) { toast({ title: "Save Error", description: "Could not save drive link.", variant: "destructive" }); }
+    } catch (err) { 
+        console.error("Error saving drive link:", err);
+        toast({ title: "Save Error", description: `Could not save drive link. ${err instanceof Error ? err.message : 'Unknown error'}`, variant: "destructive" }); 
+    }
   };
 
   // --- Delete Handlers ---
