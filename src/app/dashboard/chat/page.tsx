@@ -9,11 +9,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { MessageSquare, Send, Users, CornerDownLeft, Briefcase, Loader2, PlusCircle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MessageSquare, Send, Users, Briefcase, Hash, Megaphone, Loader2, PlusCircle, Tag } from "lucide-react"; // Added Tag
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { rtdb } from '@/lib/firebase';
-import { ref, onValue, push, serverTimestamp, query, orderByChild, equalTo, get, off, set } from 'firebase/database'; // Added set
+import { ref, onValue, push, serverTimestamp, query, orderByChild, equalTo, get, off, set } from 'firebase/database';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
@@ -29,13 +30,22 @@ interface Message {
 interface Channel {
   id: string;
   name: string;
-  icon: React.ElementType; 
   createdBy?: string;
   createdAt?: number;
-  iconName?: string; // To store the icon identifier if needed
+  iconName?: string; 
 }
 
-const defaultChannelIcon = MessageSquare;
+// Define available icons and a default
+const availableIcons: Record<string, React.ElementType> = {
+  MessageSquare,
+  Users,
+  Briefcase,
+  Hash,
+  Megaphone,
+  Tag, // Added Tag as an option
+};
+const defaultIconName = "MessageSquare";
+
 
 export default function TeamChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -49,6 +59,8 @@ export default function TeamChatPage() {
 
   const [isCreateChannelDialogOpen, setIsCreateChannelDialogOpen] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");
+  const [newChannelIconName, setNewChannelIconName] = useState<string>(defaultIconName);
+
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { user: currentUser, username: currentUsername } = useAuth();
@@ -64,15 +76,13 @@ export default function TeamChatPage() {
       const fetchedChannels: Channel[] = [];
       if (channelsData) {
         for (const id in channelsData) {
-          // Assuming channelsData[id] is the channel object itself
           if (channelsData[id] && typeof channelsData[id].name === 'string') {
             fetchedChannels.push({ 
               id, 
               name: channelsData[id].name, 
-              icon: defaultChannelIcon, // Or map channelsData[id].iconName to an icon component
               createdBy: channelsData[id].createdBy,
               createdAt: channelsData[id].createdAt,
-              iconName: channelsData[id].iconName,
+              iconName: channelsData[id].iconName || defaultIconName,
             });
           } else {
             console.warn("Malformed channel data for ID:", id, channelsData[id]);
@@ -86,11 +96,11 @@ export default function TeamChatPage() {
             const generalChannelRefNew = ref(rtdb, `chatChannelsList/${generalKey}`);
             get(generalChannelRefNew).then((snap) => {
                 if (!snap.exists()) {
-                    set(generalChannelRefNew, { // Use set here
+                    set(generalChannelRefNew, { 
                         name: "General",
                         createdBy: "system",
                         createdAt: serverTimestamp(),
-                        iconName: "MessageSquare" 
+                        iconName: defaultIconName 
                     }).catch(err => console.error("Failed to create default general channel with set", err));
                 }
             });
@@ -111,7 +121,7 @@ export default function TeamChatPage() {
     });
 
     return () => unsubscribeChannels();
-  }, [toast]);
+  }, [toast]); // activeChannelId removed from deps to avoid re-fetch on channel switch if not needed
 
 
   useEffect(() => {
@@ -140,10 +150,6 @@ export default function TeamChatPage() {
     });
 
     return () => {
-      // Detach the listener for the specific channel path
-      // `off(messagesRef)` might need the event type if it was specified with `on`
-      // For `onValue`, just the ref is typically fine, or `off(messagesRef, 'value', callbackFunction)`
-      // Simpler to just detach all listeners on the ref if it's the only one.
       off(messagesRef);
     };
 
@@ -197,18 +203,19 @@ export default function TeamChatPage() {
 
     try {
       const channelsListRef = ref(rtdb, 'chatChannelsList');
-      const newChannelNodeRef = push(channelsListRef); // Generates a unique ID for the new channel node
+      const newChannelNodeRef = push(channelsListRef); 
 
-      await set(newChannelNodeRef, { // Use set() to place the data directly at the generated ID
+      await set(newChannelNodeRef, { 
         name: trimmedChannelName,
         createdBy: currentUser.uid,
         createdAt: serverTimestamp(),
-        iconName: "MessageSquare" // default icon identifier
+        iconName: newChannelIconName || defaultIconName 
       });
 
       toast({ title: "Channel Created", description: `Channel "${trimmedChannelName}" created successfully.` });
       setIsCreateChannelDialogOpen(false);
       setNewChannelName("");
+      setNewChannelIconName(defaultIconName); 
       if (newChannelNodeRef.key) {
         setActiveChannelId(newChannelNodeRef.key); 
       }
@@ -225,7 +232,10 @@ export default function TeamChatPage() {
     }
   }, [messages]);
 
-  const activeChannelName = allChannels.find(c => c.id === activeChannelId)?.name || "Team Chat";
+  const activeChannelData = allChannels.find(c => c.id === activeChannelId);
+  const activeChannelName = activeChannelData?.name || "Team Chat";
+  const ActiveChannelIcon = availableIcons[activeChannelData?.iconName || defaultIconName] || availableIcons[defaultIconName];
+
 
   return (
     <div className="h-[calc(100vh-120px)] flex flex-col md:flex-row gap-4">
@@ -235,7 +245,13 @@ export default function TeamChatPage() {
             <CardTitle className="flex items-center gap-2 text-foreground text-lg"><Users className="h-5 w-5 text-primary"/>Channels</CardTitle>
             <CardDescription className="text-xs">Select or create a channel.</CardDescription>
           </div>
-          <Dialog open={isCreateChannelDialogOpen} onOpenChange={setIsCreateChannelDialogOpen}>
+          <Dialog open={isCreateChannelDialogOpen} onOpenChange={(isOpen) => {
+            setIsCreateChannelDialogOpen(isOpen);
+            if (!isOpen) {
+              setNewChannelName("");
+              setNewChannelIconName(defaultIconName);
+            }
+          }}>
             <DialogTrigger asChild>
               <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" title="Create New Channel">
                 <PlusCircle className="h-4 w-4" />
@@ -244,7 +260,7 @@ export default function TeamChatPage() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Create New Channel</DialogTitle>
-                <DialogDescription>Enter a name for your new chat channel.</DialogDescription>
+                <DialogDescription>Enter a name and select an icon for your new chat channel.</DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateChannel} className="space-y-4 py-2">
                 <div>
@@ -257,6 +273,27 @@ export default function TeamChatPage() {
                     required 
                   />
                 </div>
+                <div>
+                  <Label htmlFor="new-channel-icon">Channel Icon</Label>
+                  <Select
+                    value={newChannelIconName}
+                    onValueChange={(value) => setNewChannelIconName(value)}
+                  >
+                    <SelectTrigger id="new-channel-icon">
+                      <SelectValue placeholder="Select an icon" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(availableIcons).map(([name, IconComponent]) => (
+                        <SelectItem key={name} value={name}>
+                          <div className="flex items-center gap-2">
+                            <IconComponent className="h-4 w-4" />
+                            {name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <DialogFooter>
                   <DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose>
                   <Button type="submit">Create Channel</Button>
@@ -265,7 +302,7 @@ export default function TeamChatPage() {
             </DialogContent>
           </Dialog>
         </CardHeader>
-        <CardContent className="p-0 pt-1 flex-grow"> {/* Changed from pt-px to pt-1 */}
+        <CardContent className="p-0 pt-1 flex-grow">
           <ScrollArea className="h-full">
             {isLoadingChannels ? (
                 <div className="p-3 text-center text-muted-foreground">Loading channels...</div>
@@ -274,7 +311,7 @@ export default function TeamChatPage() {
             ) : (
                 <nav className="p-1.5 space-y-0.5">
                 {allChannels.map(channel => {
-                  const IconComponent = channel.icon || defaultChannelIcon;
+                  const IconComponent = availableIcons[channel.iconName || defaultIconName] || availableIcons[defaultIconName];
                   return (
                   <Button
                     key={channel.id}
@@ -297,7 +334,7 @@ export default function TeamChatPage() {
       <Card className="w-full md:w-3/4 shadow-lg flex flex-col h-full">
         <CardHeader className="border-b p-3">
           <CardTitle className="flex items-center gap-2 text-foreground text-lg">
-            <MessageSquare className="h-5 w-5 text-primary" /> 
+            <ActiveChannelIcon className="h-5 w-5 text-primary" /> 
             {activeChannelName}
           </CardTitle>
           <CardDescription className="text-xs">Real-time communication for {activeChannelName}.</CardDescription>
