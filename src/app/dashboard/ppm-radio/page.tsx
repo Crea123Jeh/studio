@@ -3,10 +3,12 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioTower } from "lucide-react";
 
-// Example Spotify Playlist URI (Chill Vibes)
-const spotifyPlaylistUri = "spotify:playlist:37i9dQZF1DX6VdMW310YC7";
-// Convert URI to embed URL
-const embedUrl = `https://open.spotify.com/embed/playlist/${spotifyPlaylistUri.split(':')[2]}`;
+// New Spotify Playlist URL provided by user
+const spotifyPlaylistUrl = "https://open.spotify.com/playlist/7vTZEzNyiocYAzkqHVnnWX";
+// Extract playlist ID from the URL
+const playlistId = spotifyPlaylistUrl.substring(spotifyPlaylistUrl.lastIndexOf('/') + 1).split('?')[0];
+// Construct the embed URL
+const embedUrl = `https://open.spotify.com/embed/playlist/${playlistId}`;
 
 export default function PpmRadioPage() {
   return (
@@ -17,8 +19,10 @@ export default function PpmRadioPage() {
       </div>
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle>PPM Radio Stream</CardTitle>
-          <CardDescription>Tune in to a curated Spotify playlist. Use the controls in the player to play, pause, and shuffle.</CardDescription>
+          <CardTitle>PPM Radio Stream - Lofi Beats</CardTitle>
+          <CardDescription>
+            Tune in to a curated lofi playlist from Spotify. Use the controls within the player below.
+          </CardDescription>
         </CardHeader>
         <CardContent className="aspect-video md:aspect-[16/6]">
           <iframe
@@ -40,8 +44,8 @@ export default function PpmRadioPage() {
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground space-y-2">
             <p>Press the play button on the Spotify player above to start listening.</p>
-            <p>The player has standard Spotify controls, including options for shuffle and repeat, which you can find within the player interface.</p>
-            <p>If you want to change the playlist, you would need to update the playlist ID in the code for this page.</p>
+            <p>The player has standard Spotify controls, including options for shuffle, repeat, and **volume adjustment**, which you can find within the player interface itself.</p>
+            <p>The playlist is provided by Spotify. If you want to change the playlist, the playlist ID in the code for this page would need to be updated.</p>
         </CardContent>
       </Card>
     </div>
