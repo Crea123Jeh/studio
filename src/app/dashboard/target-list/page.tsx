@@ -84,9 +84,9 @@ export default function TargetListPage() {
   const handleOpenFormDialog = (entry: TargetListEntry | null = null) => {
     if (entry) {
       setEditingEntry(entry);
-      setTargetName(entry.targetName);
-      setDescription(entry.description);
-      setFollowUpAssignment(entry.followUpAssignment);
+      setTargetName(entry.targetName || "");
+      setDescription(entry.description || "");
+      setFollowUpAssignment(entry.followUpAssignment || "");
       setStatus(entry.status);
     } else {
       resetForm();
@@ -133,7 +133,6 @@ export default function TargetListPage() {
     }
   };
 
-  // This function remains for potential future use or direct calls if needed, but UI won't call it directly.
   const handleDeleteEntry = async (entryId: string) => {
     if (!window.confirm("Are you sure you want to delete this target entry? This action cannot be undone.")) {
       return;
@@ -237,15 +236,15 @@ export default function TargetListPage() {
               <div className="grid gap-4 py-4 pr-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="targetName" className="text-right">Target Name</Label>
-                  <Input id="targetName" value={targetName} onChange={(e) => setTargetName(e.target.value)} className="col-span-3" required placeholder="e.g., John Doe / Project X" />
+                  <Input id="targetName" value={targetName ?? ""} onChange={(e) => setTargetName(e.target.value)} className="col-span-3" required placeholder="e.g., John Doe / Project X" />
                 </div>
                 <div className="grid grid-cols-4 items-start gap-4">
                   <Label htmlFor="description" className="text-right pt-2">Description</Label>
-                  <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} className="col-span-3" rows={3} required placeholder="Reason for targeting, initial observations..." />
+                  <Textarea id="description" value={description ?? ""} onChange={(e) => setDescription(e.target.value)} className="col-span-3" rows={3} required placeholder="Reason for targeting, initial observations..." />
                 </div>
                 <div className="grid grid-cols-4 items-start gap-4">
                   <Label htmlFor="followUpAssignment" className="text-right pt-2">Follow-up Assignment</Label>
-                  <Textarea id="followUpAssignment" value={followUpAssignment} onChange={(e) => setFollowUpAssignment(e.target.value)} className="col-span-3" rows={3} required placeholder="Next steps, tasks, or assignment details..." />
+                  <Textarea id="followUpAssignment" value={followUpAssignment ?? ""} onChange={(e) => setFollowUpAssignment(e.target.value)} className="col-span-3" rows={3} required placeholder="Next steps, tasks, or assignment details..." />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="status" className="text-right">Status</Label>
@@ -281,3 +280,4 @@ export default function TargetListPage() {
     </div>
   );
 }
+

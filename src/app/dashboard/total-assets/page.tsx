@@ -102,9 +102,9 @@ export default function TotalAssetsPage() {
   const handleOpenFormDialog = (asset: AssetItem | null = null) => {
     if (asset) {
       setEditingAsset(asset);
-      setFormTitle(asset.title);
-      setFormDescription(asset.description);
-      setFormAmount(asset.amount.toString()); // Convert number to string for input
+      setFormTitle(asset.title || "");
+      setFormDescription(asset.description || "");
+      setFormAmount(asset.amount.toString()); 
       setFormDateAcquired(asset.dateAcquired.toDate());
     } else {
       resetForm();
@@ -146,7 +146,7 @@ export default function TotalAssetsPage() {
         await updateDoc(assetRef, assetData as Partial<AssetItem>);
         toast({ title: "Asset Updated", description: `"${formTitle}" has been updated.` });
       } else {
-        assetData.createdAt = now; // Set createdAt only for new items
+        assetData.createdAt = now; 
         await addDoc(collection(db, "assetItems"), assetData);
         toast({ title: "Asset Added", description: `"${formTitle}" has been added.` });
       }
@@ -292,29 +292,26 @@ export default function TotalAssetsPage() {
               <div className="grid gap-4 py-4 pr-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="formTitle" className="text-right">Title</Label>
-                  <Input id="formTitle" value={formTitle} onChange={(e) => setFormTitle(e.target.value)} className="col-span-3" placeholder="e.g., Office Laptop" required />
+                  <Input id="formTitle" value={formTitle ?? ""} onChange={(e) => setFormTitle(e.target.value)} className="col-span-3" placeholder="e.g., Office Laptop" required />
                 </div>
                 <div className="grid grid-cols-4 items-start gap-4">
                   <Label htmlFor="formDescription" className="text-right pt-2">Description</Label>
-                  <Textarea id="formDescription" value={formDescription} onChange={(e) => setFormDescription(e.target.value)} className="col-span-3" rows={3} placeholder="Detailed description of the asset..." required />
+                  <Textarea id="formDescription" value={formDescription ?? ""} onChange={(e) => setFormDescription(e.target.value)} className="col-span-3" rows={3} placeholder="Detailed description of the asset..." required />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="formAmount" className="text-right">Amount (Rp.)</Label>
                   <Input 
                     id="formAmount" 
-                    value={formAmount} 
+                    value={formAmount ?? ""} 
                     onChange={(e) => {
-                      // Allow only numbers and format as Rp.
                       const rawValue = e.target.value.replace(/[^0-9]/g, '');
                       setFormAmount(rawValue);
                     }}
                     onBlur={(e) => {
-                       // Format on blur if needed, or rely on display formatting
                        const numericValue = parseCurrency(e.target.value);
                        if (!isNaN(numericValue) && numericValue > 0) {
-                           setFormAmount(numericValue.toString()); // Store as plain number string or formatted for next focus
+                           setFormAmount(numericValue.toString()); 
                        } else if (e.target.value.trim() !== "") {
-                           // Optionally clear or reformat if invalid on blur
                        }
                     }}
                     className="col-span-3" 

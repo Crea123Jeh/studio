@@ -75,13 +75,12 @@ interface ProjectData {
   status: typeof projectStatusOptions[number];
   startDate: Timestamp;
   endDate: Timestamp | null;
-  budget?: number; // Made optional as per Zod transform
+  budget?: number; 
   managerId?: string;
   managerName?: string;
   spent?: number; 
   createdAt: Timestamp;
   lastUpdatedAt: Timestamp;
-  // uploadedFiles was removed, so no longer part of this interface for active projects
 }
 
 interface TaskData {
@@ -90,7 +89,7 @@ interface TaskData {
   title: string;
   description?: string;
   status: typeof taskStatusOptions[number];
-  dueDate: Timestamp; // Will store combined date and time
+  dueDate: Timestamp; 
   createdAt: Timestamp;
   lastUpdatedAt: Timestamp;
 }
@@ -99,7 +98,7 @@ interface UpdateNoteData {
   id: string;
   projectId: string;
   note: string;
-  date: Timestamp; // Will store combined date and time
+  date: Timestamp; 
   authorId?: string;
   authorName?: string;
   createdAt: Timestamp;
@@ -251,8 +250,8 @@ export default function ProjectInfoPage() {
     setEditingProject(projectToEdit);
     if (projectToEdit) {
       projectForm.reset({
-        name: projectToEdit.name,
-        description: projectToEdit.description,
+        name: projectToEdit.name || "",
+        description: projectToEdit.description || "",
         status: projectToEdit.status,
         startDate: projectToEdit.startDate.toDate(),
         endDate: projectToEdit.endDate ? projectToEdit.endDate.toDate() : null,
@@ -338,17 +337,16 @@ export default function ProjectInfoPage() {
       const archivedProjectPayload = {
         name: selectedProject.name,
         description: selectedProject.description,
-        status: selectedProject.status, // Preserve original status
+        status: selectedProject.status, 
         startDate: selectedProject.startDate,
         endDate: selectedProject.endDate ?? null,
         budget: selectedProject.budget ?? 0,
         managerId: selectedProject.managerId ?? null,
         managerName: selectedProject.managerName ?? null,
         spent: selectedProject.spent ?? null,
-        createdAt: selectedProject.createdAt, // Original creation date
-        lastUpdatedAt: selectedProject.lastUpdatedAt, // Original last update date
-        archivedAt: Timestamp.now(), // New field for when it was archived
-        // uploadedFiles: selectedProject.uploadedFiles ?? [], // Assuming uploadedFiles might exist on ProjectData or selectedProject
+        createdAt: selectedProject.createdAt, 
+        lastUpdatedAt: selectedProject.lastUpdatedAt, 
+        archivedAt: Timestamp.now(), 
       };
       batch.set(projectToArchiveDocRef, archivedProjectPayload);
 
@@ -620,7 +618,7 @@ export default function ProjectInfoPage() {
                       </div>
                     </CardHeader>
                     <CardContent className="text-sm space-y-1">
-                      {task.description && <p className="text-muted-foreground whitespace-pre-wrap">{task.description}</p>}
+                      {task.description && <p className="text-muted-foreground whitespace-pre-wrap">{task.description ?? ""}</p>}
                        <p className="text-xs text-primary font-medium">
                         Due: {task.dueDate ? format(task.dueDate.toDate(), "PPPp") : "N/A"}
                       </p>
@@ -677,11 +675,11 @@ export default function ProjectInfoPage() {
           <DialogContent key={`${selectedProject?.id || 'new'}-task-dialog`}>
               <DialogHeader><DialogTitle>Add New Task</DialogTitle><DialogDescription>Fill in the details for the new task for {selectedProject?.name || "the current project"}.</DialogDescription></DialogHeader>
               <form onSubmit={taskForm.handleSubmit(onTaskSubmit)} className="space-y-4 py-4">
-                  <div><Label htmlFor="task-title">Title</Label><Controller name="title" control={taskForm.control} render={({ field }) => <Input id="task-title" {...field} placeholder="Task Title"/>} />{taskForm.formState.errors.title && <p className="text-xs text-destructive">{taskForm.formState.errors.title.message}</p>}</div>
-                  <div><Label htmlFor="task-description">Description (Optional)</Label><Controller name="description" control={taskForm.control} render={({ field }) => <Textarea id="task-description" {...field} placeholder="Describe the task..."/>} /></div>
+                  <div><Label htmlFor="task-title">Title</Label><Controller name="title" control={taskForm.control} render={({ field }) => <Input id="task-title" {...field} value={field.value ?? ""} placeholder="Task Title"/>} />{taskForm.formState.errors.title && <p className="text-xs text-destructive">{taskForm.formState.errors.title.message}</p>}</div>
+                  <div><Label htmlFor="task-description">Description (Optional)</Label><Controller name="description" control={taskForm.control} render={({ field }) => <Textarea id="task-description" {...field} value={field.value ?? ""} placeholder="Describe the task..."/>} /></div>
                   <div className="grid grid-cols-2 gap-4">
                     <div><Label htmlFor="task-dueDate">Due Date</Label><Controller name="dueDate" control={taskForm.control} render={({ field }) => (<Popover><PopoverTrigger asChild><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP") : <span>Pick date</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover>)} />{taskForm.formState.errors.dueDate && <p className="text-xs text-destructive">{taskForm.formState.errors.dueDate.message}</p>}</div>
-                    <div><Label htmlFor="task-dueTime">Due Time</Label><Controller name="dueTime" control={taskForm.control} render={({ field }) => <Input id="task-dueTime" type="time" {...field} />} />{taskForm.formState.errors.dueTime && <p className="text-xs text-destructive">{taskForm.formState.errors.dueTime.message}</p>}</div>
+                    <div><Label htmlFor="task-dueTime">Due Time</Label><Controller name="dueTime" control={taskForm.control} render={({ field }) => <Input id="task-dueTime" type="time" {...field} value={field.value ?? ""} />} />{taskForm.formState.errors.dueTime && <p className="text-xs text-destructive">{taskForm.formState.errors.dueTime.message}</p>}</div>
                   </div>
                   <div><Label htmlFor="task-status">Status</Label><Controller name="status" control={taskForm.control} render={({ field }) => (<Select onValueChange={field.onChange} value={field.value}><SelectTrigger id="task-status"><SelectValue /></SelectTrigger><SelectContent>{taskStatusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select>)} /></div>
                   <DialogFooter><DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose><Button type="submit" disabled={taskForm.formState.isSubmitting}>{taskForm.formState.isSubmitting ? "Adding..." : "Add Task"}</Button></DialogFooter>
@@ -693,10 +691,10 @@ export default function ProjectInfoPage() {
           <DialogContent key={`${selectedProject?.id || 'new'}-update-dialog`}> 
               <DialogHeader><DialogTitle>Add Project Update</DialogTitle><DialogDescription>Log an update for {selectedProject?.name || "the current project"}.</DialogDescription></DialogHeader>
               <form onSubmit={updateNoteForm.handleSubmit(onUpdateNoteSubmit)} className="space-y-4 py-4">
-                  <div><Label htmlFor="update-note">Update Note</Label><Controller name="note" control={updateNoteForm.control} render={({ field }) => <Textarea id="update-note" {...field} rows={4} placeholder="Describe the update..."/>} />{updateNoteForm.formState.errors.note && <p className="text-xs text-destructive">{updateNoteForm.formState.errors.note.message}</p>}</div>
+                  <div><Label htmlFor="update-note">Update Note</Label><Controller name="note" control={updateNoteForm.control} render={({ field }) => <Textarea id="update-note" {...field} value={field.value ?? ""} rows={4} placeholder="Describe the update..."/>} />{updateNoteForm.formState.errors.note && <p className="text-xs text-destructive">{updateNoteForm.formState.errors.note.message}</p>}</div>
                   <div className="grid grid-cols-2 gap-4">
                     <div><Label htmlFor="update-date">Effective Date</Label><Controller name="date" control={updateNoteForm.control} render={({ field }) => (<Popover><PopoverTrigger asChild><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP") : <span>Pick a date</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover>)} />{updateNoteForm.formState.errors.date && <p className="text-xs text-destructive">{updateNoteForm.formState.errors.date.message}</p>}</div>
-                    <div><Label htmlFor="update-time">Effective Time</Label><Controller name="time" control={updateNoteForm.control} render={({ field }) => <Input id="update-time" type="time" {...field} />} />{updateNoteForm.formState.errors.time && <p className="text-xs text-destructive">{updateNoteForm.formState.errors.time.message}</p>}</div>
+                    <div><Label htmlFor="update-time">Effective Time</Label><Controller name="time" control={updateNoteForm.control} render={({ field }) => <Input id="update-time" type="time" {...field} value={field.value ?? ""} />} />{updateNoteForm.formState.errors.time && <p className="text-xs text-destructive">{updateNoteForm.formState.errors.time.message}</p>}</div>
                   </div>
                   <DialogFooter><DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose><Button type="submit" disabled={updateNoteForm.formState.isSubmitting}>{updateNoteForm.formState.isSubmitting ? "Adding..." : "Add Update"}</Button></DialogFooter>
               </form>
@@ -709,10 +707,10 @@ export default function ProjectInfoPage() {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader> <DialogTitle>{editingProject ? "Edit Project" : "Add New Project"}</DialogTitle> <DialogDescription> {editingProject ? "Update the details of this project." : "Fill in the details for the new project."} </DialogDescription> </DialogHeader>
           <form onSubmit={projectForm.handleSubmit(onProjectSubmit)} className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
-            <div className="grid grid-cols-4 items-center gap-4"> <Label htmlFor="name" className="text-right">Name</Label> <Controller name="name" control={projectForm.control} render={({ field }) => <Input id="name" {...field} className="col-span-3" placeholder="Project Alpha"/>} /> {projectForm.formState.errors.name && <p className="col-span-4 text-right text-xs text-destructive">{projectForm.formState.errors.name.message}</p>} </div>
-            <div className="grid grid-cols-4 items-start gap-4"> <Label htmlFor="description" className="text-right pt-2">Description</Label> <Controller name="description" control={projectForm.control} render={({ field }) => <Textarea id="description" {...field} className="col-span-3" rows={3} placeholder="Briefly describe the project..."/>} /> {projectForm.formState.errors.description && <p className="col-span-4 text-right text-xs text-destructive">{projectForm.formState.errors.description.message}</p>} </div>
+            <div className="grid grid-cols-4 items-center gap-4"> <Label htmlFor="name" className="text-right">Name</Label> <Controller name="name" control={projectForm.control} render={({ field }) => <Input id="name" {...field} value={field.value ?? ""} className="col-span-3" placeholder="Project Alpha"/>} /> {projectForm.formState.errors.name && <p className="col-span-4 text-right text-xs text-destructive">{projectForm.formState.errors.name.message}</p>} </div>
+            <div className="grid grid-cols-4 items-start gap-4"> <Label htmlFor="description" className="text-right pt-2">Description</Label> <Controller name="description" control={projectForm.control} render={({ field }) => <Textarea id="description" {...field} value={field.value ?? ""} className="col-span-3" rows={3} placeholder="Briefly describe the project..."/>} /> {projectForm.formState.errors.description && <p className="col-span-4 text-right text-xs text-destructive">{projectForm.formState.errors.description.message}</p>} </div>
             <div className="grid grid-cols-4 items-center gap-4"> <Label htmlFor="status" className="text-right">Status</Label> <Controller name="status" control={projectForm.control} render={({ field }) => ( <Select onValueChange={field.onChange} value={field.value}> <SelectTrigger className="col-span-3" id="status"><SelectValue placeholder="Select status" /></SelectTrigger> <SelectContent> {projectStatusOptions.map(option => (<SelectItem key={option} value={option}>{option}</SelectItem>))} </SelectContent> </Select> )} /> {projectForm.formState.errors.status && <p className="col-span-4 text-right text-xs text-destructive">{projectForm.formState.errors.status.message}</p>} </div>
-            <div className="grid grid-cols-4 items-center gap-4"> <Label htmlFor="managerId" className="text-right">Manager</Label> <Controller name="managerId" control={projectForm.control} render={({ field }) => ( <Select onValueChange={field.onChange} value={field.value}> <SelectTrigger className="col-span-3" id="managerId"><SelectValue placeholder="Select manager" /></SelectTrigger> <SelectContent> {mockUsers.map(user => (<SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>))} </SelectContent> </Select> )} /> {projectForm.formState.errors.managerId && <p className="col-span-4 text-right text-xs text-destructive">{projectForm.formState.errors.managerId.message}</p>} </div>
+            <div className="grid grid-cols-4 items-center gap-4"> <Label htmlFor="managerId" className="text-right">Manager</Label> <Controller name="managerId" control={projectForm.control} render={({ field }) => ( <Select onValueChange={field.onChange} value={field.value ?? ""}> <SelectTrigger className="col-span-3" id="managerId"><SelectValue placeholder="Select manager" /></SelectTrigger> <SelectContent> {mockUsers.map(user => (<SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>))} </SelectContent> </Select> )} /> {projectForm.formState.errors.managerId && <p className="col-span-4 text-right text-xs text-destructive">{projectForm.formState.errors.managerId.message}</p>} </div>
             <div className="grid grid-cols-4 items-center gap-4"> <Label htmlFor="startDate" className="text-right">Start Date</Label> <Controller name="startDate" control={projectForm.control} render={({ field }) => ( <Popover><PopoverTrigger asChild><Button variant="outline" className={cn("col-span-3 justify-start text-left font-normal", !field.value && "text-muted-foreground")}> <CalendarIcon className="mr-2 h-4 w-4" /> {field.value ? format(field.value, "PPP") : <span>Pick start date</span>} </Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover> )} /> {projectForm.formState.errors.startDate && <p className="col-span-4 text-right text-xs text-destructive">{projectForm.formState.errors.startDate.message}</p>} </div>
             <div className="grid grid-cols-4 items-center gap-4"> <Label htmlFor="endDate" className="text-right">End Date</Label> <Controller name="endDate" control={projectForm.control} render={({ field }) => ( <Popover><PopoverTrigger asChild><Button variant="outline" className={cn("col-span-3 justify-start text-left font-normal", !field.value && "text-muted-foreground")}> <CalendarIcon className="mr-2 h-4 w-4" /> {field.value ? format(field.value, "PPP") : <span className="text-muted-foreground">Pick end date (optional)</span>} </Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value ?? undefined} onSelect={field.onChange} /></PopoverContent></Popover> )} /> {projectForm.formState.errors.endDate && <p className="col-span-4 text-right text-xs text-destructive">{projectForm.formState.errors.endDate.message}</p>} </div>
             <div className="grid grid-cols-4 items-center gap-4"> <Label htmlFor="budget" className="text-right">Budget ($)</Label> <Controller name="budget" control={projectForm.control} render={({ field }) => <Input id="budget" type="text" {...field} value={field.value === undefined ? "" : String(field.value)} onChange={e => { const value = e.target.value.replace(/[^0-9.]/g, ''); field.onChange(value === '' ? undefined : value);}} className="col-span-3" placeholder="e.g., 50000 (defaults to 0)"/>} /> {projectForm.formState.errors.budget && <p className="col-span-4 text-right text-xs text-destructive">{projectForm.formState.errors.budget.message}</p>} </div>
@@ -757,3 +755,4 @@ export default function ProjectInfoPage() {
     </div>
   );
 }
+

@@ -29,9 +29,9 @@ interface BaseEntry {
 
 interface TeacherEntry extends BaseEntry {
   name: string;
-  subject?: string; // Represents "Teaching"
+  subject?: string; 
   email?: string;
-  password?: string; // SECURITY WARNING: Storing plain text passwords is not recommended
+  password?: string; 
 }
 
 interface StudentEntry extends BaseEntry {
@@ -186,7 +186,7 @@ export default function Sheet5B7SPage() {
         name: teacherName,
         subject: teacherSubject,
         email: teacherEmail,
-        password: teacherPassword, // Store password as is - REMEMBER SECURITY WARNING
+        password: teacherPassword, 
         lastUpdatedAt: now
     };
     try {
@@ -270,7 +270,7 @@ export default function Sheet5B7SPage() {
     }
     processed.sort((a, b) => {
       if (sortOrder === "alphabetical") return (a[nameKey] as string)?.localeCompare(b[nameKey]as string) || 0;
-      const timeA = a.createdAt.toMillis(); // Sort by createdAt for "oldest/newest added"
+      const timeA = a.createdAt.toMillis(); 
       const timeB = b.createdAt.toMillis();
       return sortOrder === "newest" ? timeB - timeA : timeA - timeB;
     });
@@ -442,10 +442,10 @@ export default function Sheet5B7SPage() {
         <DialogContent>
           <DialogHeader><DialogTitle>{editingTeacher ? "Edit Teacher" : "Add New Teacher"}</DialogTitle></DialogHeader>
           <form onSubmit={handleSaveTeacher} className="space-y-4 py-2">
-            <div><Label htmlFor="teacher-name">Name</Label><Input id="teacher-name" value={teacherName} onChange={e => setTeacherName(e.target.value)} required /></div>
-            <div><Label htmlFor="teacher-subject">Teaching (Subject)</Label><Input id="teacher-subject" value={teacherSubject} onChange={e => setTeacherSubject(e.target.value)} /></div>
-            <div><Label htmlFor="teacher-email">Email</Label><Input id="teacher-email" type="email" value={teacherEmail} onChange={e => setTeacherEmail(e.target.value)} /></div>
-            <div><Label htmlFor="teacher-password">Password</Label><Input id="teacher-password" type="password" value={teacherPassword} onChange={e => setTeacherPassword(e.target.value)} />
+            <div><Label htmlFor="teacher-name">Name</Label><Input id="teacher-name" value={teacherName ?? ""} onChange={e => setTeacherName(e.target.value)} required /></div>
+            <div><Label htmlFor="teacher-subject">Teaching (Subject)</Label><Input id="teacher-subject" value={teacherSubject ?? ""} onChange={e => setTeacherSubject(e.target.value)} /></div>
+            <div><Label htmlFor="teacher-email">Email</Label><Input id="teacher-email" type="email" value={teacherEmail ?? ""} onChange={e => setTeacherEmail(e.target.value)} /></div>
+            <div><Label htmlFor="teacher-password">Password</Label><Input id="teacher-password" type="password" value={teacherPassword ?? ""} onChange={e => setTeacherPassword(e.target.value)} />
             <p className="text-xs text-muted-foreground mt-1">Note: Passwords are not stored securely in this prototype. Do not use real passwords.</p></div>
             <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose><Button type="submit">Save</Button></DialogFooter>
           </form>
@@ -457,9 +457,9 @@ export default function Sheet5B7SPage() {
         <DialogContent>
           <DialogHeader><DialogTitle>{editingStudent ? "Edit Student" : "Add New Student"}</DialogTitle></DialogHeader>
           <form onSubmit={handleSaveStudent} className="space-y-4 py-2">
-            <div><Label htmlFor="student-name">Name</Label><Input id="student-name" value={studentName} onChange={e => setStudentName(e.target.value)} required /></div>
-            <div><Label htmlFor="student-grade">Grade</Label><Input id="student-grade" value={studentGrade} onChange={e => setStudentGrade(e.target.value)} /></div>
-            <div><Label htmlFor="student-notes">Notes</Label><Textarea id="student-notes" value={studentNotes} onChange={e => setStudentNotes(e.target.value)} /></div>
+            <div><Label htmlFor="student-name">Name</Label><Input id="student-name" value={studentName ?? ""} onChange={e => setStudentName(e.target.value)} required /></div>
+            <div><Label htmlFor="student-grade">Grade</Label><Input id="student-grade" value={studentGrade ?? ""} onChange={e => setStudentGrade(e.target.value)} /></div>
+            <div><Label htmlFor="student-notes">Notes</Label><Textarea id="student-notes" value={studentNotes ?? ""} onChange={e => setStudentNotes(e.target.value)} /></div>
             <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose><Button type="submit">Save</Button></DialogFooter>
           </form>
         </DialogContent>
@@ -470,15 +470,15 @@ export default function Sheet5B7SPage() {
         <DialogContent>
           <DialogHeader><DialogTitle>{editingDriveLink ? "Edit Drive Link" : "Add New Drive Link"}</DialogTitle></DialogHeader>
           <form onSubmit={handleSaveDriveLink} className="space-y-4 py-2">
-            <div><Label htmlFor="drive-title">Title</Label><Input id="drive-title" value={driveLinkTitle} onChange={e => setDriveLinkTitle(e.target.value)} required /></div>
-            <div><Label htmlFor="drive-url">URL</Label><Input id="drive-url" type="url" value={driveLinkUrl} onChange={e => setDriveLinkUrl(e.target.value)} required placeholder="https://example.com" /></div>
+            <div><Label htmlFor="drive-title">Title</Label><Input id="drive-title" value={driveLinkTitle ?? ""} onChange={e => setDriveLinkTitle(e.target.value)} required /></div>
+            <div><Label htmlFor="drive-url">URL</Label><Input id="drive-url" type="url" value={driveLinkUrl ?? ""} onChange={e => setDriveLinkUrl(e.target.value)} required placeholder="https://example.com" /></div>
             <div><Label htmlFor="drive-category">Category</Label>
               <Select value={driveLinkCategory} onValueChange={(val) => setDriveLinkCategory(val)}>
                 <SelectTrigger><SelectValue placeholder="Select category..." /></SelectTrigger>
                 <SelectContent>{driveLinkCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div><Label htmlFor="drive-description">Description</Label><Textarea id="drive-description" value={driveLinkDescription} onChange={e => setDriveLinkDescription(e.target.value)} /></div>
+            <div><Label htmlFor="drive-description">Description</Label><Textarea id="drive-description" value={driveLinkDescription ?? ""} onChange={e => setDriveLinkDescription(e.target.value)} /></div>
             <DialogFooter><DialogClose asChild><Button type="button" variant="outline">Cancel</Button></DialogClose><Button type="submit">Save</Button></DialogFooter>
           </form>
         </DialogContent>
