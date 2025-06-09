@@ -264,7 +264,7 @@ export default function LatihanSoalSigmaPage() {
                   <TableCell>
                     <Badge className={cn("flex items-center gap-1", getStatusBadgeVariant(item.status, item.hasPassed))}>
                         {item.status === "Grabbing" && !item.hasPassed && <Loader2 className="h-3 w-3 animate-spin" />}
-                        {item.hasPassed ? "Unavailable (Passed)" : item.status}
+                        {item.hasPassed ? "Passed (Not Yet Deleted)" : item.status}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground max-w-xs truncate hidden md:table-cell">{item.teacher}</TableCell>
