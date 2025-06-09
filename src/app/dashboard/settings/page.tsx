@@ -1,15 +1,36 @@
 
 "use client";
 
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+import { Input } from "@/components/ui/input"; // Input is not used, but kept for consistency
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Settings, Bell, Palette, Shield } from "lucide-react";
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 export default function SettingsPage() {
+  const { theme, toggleTheme } = useAuth();
+  const { toast } = useToast();
+
+  // Local state for UI toggles; in a real app, these would sync with user preferences in a database
+  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(true);
+  const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState(false);
+  const [notificationFrequency, setNotificationFrequency] = useState("immediately");
+
+  const handleNotificationSettingChange = (type: string, value: boolean | string) => {
+    // In a real app, you'd save this preference to Firestore or your backend.
+    // For example: updateUserPreferences({ [type]: value });
+    toast({
+      title: "Preference Updated (UI Demo)",
+      description: `${type.replace(/([A-Z])/g, ' $1').trim()} setting changed to ${value}. Backend integration needed for full functionality.`,
+    });
+  };
+
+
   return (
     <div className="space-y-8 max-w-3xl mx-auto">
       <div className="flex items-center gap-3">
@@ -20,20 +41,40 @@ export default function SettingsPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><Bell className="h-5 w-5 text-primary"/>Notifications</CardTitle>
-          <CardDescription>Manage your notification preferences.</CardDescription>
+          <CardDescription>Manage your notification preferences. (UI Demo - Backend Required)</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex items-center justify-between space-x-2 p-3 border rounded-md">
             <Label htmlFor="email-notifications" className="font-medium">Email Notifications</Label>
-            <Switch id="email-notifications" defaultChecked />
+            <Switch 
+              id="email-notifications" 
+              checked={emailNotificationsEnabled}
+              onCheckedChange={(checked) => {
+                setEmailNotificationsEnabled(checked);
+                handleNotificationSettingChange('Email Notifications', checked);
+              }}
+            />
           </div>
           <div className="flex items-center justify-between space-x-2 p-3 border rounded-md">
             <Label htmlFor="push-notifications" className="font-medium">Push Notifications</Label>
-            <Switch id="push-notifications" />
+            <Switch 
+              id="push-notifications" 
+              checked={pushNotificationsEnabled}
+              onCheckedChange={(checked) => {
+                setPushNotificationsEnabled(checked);
+                handleNotificationSettingChange('Push Notifications', checked);
+              }}
+            />
           </div>
           <div className="space-y-2 p-3 border rounded-md">
             <Label htmlFor="notification-frequency" className="font-medium block mb-1">Notification Frequency</Label>
-            <Select defaultValue="immediately">
+            <Select 
+              value={notificationFrequency} 
+              onValueChange={(value) => {
+                setNotificationFrequency(value);
+                handleNotificationSettingChange('Notification Frequency', value);
+              }}
+            >
               <SelectTrigger id="notification-frequency" className="w-full md:w-[280px]">
                 <SelectValue placeholder="Select frequency" />
               </SelectTrigger>
@@ -41,9 +82,10 @@ export default function SettingsPage() {
                 <SelectItem value="immediately">Immediately</SelectItem>
                 <SelectItem value="daily_digest">Daily Digest</SelectItem>
                 <SelectItem value="weekly_summary">Weekly Summary</SelectItem>
-                <SelectItem value="never">Never</SelectItem>
+                <SelectItem value="never">Never (UI Demo)</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">Note: Actual email/push notification delivery requires backend setup.</p>
           </div>
         </CardContent>
       </Card>
@@ -56,11 +98,13 @@ export default function SettingsPage() {
         <CardContent className="space-y-6">
           <div className="flex items-center justify-between space-x-2 p-3 border rounded-md">
             <Label htmlFor="dark-mode" className="font-medium">Dark Mode</Label>
-            {/* Dark mode switch can be implemented with theme context or library */}
-            <Switch id="dark-mode" disabled aria-describedby="dark-mode-description"/>
+            <Switch 
+              id="dark-mode" 
+              checked={theme === 'dark'}
+              onCheckedChange={toggleTheme}
+            />
           </div>
-            <p id="dark-mode-description" className="text-xs text-muted-foreground -mt-5 ml-3">Dark mode toggle is currently disabled.</p>
-
+            
           <div className="space-y-2 p-3 border rounded-md">
             <Label htmlFor="theme-color" className="font-medium block mb-1">Theme Accent Color</Label>
              <Select defaultValue="default_yellow" disabled>
@@ -74,7 +118,7 @@ export default function SettingsPage() {
                 <SelectItem value="purple">Royal Purple</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">Theme customization is currently unavailable.</p>
+            <p className="text-xs text-muted-foreground">Theme accent color customization is currently unavailable.</p>
           </div>
         </CardContent>
       </Card>
