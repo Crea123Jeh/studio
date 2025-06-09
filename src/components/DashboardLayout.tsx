@@ -2,7 +2,7 @@
 "use client";
 
 import type { ReactNode } from 'react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -33,7 +33,7 @@ import {
   ShieldAlert,
   Crosshair,
   Archive as ArchiveIcon,
-  ClipboardList // Changed from Network
+  ClipboardList
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -53,11 +53,10 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarInset,
   SidebarTrigger,
   useSidebar,
   SidebarSeparator,
-} from '@/components/ui/sidebar';
+} from '@/components/ui/sidebar'; // Removed SidebarInset as it's used differently below
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
@@ -84,7 +83,7 @@ const mainNavItems: NavItem[] = [
   { href: '/dashboard/chat', label: 'Team Chat', icon: MessageSquare },
   { href: '/dashboard/information', label: 'Information', icon: Info },
   { href: '/dashboard/knowledge', label: 'Knowledge Hub', icon: BookOpen },
-  { href: '/dashboard/lss', label: 'Latihan Soal Sigma', icon: ClipboardList }, // Updated Label and Icon
+  { href: '/dashboard/lss', label: 'Latihan Soal Sigma', icon: ClipboardList },
   { href: '/dashboard/total-assets', label: 'Total Assets', icon: Package },
   { href: '/dashboard/sheet-5b7s', label: 'Sheet 5B7S', icon: FileSpreadsheet },
   { href: '/dashboard/ppm-radio', label: 'PPM Radio', icon: RadioTower },
@@ -97,7 +96,7 @@ const bottomNavItems: NavItem[] = [
 
 interface NotificationItem {
   id: string;
-  type: 'project' | 'task' | 'alert' | 'message' | 'generic';
+  type: 'project' | 'task' | 'alert' | 'message' | 'generic' | 'birthday' | 'academic' | 'info' | 'chat';
   message: string;
   link?: string;
   timestamp: Date;
@@ -116,8 +115,7 @@ const initialMockNotifications: NotificationItem[] = [
 
 function AppSidebar() {
   const pathname = usePathname();
-  const { user, username, loading, signOut } = useAuth();
-  const router = useRouter();
+  const { signOut, loading } = useAuth(); // Removed user and username as they are used in Header
 
   if (loading) {
     return (
@@ -198,26 +196,18 @@ function AppSidebar() {
   );
 }
 
-function Header() {
+interface HeaderProps {
+  notifications: NotificationItem[];
+  unreadCount: number;
+  onMarkAsRead: (id: string, link?: string) => void;
+  onMarkAllAsRead: () => void;
+  // addNotification: (notificationData: Omit<NotificationItem, 'id' | 'timestamp' | 'read'>) => void; // For potential future use
+}
+
+function Header({ notifications, unreadCount, onMarkAsRead, onMarkAllAsRead }: HeaderProps) {
   const { user, username, signOut, loading: authLoading } = useAuth();
   const router = useRouter();
   const { isMobile, toggleSidebar } = useSidebar();
-  const [notifications, setNotifications] = useState<NotificationItem[]>(initialMockNotifications);
-
-  const unreadCount = notifications.filter(n => !n.read).length;
-
-  const handleMarkAsRead = (id: string, link?: string) => {
-    setNotifications(prev =>
-      prev.map(n => (n.id === id ? { ...n, read: true } : n))
-    );
-    if (link) {
-      router.push(link);
-    }
-  };
-
-  const handleMarkAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  };
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/80 backdrop-blur-sm px-4 sm:px-6">
@@ -268,7 +258,7 @@ function Header() {
                         "flex items-start gap-3 p-3 cursor-pointer hover:bg-muted/80",
                         !notification.read && "bg-primary/10"
                       )}
-                      onClick={() => handleMarkAsRead(notification.id, notification.link)}
+                      onClick={() => onMarkAsRead(notification.id, notification.link)}
                     >
                       {!notification.read && <Circle className="h-2 w-2 mt-1.5 fill-primary text-primary flex-shrink-0" />}
                       {notification.read && <div className="w-2 h-2 mt-1.5 flex-shrink-0" />} 
@@ -288,12 +278,16 @@ function Header() {
               )}
             </ScrollArea>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleMarkAllAsRead} disabled={unreadCount === 0} className="cursor-pointer">
+            <DropdownMenuItem onClick={onMarkAllAsRead} disabled={unreadCount === 0} className="cursor-pointer">
               <CheckCircle2 className="mr-2 h-4 w-4" />
               Mark all as read
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push('/dashboard/notifications')} className="cursor-pointer"> 
-              View all notifications
+            <DropdownMenuItem onClick={() => {
+              // Placeholder: In a real app, you'd navigate to a dedicated notifications page.
+              // For now, this could just close the dropdown or do nothing extra.
+              console.log("View all notifications clicked");
+            }} className="cursor-pointer"> 
+              View all notifications (UI Placeholder)
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -349,6 +343,53 @@ function Header() {
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  
+  const [notifications, setNotifications] = useState<NotificationItem[]>(initialMockNotifications);
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  // Placeholder for a function to add new notifications
+  // In a real app, this would be called by listeners to Firestore, RTDB, or FCM
+  const addNotification = useCallback((notificationData: Omit<NotificationItem, 'id' | 'timestamp' | 'read'>) => {
+    const newNotification: NotificationItem = {
+      ...notificationData,
+      id: Date.now().toString() + Math.random().toString(36).substring(2,7), // Simple unique ID
+      timestamp: new Date(),
+      read: false,
+    };
+    setNotifications(prev => [newNotification, ...prev.slice(0, 29)]); // Keep max 30 notifications
+    
+    // Example: Play a sound (requires an audio file and browser permissions)
+    // const audio = new Audio('/path/to/notification-sound.mp3');
+    // audio.play().catch(e => console.warn("Failed to play notification sound:", e));
+  }, []);
+
+  // Example of how you might simulate adding a notification (e.g., after a delay or user action)
+  // useEffect(() => {
+  //   const timer = setTimeout(() => {
+  //     addNotification({
+  //       type: 'generic',
+  //       message: 'This is a new sample notification!',
+  //       icon: Info,
+  //       link: '/dashboard/information'
+  //     });
+  //   }, 15000); // Add a notification after 15 seconds
+  //   return () => clearTimeout(timer);
+  // }, [addNotification]);
+
+
+  const handleMarkAsRead = useCallback((id: string, link?: string) => {
+    setNotifications(prev =>
+      prev.map(n => (n.id === id ? { ...n, read: true } : n))
+    );
+    if (link) {
+      router.push(link);
+    }
+  }, [router]);
+
+  const handleMarkAllAsRead = useCallback(() => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  }, []);
+
 
   useEffect(() => {
     if (!loading && !user) {
@@ -364,16 +405,34 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     );
   }
 
+  // The `SidebarInset` component is not part of the standard shadcn/ui sidebar,
+  // assuming it was a custom component or a typo for how main content is typically handled.
+  // The standard approach is to have the main content as a sibling to the Sidebar.
   return (
     <SidebarProvider defaultOpen>
       <Sidebar variant="sidebar" collapsible="icon" className="border-r border-sidebar-border">
         <AppSidebar />
       </Sidebar>
       <div className="flex flex-col flex-1 md:ml-[var(--sidebar-width-icon)] group-data-[state=expanded]:md:ml-[var(--sidebar-width)] transition-[margin-left] duration-200 ease-linear">
-        <Header />
-        <SidebarInset>
-          <main className="flex-1 p-4 sm:p-6">{children}</main>
-        </SidebarInset>
+        <Header 
+          notifications={notifications} 
+          unreadCount={unreadCount}
+          onMarkAsRead={handleMarkAsRead}
+          onMarkAllAsRead={handleMarkAllAsRead}
+          // addNotification={addNotification} // Pass if Header needs to trigger adding notifications
+        />
+        {/* Main content area */}
+        <main className="flex-1 p-4 sm:p-6 overflow-auto"> 
+            {/* To make `addNotification` available to children, you'd typically use React Context.
+                For now, children pages cannot directly call `addNotification` from this layout.
+                If a child page needs to add a notification, it would need to:
+                1. Update data in Firestore/RTDB.
+                2. A backend function (e.g., Cloud Function) would listen to this change.
+                3. The backend function would then push a notification payload (e.g., to a specific RTDB path or user-specific Firestore collection).
+                4. This DashboardLayout would listen to that RTDB path/Firestore collection and call `addNotification` internally.
+            */}
+            {children}
+        </main>
       </div>
     </SidebarProvider>
   );
