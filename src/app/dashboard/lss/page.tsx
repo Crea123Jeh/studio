@@ -22,8 +22,12 @@ import { collection, addDoc, onSnapshot, query, orderBy, Timestamp, doc, updateD
 import { format, formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 
-type LatihanSoalStatus = "Available" | "Unavailable" | "Grabbing";
-const latihanSoalStatusOptions: LatihanSoalStatus[] = ["Available", "Unavailable", "Grabbing"];
+type LatihanSoalStatus = "Available" | "Unavailable" | "Grabbing" | "Passed_NotYetDeleted" | "Passed_ToBeDeleted";
+const latihanSoalStatusOptionsAll: LatihanSoalStatus[] = ["Available", "Unavailable", "Grabbing", "Passed_NotYetDeleted", "Passed_ToBeDeleted"];
+
+const nonPassedStatusOptions: LatihanSoalStatus[] = ["Available", "Unavailable", "Grabbing"];
+const passedStatusOptions: LatihanSoalStatus[] = ["Passed_NotYetDeleted", "Passed_ToBeDeleted"];
+
 
 interface LatihanSoalItem {
   id: string;
@@ -57,10 +61,17 @@ export default function LatihanSoalSigmaPage() {
   const { toast } = useToast();
   const { user, username } = useAuth();
 
+  const statusDisplayMap: Record<LatihanSoalStatus, string> = {
+    "Available": "Available",
+    "Unavailable": "Unavailable (Not Passed)",
+    "Grabbing": "Grabbing",
+    "Passed_NotYetDeleted": "Not Yet Deleted",
+    "Passed_ToBeDeleted": "Marked for Deletion"
+  };
+
   useEffect(() => {
     setIsLoading(true);
     const itemsCollectionRef = collection(db, "latihanSoalSigmaItems");
-    // Initial query order, might be overridden by client-side sortConfig
     const q = query(itemsCollectionRef, orderBy("lastEdited", "desc"));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -92,8 +103,8 @@ export default function LatihanSoalSigmaPage() {
       setEditingItem(item);
       setFormClassSubject(item.classSubject);
       setFormTeacher(item.teacher);
-      setFormStatus(item.status);
-      setFormHasPassed(item.hasPassed);
+      setFormHasPassed(item.hasPassed); // Set hasPassed first
+      setFormStatus(item.status);     // Then set status from item
     } else {
       resetForm();
     }
@@ -112,15 +123,19 @@ export default function LatihanSoalSigmaPage() {
     }
 
     const now = Timestamp.now();
-    let currentStatus = formStatus;
-    if (formHasPassed) {
-      currentStatus = "Unavailable";
+    let finalStatus = formStatus;
+    // Ensure status is consistent with hasPassed
+    if (formHasPassed && !passedStatusOptions.includes(formStatus)) {
+        finalStatus = "Passed_NotYetDeleted"; // Default if inconsistent
+    } else if (!formHasPassed && !nonPassedStatusOptions.includes(formStatus)) {
+        finalStatus = "Available"; // Default if inconsistent
     }
+
 
     const itemData: Omit<LatihanSoalItem, 'id' | 'createdAt'> & { createdAt?: Timestamp } = {
       classSubject: formClassSubject,
       teacher: formTeacher,
-      status: currentStatus,
+      status: finalStatus,
       hasPassed: formHasPassed,
       lastEdited: now,
       editedByUserId: user.uid,
@@ -162,20 +177,30 @@ export default function LatihanSoalSigmaPage() {
   };
 
   const getStatusBadgeVariant = (status: LatihanSoalStatus, hasPassed: boolean) => {
-    if (hasPassed) return "bg-gray-500 text-white hover:bg-gray-600"; 
+    if (status === "Passed_ToBeDeleted") return "bg-orange-500 text-white hover:bg-orange-600";
+    if (status === "Passed_NotYetDeleted" || hasPassed) return "bg-gray-500 text-white hover:bg-gray-600";
     switch (status) {
       case "Available": return "bg-green-600 text-white hover:bg-green-700";
-      case "Unavailable": return "bg-destructive text-destructive-foreground hover:bg-destructive/90";
+      case "Unavailable": return "bg-red-500 text-white hover:bg-red-600"; // Kept red for "Unavailable (Not Passed)"
       case "Grabbing": return "bg-yellow-500 text-black hover:bg-yellow-600";
       default: return "bg-secondary text-secondary-foreground hover:bg-secondary/80";
     }
   };
 
-  useEffect(() => {
-    if (formHasPassed) {
-      setFormStatus("Unavailable");
+  const handleHasPassedChange = (checked: boolean) => {
+    setFormHasPassed(checked);
+    if (checked) {
+      setFormStatus("Passed_NotYetDeleted");
+    } else {
+      // If unchecking, and editing an item that was originally not passed, revert to its original status if valid
+      if (editingItem && !editingItem.hasPassed && nonPassedStatusOptions.includes(editingItem.status)) {
+        setFormStatus(editingItem.status);
+      } else {
+        setFormStatus("Available"); // Default for new items or if original status was a "passed" one
+      }
     }
-  }, [formHasPassed]);
+  };
+
 
   const requestSort = (key: SortableLSSKeys) => {
     let direction: 'ascending' | 'descending' = 'ascending';
@@ -203,7 +228,6 @@ export default function LatihanSoalSigmaPage() {
         if (aVal instanceof Timestamp && bVal instanceof Timestamp) {
           comparison = aVal.toDate().getTime() - bVal.toDate().getTime();
         } else if (typeof aVal === 'boolean' && typeof bVal === 'boolean') {
-          // true sorts before false for 'ascending', so if aVal is true and bVal false, aVal comes first (-1)
           comparison = aVal === bVal ? 0 : aVal ? -1 : 1;
         } else if (typeof aVal === 'string' && typeof bVal === 'string') {
           comparison = aVal.localeCompare(bVal);
@@ -264,7 +288,7 @@ export default function LatihanSoalSigmaPage() {
                   <TableCell>
                     <Badge className={cn("flex items-center gap-1", getStatusBadgeVariant(item.status, item.hasPassed))}>
                         {item.status === "Grabbing" && !item.hasPassed && <Loader2 className="h-3 w-3 animate-spin" />}
-                        {item.hasPassed ? "Passed (Not Yet Deleted)" : item.status}
+                        {statusDisplayMap[item.status] || item.status}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground max-w-xs truncate hidden md:table-cell">{item.teacher}</TableCell>
@@ -316,19 +340,30 @@ export default function LatihanSoalSigmaPage() {
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="formHasPassed" className="text-right">Has Passed?</Label>
                   <div className="col-span-3 flex items-center">
-                    <Checkbox id="formHasPassed" checked={formHasPassed} onCheckedChange={(checked) => setFormHasPassed(checked as boolean)} />
+                    <Checkbox 
+                      id="formHasPassed" 
+                      checked={formHasPassed} 
+                      onCheckedChange={(checked) => handleHasPassedChange(checked as boolean)}
+                    />
                   </div>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="formStatus" className="text-right">Status</Label>
                   <Select 
-                    value={formHasPassed ? "Unavailable" : formStatus} 
+                    value={formStatus} 
                     onValueChange={(val) => setFormStatus(val as LatihanSoalStatus)}
-                    disabled={formHasPassed}
                   >
-                    <SelectTrigger className="col-span-3" id="formStatus"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="col-span-3" id="formStatus">
+                      <SelectValue placeholder="Select status">
+                        {formStatus ? statusDisplayMap[formStatus] : "Select status"}
+                      </SelectValue>
+                    </SelectTrigger>
                     <SelectContent>
-                      {latihanSoalStatusOptions.map(opt => <SelectItem key={opt} value={opt} disabled={formHasPassed && opt !== "Unavailable"}>{opt}</SelectItem>)}
+                      {(formHasPassed ? passedStatusOptions : nonPassedStatusOptions).map(opt => (
+                        <SelectItem key={opt} value={opt}>
+                          {statusDisplayMap[opt]}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -360,5 +395,4 @@ export default function LatihanSoalSigmaPage() {
     </div>
   );
 }
-
     
