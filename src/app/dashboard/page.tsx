@@ -70,6 +70,34 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ title, description, icon: Ico
   );
 };
 
+// Helper to format currency
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
+};
+
+// Helper to format large numbers with K, M, B, T suffixes
+const formatLargeNumberWithSuffix = (num: number, precision = 1): string => {
+  const map = [
+    { suffix: 'T', threshold: 1e12 },
+    { suffix: 'B', threshold: 1e9 },
+    { suffix: 'M', threshold: 1e6 },
+    { suffix: 'K', threshold: 1e3 },
+    { suffix: '', threshold: 1 },
+  ];
+
+  const found = map.find((x) => Math.abs(num) >= x.threshold);
+  if (found) {
+    const formatted = (num / found.threshold).toFixed(precision);
+    // Remove .0 from the end if precision is 1 and it's a whole number (e.g., 10.0B becomes 10B)
+    const finalValue = precision > 0 && formatted.endsWith(`.${'0'.repeat(precision)}`) 
+      ? formatted.slice(0, -(precision + 1)) 
+      : formatted;
+    return `Rp ${finalValue}${found.suffix}`;
+  }
+  // For numbers less than 1000, format with standard currency formatting but without decimals for whole numbers
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
+};
+
 
 export default function DashboardPage() {
   const { user, username } = useAuth();
@@ -103,7 +131,6 @@ export default function DashboardPage() {
       where("startDateTime", ">=", Timestamp.fromDate(today))
     );
     const unsubscribe = onSnapshot(q, async (snapshot) => {
-      // For counts, getCountFromServer is more efficient if you don't need the docs
       const countSnapshot = await getCountFromServer(q);
       setUpcomingPpmEventsCount(countSnapshot.data().count);
       setLoadingPpmEvents(false);
@@ -237,7 +264,6 @@ export default function DashboardPage() {
         date: doc.data().date as Timestamp,
         details: doc.data().details,
         source: doc.data().source,
-        // Assuming 'authorName' or similar might be logged for user actions
       } as DashboardActivityLog));
       setRecentActivities(activities);
       setLoadingActivities(false);
@@ -255,10 +281,6 @@ export default function DashboardPage() {
     { title: "Total Violations", value: recentViolationsCount, icon: ShieldAlert, link: "/dashboard/violations", iconColor: "text-primary", isLoading: loadingViolations },
     { title: "Today's Birthdays", value: todaysBirthdaysCount, icon: Cake, link: "/dashboard/birthday-calendar", iconColor: "text-primary", isLoading: loadingBirthdays },
   ];
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
-  };
 
   return (
     <div className="space-y-8">
@@ -352,7 +374,7 @@ export default function DashboardPage() {
             description="Current total value of recorded assets."
             icon={Package}
             link="/dashboard/total-assets"
-            value={formatCurrency(totalAssetsValue)}
+            value={formatLargeNumberWithSuffix(totalAssetsValue)}
             valueLabel="Total Value (IDR)"
             isLoading={loadingAssets}
           />
