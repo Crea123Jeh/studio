@@ -27,8 +27,8 @@ const latihanSoalStatusOptions: LatihanSoalStatus[] = ["Available", "Unavailable
 
 interface LatihanSoalItem {
   id: string;
-  questionName: string;
-  description: string;
+  classSubject: string; // Renamed from questionName
+  teacher: string; // Renamed from description
   status: LatihanSoalStatus;
   hasPassed: boolean;
   lastEdited: Timestamp;
@@ -45,8 +45,8 @@ export default function LatihanSoalSigmaPage() {
   const [itemToDelete, setItemToDelete] = useState<LatihanSoalItem | null>(null);
 
   // Form state
-  const [formQuestionName, setFormQuestionName] = useState("");
-  const [formDescription, setFormDescription] = useState("");
+  const [formClassSubject, setFormClassSubject] = useState(""); // Renamed
+  const [formTeacher, setFormTeacher] = useState(""); // Renamed
   const [formStatus, setFormStatus] = useState<LatihanSoalStatus>("Available");
   const [formHasPassed, setFormHasPassed] = useState(false);
 
@@ -75,8 +75,8 @@ export default function LatihanSoalSigmaPage() {
   }, [toast]);
 
   const resetForm = () => {
-    setFormQuestionName("");
-    setFormDescription("");
+    setFormClassSubject("");
+    setFormTeacher("");
     setFormStatus("Available");
     setFormHasPassed(false);
     setEditingItem(null);
@@ -85,8 +85,8 @@ export default function LatihanSoalSigmaPage() {
   const handleOpenFormDialog = (item: LatihanSoalItem | null = null) => {
     if (item) {
       setEditingItem(item);
-      setFormQuestionName(item.questionName);
-      setFormDescription(item.description);
+      setFormClassSubject(item.classSubject);
+      setFormTeacher(item.teacher);
       setFormStatus(item.status);
       setFormHasPassed(item.hasPassed);
     } else {
@@ -97,8 +97,8 @@ export default function LatihanSoalSigmaPage() {
 
   const handleSaveItem = async (e: FormEvent) => {
     e.preventDefault();
-    if (!formQuestionName || !formDescription) {
-      toast({ title: "Missing Information", description: "Please fill Question Name and Description.", variant: "destructive" });
+    if (!formClassSubject || !formTeacher) {
+      toast({ title: "Missing Information", description: "Please fill Class Subject and Teacher fields.", variant: "destructive" });
       return;
     }
     if (!user) {
@@ -113,8 +113,8 @@ export default function LatihanSoalSigmaPage() {
     }
 
     const itemData = {
-      questionName: formQuestionName,
-      description: formDescription,
+      classSubject: formClassSubject,
+      teacher: formTeacher,
       status: currentStatus,
       hasPassed: formHasPassed,
       lastEdited: now,
@@ -126,10 +126,10 @@ export default function LatihanSoalSigmaPage() {
       if (editingItem) {
         const itemRef = doc(db, "latihanSoalSigmaItems", editingItem.id);
         await updateDoc(itemRef, itemData);
-        toast({ title: "Item Updated", description: `"${formQuestionName}" has been updated.` });
+        toast({ title: "Item Updated", description: `"${formClassSubject}" has been updated.` });
       } else {
         await addDoc(collection(db, "latihanSoalSigmaItems"), { ...itemData, createdAt: now });
-        toast({ title: "Item Added", description: `"${formQuestionName}" has been added.` });
+        toast({ title: "Item Added", description: `"${formClassSubject}" has been added.` });
       }
       resetForm();
       setIsFormDialogOpen(false);
@@ -147,7 +147,7 @@ export default function LatihanSoalSigmaPage() {
     if (!itemToDelete) return;
     try {
       await deleteDoc(doc(db, "latihanSoalSigmaItems", itemToDelete.id));
-      toast({ title: "Item Deleted", description: `"${itemToDelete.questionName}" has been deleted.` });
+      toast({ title: "Item Deleted", description: `"${itemToDelete.classSubject}" has been deleted.` });
       setItemToDelete(null);
     } catch (error) {
       console.error("Error deleting item: ", error);
@@ -157,7 +157,7 @@ export default function LatihanSoalSigmaPage() {
   };
 
   const getStatusBadgeVariant = (status: LatihanSoalStatus, hasPassed: boolean) => {
-    if (hasPassed) return "bg-gray-500 text-white hover:bg-gray-600"; // Overrides other statuses if passed
+    if (hasPassed) return "bg-gray-500 text-white hover:bg-gray-600"; 
     switch (status) {
       case "Available": return "bg-green-600 text-white hover:bg-green-700";
       case "Unavailable": return "bg-destructive text-destructive-foreground hover:bg-destructive/90";
@@ -167,7 +167,6 @@ export default function LatihanSoalSigmaPage() {
   };
 
   useEffect(() => {
-    // When formHasPassed changes in the dialog, update formStatus accordingly
     if (formHasPassed) {
       setFormStatus("Unavailable");
     }
@@ -197,9 +196,9 @@ export default function LatihanSoalSigmaPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Question Name</TableHead>
+                <TableHead>Class Subject</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="hidden md:table-cell">Description</TableHead>
+                <TableHead className="hidden md:table-cell">Teacher</TableHead>
                 <TableHead>Last Edited</TableHead>
                 <TableHead>Has Passed?</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -208,14 +207,14 @@ export default function LatihanSoalSigmaPage() {
             <TableBody>
               {items.map((item) => (
                 <TableRow key={item.id} className="hover:bg-muted/50 transition-colors">
-                  <TableCell className="font-medium text-foreground">{item.questionName}</TableCell>
+                  <TableCell className="font-medium text-foreground">{item.classSubject}</TableCell>
                   <TableCell>
                     <Badge className={cn("flex items-center gap-1", getStatusBadgeVariant(item.status, item.hasPassed))}>
                         {item.status === "Grabbing" && !item.hasPassed && <Loader2 className="h-3 w-3 animate-spin" />}
                         {item.hasPassed ? "Unavailable (Passed)" : item.status}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground max-w-xs truncate hidden md:table-cell">{item.description}</TableCell>
+                  <TableCell className="text-sm text-muted-foreground max-w-xs truncate hidden md:table-cell">{item.teacher}</TableCell>
                   <TableCell>{formatDistanceToNow(item.lastEdited.toDate(), { addSuffix: true })}</TableCell>
                   <TableCell>{item.hasPassed ? "Yes" : "No"}</TableCell>
                   <TableCell className="text-right">
@@ -254,12 +253,12 @@ export default function LatihanSoalSigmaPage() {
             <ScrollArea className="max-h-[70vh] p-1">
               <div className="grid gap-4 py-4 pr-4">
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="formQuestionName" className="text-right">Question Name</Label>
-                  <Input id="formQuestionName" value={formQuestionName} onChange={(e) => setFormQuestionName(e.target.value)} className="col-span-3" required />
+                  <Label htmlFor="formClassSubject" className="text-right">Class Subject</Label>
+                  <Input id="formClassSubject" value={formClassSubject} onChange={(e) => setFormClassSubject(e.target.value)} className="col-span-3" placeholder="e.g., Mathematics" required />
                 </div>
                 <div className="grid grid-cols-4 items-start gap-4">
-                  <Label htmlFor="formDescription" className="text-right pt-2">Description</Label>
-                  <Textarea id="formDescription" value={formDescription} onChange={(e) => setFormDescription(e.target.value)} className="col-span-3" rows={3} required />
+                  <Label htmlFor="formTeacher" className="text-right pt-2">Teacher</Label>
+                  <Textarea id="formTeacher" value={formTeacher} onChange={(e) => setFormTeacher(e.target.value)} className="col-span-3" rows={3} placeholder="Teacher's Name or ID" required />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="formHasPassed" className="text-right">Has Passed?</Label>
@@ -295,7 +294,7 @@ export default function LatihanSoalSigmaPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the Latihan Soal Sigma item: "{itemToDelete?.questionName}".
+              This action cannot be undone. This will permanently delete the Latihan Soal Sigma item: "{itemToDelete?.classSubject}".
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -308,3 +307,4 @@ export default function LatihanSoalSigmaPage() {
     </div>
   );
 }
+
