@@ -83,7 +83,7 @@ interface FirestoreNotificationData {
 const iconMap: Record<string, React.ElementType> = {
   Briefcase, CalendarDays, MessageSquare, Settings, Info, Cake, BookOpen, School,
   History, Package, FileSpreadsheet, RadioTower, Bot, ListChecks, AlertCircle,
-  ShieldAlert, Crosshair, LayoutDashboard, Home, UserIcon,
+  ShieldAlert, Crosshair, LayoutDashboard, Home, UserIcon, Trash2, Edit3,
   project: Briefcase,
   task: ListChecks, // Example, can be more specific
   alert: AlertCircle,
@@ -333,9 +333,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const addNotification = useCallback((payload: NewNotificationPayload) => {
+    // This function can be called from child components via context to add a client-side notification.
+    // In a real full-stack app, this would ideally be triggered by a push from the server.
     const newNotification: NotificationItem = {
       ...payload,
-      id: Date.now().toString() + Math.random().toString(36).substring(2,7),
+      id: Date.now().toString() + Math.random().toString(36).substring(2, 7), // Generate a pseudo-unique ID
       timestamp: new Date(),
       read: false,
     };
@@ -344,9 +346,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       .sort((a,b) => b.timestamp.getTime() - a.timestamp.getTime()) // Ensure sort by most recent
       .slice(0, 30) // Keep only the latest 30 notifications
     );
-    // Note: This is a client-side addition. For persistence and multi-user sync,
-    // this notification should also be written to Firestore by a backend function,
-    // which would then be picked up by the listener below.
+    // For a full system, a backend would write this to Firestore, and the listener below would pick it up.
   }, []);
 
   useEffect(() => {
@@ -357,10 +357,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const newNotificationsFromSnapshot: NotificationItem[] = [];
         snapshot.docChanges().forEach((change) => {
-          // Only consider 'added' changes to prevent re-adding on 'modified' (like read status change)
           if (change.type === "added") {
             const data = change.doc.data() as FirestoreNotificationData;
-            if (data.timestamp) { // Ensure timestamp exists
+            if (data.timestamp) {
               newNotificationsFromSnapshot.push({
                 id: change.doc.id,
                 type: data.type,
@@ -383,7 +382,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             
             return uniqueNotifications
               .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-              .slice(0, 30); // Ensure limit is maintained
+              .slice(0, 30);
           });
         }
       }, (error) => {
@@ -392,7 +391,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
       return () => unsubscribe();
     } else {
-      setNotifications([]); 
+      setNotifications([]);
     }
   }, [user]);
 
@@ -406,7 +405,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         await updateDoc(doc(db, `userNotifications/${user.uid}/notifications`, id), { read: true });
       } catch (error) {
         console.error("Error marking notification as read in Firestore:", error);
-        // Optionally revert UI change or show error toast
       }
     }
     if (link) {
@@ -428,7 +426,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           await batch.commit();
         } catch (error) {
           console.error("Error marking all notifications as read in Firestore:", error);
-          // Optionally revert UI change or show error toast
         }
       }
     }
@@ -463,7 +460,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         />
         <main className="flex-1 p-4 sm:p-6 overflow-auto"> 
           <NotificationProvider addAppNotification={addNotification}>
-            {React.cloneElement(children as React.ReactElement)}
+            {children}
           </NotificationProvider>
         </main>
       </div>
