@@ -9,7 +9,8 @@ import {
   LayoutDashboard, UserCircle, Briefcase, CalendarDays, MessageSquare, LogOut, Settings,
   ChevronDown, PanelLeft, Building, Info, Cake, BookOpen, School, History, Package,
   FileSpreadsheet, RadioTower, Bot, Bell, ListChecks, AlertCircle, CheckCircle2, Circle,
-  ShieldAlert, Crosshair, Archive as ArchiveIcon, ClipboardList, Home, User as UserIcon
+  ShieldAlert, Crosshair, Archive as ArchiveIcon, ClipboardList, Home, User as UserIcon,
+  Trash2, Edit3
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
